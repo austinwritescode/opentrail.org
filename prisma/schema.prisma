@@ -1,0 +1,102 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Trail {
+  id      Int               @id @db.SmallInt
+  name    String            @unique
+  markers MarkersOnTrails[]
+}
+
+model Marker {
+  lat          Float
+  lng          Float
+  id           Int               @id @default(autoincrement())
+  elev         Int               @db.SmallInt
+  title        String
+  desc         String
+  images       Int[]
+  icons        String
+  comments     Comment[]
+  trails       MarkersOnTrails[]
+  flags        FlaggedMarker[]
+  FlaggedImage FlaggedImage[]
+}
+
+model Comment {
+  id       Int              @id @default(autoincrement())
+  marker   Marker           @relation(fields: [markerId], references: [id], onDelete: Cascade)
+  markerId Int
+  date     DateTime         @db.Date
+  text     String
+  user     String
+  flags    FlaggedComment[]
+  ip       CommentIP[]
+}
+
+model MarkersOnTrails {
+  marker   Marker @relation(fields: [markerId], references: [id], onDelete: Cascade)
+  markerId Int
+  trail    Trail  @relation(fields: [trailId], references: [id])
+  trailId  Int    @db.SmallInt
+  milex10  Int?   @db.SmallInt
+
+  @@id([markerId, trailId])
+}
+
+// The tables after this line are meant to be mostly empty, cleared by moderators
+model FlaggedImage {
+  id       Int      @id @default(autoincrement())
+  marker   Marker   @relation(fields: [markerId], references: [id], onDelete: Cascade)
+  markerId Int
+  image    Int
+  date     DateTime
+  reason   String
+  ip       String
+  user     String
+}
+
+model FlaggedComment {
+  id        Int      @id @default(autoincrement())
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  commentId Int
+  date      DateTime
+  reason    String
+  ip        String
+  user      String
+}
+
+model FlaggedMarker {
+  id       Int      @id @default(autoincrement())
+  marker   Marker   @relation(fields: [markerId], references: [id], onDelete: Cascade)
+  markerId Int
+  date     DateTime
+  reason   String
+  ip       String
+  user     String
+}
+
+model Moderation {
+  id      Int      @id @default(autoincrement())
+  date    DateTime
+  request Json
+  route   String
+  ip      String
+  image   Bytes?
+}
+
+model CommentIP {
+  id        Int      @id @default(autoincrement())
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  commentId Int
+  date      DateTime
+  ip        String
+}

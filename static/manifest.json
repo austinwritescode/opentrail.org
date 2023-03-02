@@ -1,0 +1,31 @@
+{
+    "name": "OpenTrail.org",
+    "short_name": "OpenTrail",
+    "version": "0.2",
+    "desc": "A free offline trail map with recent hiker comments and waypoints.",
+    "icons": [
+        {
+            "src": "/android-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "/android-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "/android-512x512-transparent.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ],
+    "theme_color": "#181a1b",
+    "background_color": "#181a1b",
+    "display": "standalone",
+    "start_url": "/app",
+    "orientation": "portrait"
+}

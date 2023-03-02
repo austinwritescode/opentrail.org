@@ -11,6 +11,7 @@
 	let flagsScreen = false;
 	let map;
 	let loading = true;
+	console.log('test')
 	onMount(() => {
 		const stored_key = localStorage.getItem('mod_key');
 		if (stored_key) {

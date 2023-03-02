@@ -27,7 +27,6 @@
 		try {
 			if ($modal.type === 'editIcons' && $modal.data === '') return;
 			if ($modal.type === 'text' && $modal.data[1] === '') return;
-			if ($modal.type === 'textArea' && $modal.data[1] === '') return;
 			if ($modal.spinner) spinner = true;
 			$modal.isOpen = false;
 			await $modal.submit($modal.data);

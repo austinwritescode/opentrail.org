@@ -84,11 +84,21 @@
 				<p class="text-lg">{$modal.data}</p>
 			{:else if $modal.type === 'about'}
 				<p class="italic">In wildness is the preservation of the world.</p>
-				<p>Contact: <a href="mailto:admin@opentrail.org">admin@opentrail.org</a></p>
-				<p><a href="/terms.html">Terms of Use</a></p>
-				<p><a href="/privacy.html">Privacy Policy</a></p>
+				<p>
+					<a href="https://github.com/austinwritescode/opentrail.org/issues">
+						<button class="btn">Bug reports</button>
+					</a>
+				</p>
+				<p>
+					<a href="https://github.com/austinwritescode/opentrail.org/discussions">
+						<button class="btn">Discussion board</button>
+					</a>
+				</p>
+				<p><a href="/terms.html"><button class="btn">Terms of Use</button></a></p>
+				<p><a href="/privacy.html"><button class="btn">Privacy Policy</button></a></p>
 				<!-- svelte-ignore missing-declaration -->
 				<p>Version: {__VERSION__} {__LASTMOD__}</p>
+				<p>Contact: <a href="mailto:admin@opentrail.org">admin@opentrail.org</a></p>
 			{:else if $modal.type === 'community'}
 				<p class="text-lg">Marker moderation:</p>
 				<ul class="list-disc list-inside text-sm">

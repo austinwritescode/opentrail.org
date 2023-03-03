@@ -146,9 +146,8 @@
 						<td>{item.ip}</td>
 						<td>{item.user}</td>
 						<td>
-							{#if item.type === 'image'}<img
-									src={`https://cdn.opentrail.org/img/${item.image}.jpg`}
-								/>
+							{#if item.type === 'image'}
+								<img src={`https://cdn.opentrail.org/img/${item.image}.jpg`} />
 							{:else if item.type === 'comment'}
 								<div class="chat chat-start">
 									<div class="chat-header">
@@ -161,7 +160,8 @@
 										{item.comment.text}
 									</div>
 								</div>
-							{:else if item.type === 'comment'}{JSON.stringify(item.marker)}
+							{:else}
+								{JSON.stringify(item.marker)}
 							{/if}
 						</td>
 						<td>{item.reason}</td>

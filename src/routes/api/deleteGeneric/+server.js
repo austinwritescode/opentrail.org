@@ -11,7 +11,7 @@ const s3 = new S3Client({
     }
 })
 
-export async function DELETE({ url }) {
+export async function DELETE({ request, url }) {
     try {
         const type = url.searchParams.get('type')
         const id = parseInt(url.searchParams.get('id'))

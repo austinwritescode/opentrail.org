@@ -16,37 +16,26 @@ export async function getData() {
     } else throw new Error('Failed to retrieve data: ' + res.status);
 }
 
-export async function postGeneric(item, resync = true) {
+export async function postGeneric(item, getDataAfter = true, pendingAdd = true) {
     console.log('posting: ')
     console.log(item)
+    let body = item.data
+    if (!item.route.startsWith('postImage')) body = JSON.stringify({
+        ...item.data,
+        user: get(settings).username
+    })
+
+    let res
     try {
-        let body = item.data
-        if (!item.route.startsWith('postImage')) body = JSON.stringify({
-            ...item.data,
-            user: get(settings).username
-        })
-        const res = await fetch(`/api/${item.route}`, {
+        res = await fetch(`/api/${item.route}`, {
             method: 'POST',
             body: body
         });
-        if (res.status === 200) {
-            console.log('post successful');
-            if (item.route !== 'postComment') openModal({
-                type: 'success',
-                data: 'Successfully submitted. It may take a day to appear since the map is manually moderated to prevent abuse. Thank you for your contribution!'
-            });
-            if (resync) getData()
-        }
-        else {
-            console.log('post received non-200 response')
-            const err = await res.text()
-            errorModal(`Error: ${res.status} ${err}`)
-        }
-        return true
     } catch (err) {
-        if (err.message === 'Failed to fetch' && get(settings).offline) {
+        console.log(err)
+        if (get(settings).offline) {
             console.log('putting post in pending db')
-            await db.pending.add(item);
+            if(pendingAdd) await db.pending.add(item);
             openModal({ type: 'success', data: 'No connection. Submission queued for the next sync.' });
         }
         else {
@@ -55,14 +44,30 @@ export async function postGeneric(item, resync = true) {
             errorModal(e.message)
             throw e
         }
+        return
     }
+    if (res.status === 200) {
+        console.log('post successful');
+        if (item.route !== 'postComment') openModal({
+            type: 'success',
+            data: 'Successfully submitted. It may take a day to appear since the map is manually moderated to prevent abuse. Thank you for your contribution!'
+        });
+        if (getDataAfter) getData()
+    }
+    else {
+        console.log('post received non-200 response')
+        const err = await res.text()
+        errorModal(`Error: ${res.status} ${err}`)
+    }
+    return true
+
 }
 
 export async function syncData() {
     console.log('syncing data')
     const pending = await db.pending.toArray();
     for (const item of pending) {
-        const success = await postGeneric(item, false);
+        const success = await postGeneric(item, false, false);
         if (success) await db.pending.delete(item.id);
     }
     await getData();

@@ -141,7 +141,7 @@
 			return errorModal('Service worker not ready. Refresh the page and try again.');
 		const persisted = await navigator.storage.persist();
 		if (!persisted)
-			return errorModal('No persistent storage found. Check your browser permissions.');
+			return errorModal('No persistent storage found. Check your browser permissions. If your phone is out of date it may not support persistent storage.');
 
 		await caches.delete('offline-cache');
 		const cache = await caches.open('offline-cache');

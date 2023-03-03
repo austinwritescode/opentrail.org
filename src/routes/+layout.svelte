@@ -92,20 +92,21 @@
 			{:else if $modal.type === 'about'}
 				<p class="italic">In wildness is the preservation of the world.</p>
 				<p>
-					<a href="https://github.com/austinwritescode/opentrail.org/issues">
-						<button class="btn">Bug reports</button>
+					<a href="https://github.com/austinwritescode/opentrail.org/issues" class="link">
+						Bug reports
 					</a>
 				</p>
 				<p>
-					<a href="https://github.com/austinwritescode/opentrail.org/discussions">
-						<button class="btn">Discussion board</button>
+					<a href="https://github.com/austinwritescode/opentrail.org/discussions"  class="link">
+						Discussion board
 					</a>
 				</p>
-				<p><a href="/terms.html"><button class="btn">Terms of Use</button></a></p>
-				<p><a href="/privacy.html"><button class="btn">Privacy Policy</button></a></p>
+				<p><a href="/terms.html" class="link">Terms of Use</a></p>
+				<p><a href="/privacy.html" class="link">Privacy Policy</a></p>
 				<!-- svelte-ignore missing-declaration -->
 				<p>Version: {__VERSION__} {__LASTMOD__}</p>
 				<p>Contact: <a href="mailto:admin@opentrail.org">admin@opentrail.org</a></p>
+				<p>Opentrail.org data is made available under the <a class="link" href="http://opendatacommons.org/licenses/odbl/1.0/">Open Database License</a>. Any rights in individual contents of the database are licensed under the <a class="link" href="http://opendatacommons.org/licenses/dbcl/1.0/">Database Contents License</a></p>
 			{:else if $modal.type === 'community'}
 				<p class="text-lg">Marker moderation:</p>
 				<ul class="list-disc list-inside text-sm">

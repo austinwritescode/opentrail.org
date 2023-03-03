@@ -1,7 +1,15 @@
 <script>
 	import 'normalize.css';
 	import '../app.css'; //tailwind
-	import { fragment, modal, TRAILS, ICONS, settings, errorModal } from '$lib/store.js';
+	import {
+		fragment,
+		modal,
+		TRAILS,
+		ICONS,
+		ICON_EXPLANATIONS,
+		settings,
+		errorModal
+	} from '$lib/store.js';
 	import { onMount } from 'svelte';
 	import WarnIcon from '$lib/warnIcon.svelte';
 	import ErrorIcon from '$lib/errorIcon.svelte';
@@ -101,22 +109,23 @@
 			{:else if $modal.type === 'community'}
 				<p class="text-lg">Marker moderation:</p>
 				<ul class="list-disc list-inside text-sm">
+					<li>Marker icon descriptions:</li>
+					{#each ICONS as icon}<li>
+							<img
+								src={`/map-icons/${icon}.png`}
+								height="25"
+								width="25"
+								class="inline"
+							/>{ICON_EXPLANATIONS[icon]}
+						</li>{/each}
 					<li>
 						Markers generally must be within 1 mile of the trail unless there is reason for a hiker
 						to go off trail, such as a resupply point.
 					</li>
-					<li>One town marker per town, all services in that town must share that marker.</li>
-					<li>No new marker within 200' of another.</li>
-					<li>
-						The red (!) icon is generally for hazardous conditions and otherwise critical
-						information. Don't abuse it.
-					</li>
 					<li>
 						Marker descriptions should contain general information only. If your information comes
-						with a date (such as a water report) put it in a comment, not the description.
-					</li>
-					<li>
-						Don't guesstimate the location of a marker, use your GPS location to place it precisely.
+						with a date (such as a water report) put it in a comment, not the description, so newer
+						information can go above it.
 					</li>
 				</ul>
 				<p class="text-lg">General content:</p>
@@ -124,10 +133,9 @@
 					<li>Rule #1: don't be an asshole.</li>
 					<li>No illegal content. No copyright infringement. No spamming.</li>
 					<li>
-						No promotional content in comments. Advertising hiker-relevant services is acceptable
-						only in marker descriptions when relevant, such as a town or road crossing. Any
-						astroturfing or impersonation (such as leaving a fake hiker review) will result in your
-						service never appearing on this map again.
+						You may advertise a hiker-relevant service with a single marker, generally with the town
+						icon. Shuttles may put their information in the description for a road crossing. No
+						promotional content is allowed in comments. Impersonators will be permanently banned.
 					</li>
 				</ul>
 			{:else if $modal.type === 'editLoc'}

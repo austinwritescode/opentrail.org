@@ -41,7 +41,8 @@ export const TRAILS = {
     },
 };
 
-export const ICONS = ['w', 's', 'c', 'o', 'j', 'r', 't', 'a'];
+export const ICONS = ['w', 's', 'c', 'j', 'r', 't', 'o', 'a'];
+export const ICON_EXPLANATIONS = {'w': 'reliable water', 's': 'seasonal water', 'c': 'campsite/shelter', 'o': 'miscellaneous', 'j': 'trail junction', 'r': 'road crossing', 't': 'town service', 'a': 'very important or hazardous' }
 
 let initSettings = {
     trail: '',

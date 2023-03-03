@@ -19,6 +19,8 @@ const ASSETS = [
     'https://cdn.opentrail.org/fonts/DIN%20Pro%20Medium,Arial%20Unicode%20MS%20Regular/8192-8447.font',
     'https://cdn.opentrail.org/fonts/DIN%20Pro%20Regular,Arial%20Unicode%20MS%20Regular/0-255.font',
     'https://cdn.opentrail.org/fonts/DIN%20Pro%20Regular,Arial%20Unicode%20MS%20Regular/8192-8447.font',
+    'https://cdn.opentrail.org/fonts/DIN%20Pro%20Regular,Arial%20Unicode%20MS%20Regular/9472-9727.font',
+    'https://cdn.opentrail.org/fonts/DIN%20Pro%20Regular,Arial%20Unicode%20MS%20Regular/9728-9983.font',
 ];
 const dontDelete = [
     CACHE,

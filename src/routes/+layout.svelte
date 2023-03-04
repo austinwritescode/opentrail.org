@@ -97,7 +97,7 @@
 					</a>
 				</p>
 				<p>
-					<a href="https://github.com/austinwritescode/opentrail.org/discussions"  class="link">
+					<a href="https://github.com/austinwritescode/opentrail.org/discussions" class="link">
 						Discussion board
 					</a>
 				</p>
@@ -106,7 +106,15 @@
 				<!-- svelte-ignore missing-declaration -->
 				<p>Version: {__VERSION__} {__LASTMOD__}</p>
 				<p>Contact: <a href="mailto:admin@opentrail.org">admin@opentrail.org</a></p>
-				<p>Opentrail.org data is made available under the <a class="link" href="http://opendatacommons.org/licenses/odbl/1.0/">Open Database License</a>. Any rights in individual contents of the database are licensed under the <a class="link" href="http://opendatacommons.org/licenses/dbcl/1.0/">Database Contents License</a></p>
+				<p>
+					Opentrail.org data is made available under the <a
+						class="link"
+						href="http://opendatacommons.org/licenses/odbl/1.0/">Open Database License</a
+					>. Any rights in individual contents of the database are licensed under the
+					<a class="link" href="http://opendatacommons.org/licenses/dbcl/1.0/"
+						>Database Contents License</a
+					>
+				</p>
 			{:else if $modal.type === 'community'}
 				<p class="text-lg">Marker moderation:</p>
 				<ul class="list-disc list-inside text-sm">
@@ -148,12 +156,19 @@
 						<div>
 							<WarnIcon />
 							<p>
-								Installing the app to your home screen is strongly recommended to prevent data loss.
+								No installation detected. Installing this app to your home screen is recommended to
+								prevent data loss.
 							</p>
 						</div>
 					</div>
 				{/if}
 				<p class="text-md my-4">Approximate size: {$modal.data[1]}</p>
+				{#if 'BackgroundFetchManager' in self}
+					<p class="text-md my-4">
+						Your device supports downloading in the background. It may not work for everyone so you
+						get the option. Try it out?
+					</p>
+				{/if}
 			{:else if $modal.type === 'progress'}
 				<p class="font-bold text-xl">{$modal.data[2]}</p>
 				{#if $modal.data[1] > 0}
@@ -268,6 +283,17 @@
 							<button class="btn btn-primary loading">Confirm</button>
 						{:else if $modal.type === 'iOSCompass'}
 							<button class="btn btn-primary" on:click={$modal.submit}>Confirm</button>
+						{:else if $modal.type === 'confirmFetch' && 'BackgroundFetchManager' in self}
+							<button
+								class="btn btn-primary text-xs"
+								on:click={() => {
+									$modal.data[2] = true;
+									submitModal();
+								}}
+							>
+								Background
+							</button>
+							<button class="btn btn-primary text-xs" on:click={submitModal}>Regular</button>
 						{:else}
 							<button class="btn btn-primary" on:click={submitModal}>Confirm</button>
 						{/if}

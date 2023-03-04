@@ -134,27 +134,27 @@
 	}
 
 	let currentDownloadType;
-	async function fetchOffline() {
+	async function fetchOffline(modalData) {
+		const bgFetchEnabled = modalData[2];
 		if (!navigator.serviceWorker)
 			return errorModal('No service worker found. Refresh the page and try again.');
 		if (!navigator.serviceWorker.controller && !dev)
 			return errorModal('Service worker not ready. Refresh the page and try again.');
 		const persisted = await navigator.storage.persist();
 		if (!persisted)
-			return errorModal('No persistent storage found. Check your browser permissions. If your phone is out of date it may not support persistent storage.');
+			return errorModal(
+				'No persistent storage found. Check your browser permissions. If your phone is out of date it may not support persistent storage.'
+			);
 
 		await caches.delete('offline-cache');
 		const cache = await caches.open('offline-cache');
 		try {
 			currentDownloadType = 'Offline cache';
-			if ('BackgroundFetchManager' in self) fetchSpinner = true;
-			else {
-				openModal({
-					type: 'progress',
-					data: [0, 0, 'Downloading offline cache'],
-					cancel: deleteOffline
-				});
-			}
+			openModal({
+				type: 'progress',
+				data: [0, 0, 'Downloading offline cache'],
+				cancel: deleteOffline
+			});
 			// First add trail specific files to cache
 			const trailData = [
 				`https://cdn.opentrail.org/${$settings.trail}.json`,
@@ -172,7 +172,8 @@
 				URLlist,
 				'offline-cache',
 				'offline cache',
-				() => ($settings.offline = true)
+				() => ($settings.offline = true),
+				bgFetchEnabled
 			);
 		} catch (e) {
 			deleteOffline();
@@ -181,18 +182,16 @@
 		}
 	}
 
-	async function fetchImages() {
+	async function fetchImages(modalData) {
+		const bgFetchEnabled = modalData[2];
 		await caches.delete('image-cache');
 		try {
 			currentDownloadType = 'Offline images';
-			if ('BackgroundFetchManager' in self) fetchSpinner = true;
-			else {
-				openModal({
-					type: 'progress',
-					data: [0, 0, 'Downloading offline images'],
-					cancel: deleteImages
-				});
-			}
+			openModal({
+				type: 'progress',
+				data: [0, 0, 'Downloading offline images'],
+				cancel: deleteImages
+			});
 			// Fetch image list
 			const res = await fetch(`/api/getImageList?trail=${$settings.trail}`);
 			const list = await res.json();
@@ -202,7 +201,8 @@
 				URLlist,
 				'image-cache',
 				'offline images',
-				() => ($settings.offlineimages = true)
+				() => ($settings.offlineimages = true),
+				bgFetchEnabled
 			);
 		} catch (e) {
 			deleteImages();
@@ -211,8 +211,13 @@
 		}
 	}
 
-	async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
-		if ('BackgroundFetchManager' in self) {
+	async function cacheFromList(URLlist, cachename, displayName, onSuccess, bgFetchEnabled) {
+		if (URLlist.length === 0) {
+			console.log('foo');
+			$modal.isOpen = false;
+			return onSuccess();
+		}
+		if (bgFetchEnabled) {
 			//bgFetch for Chrome
 			console.log('using bgFetch');
 			const swReg = await navigator.serviceWorker.ready;
@@ -251,7 +256,7 @@
 			};
 			$modal.isOpen = false;
 		} else {
-			// foreground fetch fallback for iOS and Firefox:
+			// foreground fetch
 			try {
 				openModal({
 					type: 'progress',
@@ -270,7 +275,6 @@
 						limit(async () => {
 							await cache.add(url);
 							$modal.data[0]++;
-							// console.log(`${$modal.data[0]} of ${$modal.data[1]}: Successfully cached file ${tilestring}.pbf`);
 							if ($modal.data[0] === $modal.data[1]) {
 								$modal.isOpen = false;
 								noSleep.disable();

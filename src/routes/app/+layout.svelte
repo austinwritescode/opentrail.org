@@ -18,11 +18,13 @@
 	} from '$lib/store.js';
 	import MarkerSlide from '$lib/MarkerSlide.svelte';
 	import MarkerDetail from '$lib/MarkerDetail.svelte';
-	import { register } from 'swiper/element/bundle';
 	import { goto } from '$app/navigation';
 	import { syncData, postGeneric, getData } from '$lib/api';
 	import { searchTrailRoute } from '$lib/helpers.js';
+	import { register } from 'swiper/element/bundle';
 	register();
+	import SwiperCore, { Virtual } from 'swiper';
+	SwiperCore.use([Virtual]);
 	let slotWrapper;
 	let swiperEl;
 	let showSwiper = false;
@@ -35,10 +37,10 @@
 	});
 
 	let filteredIdx;
-	$: filteredIdx = updateFilteredIdx(activeIcons, $data);
+	$: updateFilteredIdx(activeIcons, $data);
 	function updateFilteredIdx() {
 		updateSelectedMarker(-1); //always deselect marker to prevent reindex issues
-		return $data.features.reduce((acc, curr, idx) => {
+		filteredIdx = $data.features.reduce((acc, curr, idx) => {
 			for (const char of curr.properties.icons) {
 				if (activeIcons[ICONS.indexOf(char)]) {
 					acc.push(idx);
@@ -47,6 +49,7 @@
 			}
 			return acc;
 		}, []);
+		// console.log(filteredIdx);
 	}
 
 	const iconLayers = ICONS.map((icon) => {
@@ -297,6 +300,24 @@
 	}
 	$: if (swiperEl) swiperSlide();
 	function swiperSlide(id = selectedMarkerId, init = true) {
+		const swiperParams = {
+			virtual: {
+				slides: filteredIdx,
+				renderExternal: (d) => {
+					const slides = swiperEl.getElementsByTagName('swiper-slide');
+					for (let i = slides.length - 1; i >= 0; i--) slides.item(i).remove();
+					for (let i = d.from; i <= d.to; i++) {
+						new MarkerSlide({
+							target: swiperEl,
+							props: { index: filteredIdx[i], offset: d.offset }
+						});
+					}
+				}
+			}
+		};
+		Object.assign(swiperEl, swiperParams);
+		if (init) swiperEl.initialize();
+
 		swiperEl.swiper.slideTo(filteredIdx.indexOf(id), init ? 0 : 150, false);
 		if (init) showSwiper = true;
 	}
@@ -476,7 +497,6 @@
 			{/if}
 			<!-- swiper or new marker button -->
 			{#if selectedMarkerId !== -1}
-				<!-- consider using swiper preventClicks=false to make it snappier -->
 				<swiper-container
 					class="absolute bottom-20 w-full h-40"
 					style="visibility: {$fragment.toString().length < 2 && showSwiper
@@ -488,16 +508,8 @@
 					speed={150}
 					on:slidechange={onSlideChange}
 					bind:this={swiperEl}
-				>
-					<!-- todo: convert to virtual slides for scaling. could potentially cache swiper in memory too -->
-					{#each filteredIdx as i}
-						<swiper-slide>
-							<a href={`/app#detail=${i}`}>
-								<MarkerSlide prop={$data.features[i].properties} />
-							</a>
-						</swiper-slide>
-					{/each}
-				</swiper-container>
+					init={false}
+				/>
 			{:else}
 				<button
 					class="absolute new-marker-button right-2 btn btn-circle btn-sm btn-primary"

@@ -1,5 +1,11 @@
 <script>
+	import { goto } from '$app/navigation';
 	import { settings, TRAILS } from '$lib/store.js';
+	import { onMount } from 'svelte';
+
+	onMount(() => {
+		if (window.location.hostname.split('.')[0] === 'test') goto('/app');
+	});
 </script>
 
 <div class="p-4 flex flex-col items-center gap-1">

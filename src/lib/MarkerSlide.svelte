@@ -1,5 +1,6 @@
 <script>
 	import { data, settings, trailRoute, userMiles } from '$lib/store.js';
+	import { parseDescURL } from '$lib/helpers.js';
 	export let index;
 	export let offset;
 
@@ -44,7 +45,13 @@
 					</span>
 				{/if}
 			</p>
-			<p class="text-sm whitespace-pre-wrap break-words">{prop.desc}</p>
+			<p class="text-sm whitespace-pre-wrap break-words">
+				{#each parseDescURL(prop.desc) as token}
+					{#if token.startsWith('http://') || token.startsWith('https://') || token.startsWith('www.')}
+						<a href={token} class="link">{token}</a>
+					{:else}{token}{/if}
+				{/each}
+			</p>
 		</div>
 	</a>
 </swiper-slide>

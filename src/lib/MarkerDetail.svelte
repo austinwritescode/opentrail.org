@@ -11,6 +11,7 @@
 	import { register } from 'swiper/element/bundle';
 	import { postGeneric } from '$lib/api.js';
 	import { goto } from '$app/navigation';
+	import { parseDescURL } from '$lib/helpers.js';
 	register();
 
 	const dataIdx = $fragment.get('detail');
@@ -209,7 +210,13 @@
 				</span>
 			{/if}
 		</p>
-		<p class="text-sm whitespace-pre-wrap break-words my-2">{prop.desc}</p>
+		<p class="text-sm whitespace-pre-wrap break-words my-2">
+			{#each parseDescURL(prop.desc) as token}
+				{#if token.startsWith('http://') || token.startsWith('https://') || token.startsWith('www.')}
+					<a href={token} class="link">{token}</a>
+				{:else}{token}{/if}
+			{/each}
+		</p>
 
 		{#if prop.images.length > 0}
 			<swiper-container

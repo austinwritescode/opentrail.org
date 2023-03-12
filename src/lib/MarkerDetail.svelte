@@ -212,8 +212,10 @@
 		</p>
 		<p class="text-sm whitespace-pre-wrap break-words my-2">
 			{#each parseDescURL(prop.desc) as token}
-				{#if token.startsWith('http://') || token.startsWith('https://') || token.startsWith('www.')}
+				{#if token.startsWith('http://') || token.startsWith('https://')}
 					<a href={token} class="link">{token}</a>
+				{:else if token.startsWith('www.')}
+					<a href={'http://' + token} class="link">{token}</a>
 				{:else}{token}{/if}
 			{/each}
 		</p>

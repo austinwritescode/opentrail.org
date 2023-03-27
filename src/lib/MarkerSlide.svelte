@@ -9,7 +9,7 @@
 </script>
 
 <swiper-slide virtualIndex={index} style={`left: ${offset}px`}>
-	<a href={`/app#detail=${$data.features[index].id}`}>
+	<a href={`/app#detail=${$data.features[index]?.id}`}>
 		<div class="bg-base-100 rounded-lg pt-2 p-4 w-full h-full">
 			{#if prop.images.length > 0}
 				<div class="indicator float-right rounded-lg m-1">

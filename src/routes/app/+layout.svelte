@@ -276,6 +276,8 @@
 	}
 
 	function repopulateMap() {
+		activeIcons = new Array(ICONS.length).fill(true);
+		lastToggleAllIcons = true;
 		for (const icon of ICONS) {
 			map.removeLayer(`markers-${icon}`);
 			map.removeLayer(`markers-${icon}-selected`);

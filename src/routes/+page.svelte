@@ -10,14 +10,14 @@
 
 <div class="p-4 flex flex-col items-center gap-1">
 	<img src="/apple-touch-icon.png" class="mask mask-squircle" height="180" width="180" />
-	<p class="text-4xl text-primary-content">Welcome to opentrail.org</p>
-	<p class="text-md mb-8">A free and open trail info community</p>
+	<p class="text-4xl">Welcome to opentrail.org</p>
+	<p class="text-md mb-8 opacity-70">A free and open trail info community</p>
 	{#if $settings.trail !== '' && $settings.offline}
-		<p class="text-2xl text-primary-content">You have enabled offline mode for this trail:</p>
+		<p class="text-2xl">You have enabled offline mode for this trail:</p>
 	{:else}
-		<p class="text-2xl text-primary-content">To begin, select a trail</p>
+		<p class="text-2xl">To begin, select a trail</p>
 	{/if}
-	<p class="text-md mb-4">(This can be changed at any time under settings)</p>
+	<p class="text-md mb-4 opacity-70">(This can be changed at any time under settings)</p>
 	<div class="flex gap-4">
 		{#each Object.keys(TRAILS) as trail}
 			{#if trail !== 'test'}
@@ -30,7 +30,7 @@
 						}}
 					>
 						<img src={`${trail}_logo.png`} width="100" height="100" />
-						<button class="btn btn-accent btn-outline btn-lg">{trail}</button>
+						<button class="btn btn-accent btn-lg">{trail}</button>
 					</a>
 				{/if}
 			{/if}

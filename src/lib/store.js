@@ -53,7 +53,7 @@ let initSettings = {
     offlineimages: false,
     enablesat: false,
     username: '',
-    dark: true
+    dark: false
 }
 if (browser) {
     const storedSettings = localStorage.getItem('settings')

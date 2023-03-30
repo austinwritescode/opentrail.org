@@ -533,13 +533,13 @@
 			<a href="/app" class:active={$page.url.pathname === '/app'}>
 				<button>Map</button>
 			</a>
-			<a
+			<!-- <a
 				href="/app/profile"
 				class:active={$page.url.pathname === '/app/profile'}
 				on:click={storeRenderedProfile}
 			>
 				<button>Profile</button>
-			</a>
+			</a> -->
 			<a
 				href="/app/list"
 				class:active={$page.url.pathname === '/app/list'}

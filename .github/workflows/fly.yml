@@ -8,9 +8,22 @@ jobs:
     name: Deploy proxy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required to fetch tags and commit history
+
+      - name: Calculate Version and Date
+        run: |
+          echo "APP_VERSION=$(git describe --tags || git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "APP_LASTMOD=$(git log -1 --format=%cd --date=format:'%m/%d/%Y')" >> $GITHUB_ENV
+
+      - name: Deploy to Fly.io
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only
+      - run: >
+          flyctl deploy --remote-only
+          --build-arg APP_VERSION="${{ env.APP_VERSION }}" 
+          --build-arg APP_LASTMOD="${{ env.APP_LASTMOD }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       - name: Purge Cloudflare Cache

@@ -4,6 +4,12 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY prisma ./prisma/
+# 1. Accept the arguments from Fly/GitHub Actions
+ARG APP_VERSION
+ARG APP_LASTMOD
+# 2. Convert ARGs to ENVs so Vite can read them via process.env
+ENV APP_VERSION=$APP_VERSION
+ENV APP_LASTMOD=$APP_LASTMOD
 RUN npx prisma generate
 COPY . .
 RUN npm run build

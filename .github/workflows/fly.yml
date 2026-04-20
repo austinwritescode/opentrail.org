@@ -18,14 +18,17 @@ jobs:
           echo "APP_VERSION=$(git describe --tags || git rev-parse --short HEAD)" >> $GITHUB_ENV
           echo "APP_LASTMOD=$(git log -1 --format=%cd --date=format:'%m/%d/%Y')" >> $GITHUB_ENV
 
+      - name: Setup Flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
       - name: Deploy to Fly.io
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: >
+        run: >
           flyctl deploy --remote-only
           --build-arg APP_VERSION="${{ env.APP_VERSION }}" 
           --build-arg APP_LASTMOD="${{ env.APP_LASTMOD }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          
       - name: Purge Cloudflare Cache
         run: |
           curl -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE }}/purge_cache" \

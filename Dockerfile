@@ -5,6 +5,7 @@ COPY package*.json ./
 # 'npm ci' is better than 'npm install' for CI/CD as it's faster and cleaner
 RUN npm ci 
 COPY . .
+RUN npx prisma generate
 RUN npm run build
 
 # Stage 2: Run Stage

@@ -36,7 +36,7 @@ export async function POST({ request, url }) {
         if (!key) {
             let ip = request.headers.get("x-forwarded-for") || ''
             if (ip !== '') ip = ip.split(',').slice(0, -1).join(',')
-            console.log(`received image from ip [${ip}] / user [${req.user}]`)
+            console.log(`received image from ip [${ip}]`)
             const blob = await request.blob()
             if (blob.size > 100000) throw new Error('Image too large. Try cropping the height to 400px or 500px first.')
             const buff = await blob.arrayBuffer()

@@ -1,22 +1,31 @@
-# Stage 1: Build Stage
+# Stage 1: Build
 FROM node:20-slim AS builder
 WORKDIR /app
 COPY package*.json ./
-# 'npm ci' is better than 'npm install' for CI/CD as it's faster and cleaner
-RUN npm ci 
-COPY . .
+RUN npm ci
+COPY prisma ./prisma/
 RUN npx prisma generate
+COPY . .
 RUN npm run build
 
-# Stage 2: Run Stage
+# Stage 2: Run
 FROM node:20-slim
 WORKDIR /app
-# We only copy the built assets and the production-ready node_modules
+
+# Install openssl (Required for Prisma engines on slim images)
+RUN apt-get update -y && apt-get install -y openssl
+
+# Copy only what is needed for production
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/package*.json ./
-# Only install production dependencies to keep the image light
-RUN npm ci --omit=dev 
+COPY --from=builder /app/prisma ./prisma/
+
+# Install only production dependencies
+RUN npm ci --omit=dev
+RUN npx prisma generate
+
 ENV NODE_ENV=production
 ENV PORT=8080
 EXPOSE 8080
+
 CMD ["node", "build"]

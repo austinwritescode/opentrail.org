@@ -39,10 +39,13 @@ export async function DELETE({ request, url }) {
                     }
                 }
             })
+            if (!flag) return new Response(null, { status: 200 })
             flag.marker.images.forEach(async (image) => {
                 await deleteImage(image)
             })
             await prisma.marker.delete({ where: { id: parseInt(flag.markerId) } })
+            await prisma.flaggedMarker.delete({ where: { id: id } })
+            await prisma.flaggedImage.deleteMany({ where: { markerId: flag.markerId } })
         }
         else if (type === 'image') {
             const flag = await prisma.flaggedImage.findUnique({
@@ -53,6 +56,7 @@ export async function DELETE({ request, url }) {
                     marker: { select: { images: true } }
                 }
             })
+            if (!flag) return new Response(null, { status: 200 })
             await deleteImage(flag.image)
             const newImages = flag.marker.images.filter((image) => image !== flag.image)
             await prisma.marker.update({
@@ -63,7 +67,9 @@ export async function DELETE({ request, url }) {
         }
         else if (type === 'comment') {
             const flag = await prisma.flaggedComment.findUnique({ where: { id: id }, select: { commentId: true } })
+            if (!flag) return new Response(null, { status: 200 })
             await prisma.comment.delete({ where: { id: flag.commentId } })
+            await prisma.flaggedComment.delete({ where: { id: id } })
         }
         else if (type === 'clearTestTrail') {
             console.log('Clearing test trail')

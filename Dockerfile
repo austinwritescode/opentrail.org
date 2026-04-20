@@ -22,7 +22,7 @@ COPY --from=builder /app/prisma ./prisma/
 
 # Install only production dependencies
 RUN npm ci --omit=dev
-RUN ./node_modules/.bin/prisma generate
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 ENV NODE_ENV=production
 ENV PORT=8080

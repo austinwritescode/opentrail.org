@@ -23,7 +23,8 @@ async function initialize() {
 export async function POST({ request, url }) {
     if (!initialized) await initialize()
     try {
-        const key = url.searchParams.get('key')
+        const auth = request.headers.get('authorization')
+        const key = auth ? auth.replace('Bearer ', '') : null
         const req = await request.json()
         const type = url.searchParams.get('type')
         if (!key) {

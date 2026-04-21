@@ -32,7 +32,8 @@ export async function POST({ request, url }) {
     console.log('received image post')
     if (!initialized) await initializeCount()
     try {
-            const key = url.searchParams.get('key')
+            const auth = request.headers.get('authorization')
+            const key = auth ? auth.replace('Bearer ', '') : null
             let ip = request.headers.get("x-forwarded-for") || ''
             if (ip !== '') ip = ip.split(',').slice(0, -1).join(',')
             if (!key) {

@@ -11,6 +11,9 @@
 	let flagsScreen = false;
 	let map;
 	let loading = true;
+	function authHeaders(extra = {}) {
+		return { ...extra, headers: { Authorization: `Bearer ${key}` } };
+	}
 	onMount(() => {
 		const stored_key = localStorage.getItem('mod_key');
 		if (stored_key) {
@@ -20,7 +23,7 @@
 	});
 
 	async function fetchModQueue() {
-		const res = await fetch(`/api/mod?key=${key}`);
+		const res = await fetch('/api/mod', authHeaders());
 		if (res.status === 200) {
 			const json = await res.json();
 			console.log(json);
@@ -36,20 +39,19 @@
 		const item = mod.find((el) => el.id === id);
 		const [path, query] = item.route.split('?');
 		const params = new URLSearchParams(query);
-		params.set('key', key);
 		if (path === '/api/postImage') params.set('mod_id', id);
-		const res = await fetch(`${path}?${params}`, {
+		const res = await fetch(`${path}?${params}`, authHeaders({
 			method: 'POST',
 			body: JSON.stringify(item.request)
-		});
+		}));
 		if (res.status === 200) reject(id); //(delete from queue)
 	}
 
 	async function reject(id) {
-		const res = await fetch(`/api/mod?key=${key}`, {
+		const res = await fetch('/api/mod', authHeaders({
 			method: 'DELETE',
 			body: id
-		});
+		}));
 		if (res.status === 200) mod = mod.filter((v) => v.id !== id);
 	}
 
@@ -75,18 +77,16 @@
 	}
 
 	async function flagDeleteUnderlying(item) {
-		const res = await fetch(`/api/deleteGeneric?type=${item.type}&id=${item.id}&key=${key}`, {
+		const res = await fetch(`/api/deleteGeneric?type=${item.type}&id=${item.id}`, authHeaders({
 			method: 'DELETE'
-		});
+		}));
 		if (res.status === 200) flags = flags.filter((v) => v != item);
 	}
 
 	async function flagIgnore(item) {
 		const res = await fetch(
-			`/api/deleteGeneric?ignore=true&type=${item.type}&id=${item.id}&key=${key}`,
-			{
-				method: 'DELETE'
-			}
+			`/api/deleteGeneric?ignore=true&type=${item.type}&id=${item.id}`,
+			authHeaders({ method: 'DELETE' })
 		);
 		if (res.status === 200) flags = flags.filter((v) => v != item);
 	}
@@ -96,9 +96,9 @@
 	}
 
 	async function clearTestTrail() {
-		await fetch(`/api/deleteGeneric?type=clearTestTrail&key=${key}`, {
+		await fetch('/api/deleteGeneric?type=clearTestTrail', authHeaders({
 			method: 'DELETE'
-		});
+		}));
 	}
 </script>
 

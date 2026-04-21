@@ -16,7 +16,8 @@ export async function DELETE({ request, url }) {
         const type = url.searchParams.get('type')
         const id = parseInt(url.searchParams.get('id'))
         const ignore = url.searchParams.get('ignore')
-        const key = url.searchParams.get('key')
+        const auth = request.headers.get('authorization')
+        const key = auth ? auth.replace('Bearer ', '') : null
         let ip = request.headers.get("x-forwarded-for") || ''
         if (ip !== '') ip = ip.split(',').slice(0, -1).join(',')
         if (key !== env.MOD_KEY) {

@@ -3,9 +3,15 @@ import { PrismaClient } from '$lib/prisma.ts'
 const prisma = new PrismaClient()
 import { json } from '@sveltejs/kit'
 
+function getAuthToken(request) {
+    const auth = request.headers.get('authorization')
+    if (!auth) return null
+    return auth.replace('Bearer ', '')
+}
+
 export async function GET({ request, url }) {
     try {
-        if (url.searchParams.get('key') === env.MOD_KEY) {
+        if (getAuthToken(request) === env.MOD_KEY) {
             let ip = request.headers.get("x-forwarded-for") || ''
             if (ip !== '') ip = ip.split(',').slice(0, -1).join(',')
             console.log(`successful moderation login from ip [${ip}]`)
@@ -44,7 +50,7 @@ export async function GET({ request, url }) {
 
 export async function DELETE({ request, url }) {
     try {
-        if (url.searchParams.get('key') === env.MOD_KEY) {
+        if (getAuthToken(request) === env.MOD_KEY) {
             const req = await request.json()
             console.log(`moderator cleared ${req} from moderation queue`)
             await prisma.moderation.delete({

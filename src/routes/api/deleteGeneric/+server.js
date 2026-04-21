@@ -41,9 +41,9 @@ export async function DELETE({ request, url }) {
                 }
             })
             if (!flag) return new Response(null, { status: 200 })
-            flag.marker.images.forEach(async (image) => {
+            for (const image of flag.marker.images) {
                 await deleteImage(image)
-            })
+            }
             await prisma.marker.delete({ where: { id: parseInt(flag.markerId) } })
             await prisma.flaggedMarker.delete({ where: { id: id } })
             await prisma.flaggedImage.deleteMany({ where: { markerId: flag.markerId } })
@@ -89,11 +89,11 @@ export async function DELETE({ request, url }) {
                 }
             })
             console.log(markers)
-            markers.forEach(async (marker) => {
-                await marker.images.forEach(async (image) => {
+            for (const marker of markers) {
+                for (const image of marker.images) {
                     await deleteImage(image)
-                })
-            })
+                }
+            }
             await prisma.marker.deleteMany({
                 where: {
                     trails: {

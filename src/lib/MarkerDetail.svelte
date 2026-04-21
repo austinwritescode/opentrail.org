@@ -11,7 +11,7 @@
 	import { register } from 'swiper/element/bundle';
 	import { postGeneric } from '$lib/api.js';
 	import { goto } from '$app/navigation';
-	import { parseDescURL } from '$lib/helpers.js';
+	import { parseDescURL, isSafeURL } from '$lib/helpers.js';
 	register();
 
 	const dataIdx = $fragment.get('detail');
@@ -213,9 +213,11 @@
 		<p class="text-sm whitespace-pre-wrap break-words my-2">
 			{#each parseDescURL(prop.desc) as token}
 				{#if token.startsWith('http://') || token.startsWith('https://')}
-					<a href={token} class="link">{token}</a>
+					{#if isSafeURL(token)}
+						<a href={token} class="link" target="_blank" rel="noopener noreferrer">{token}</a>
+					{:else}{token}{/if}
 				{:else if token.startsWith('www.')}
-					<a href={'http://' + token} class="link">{token}</a>
+					<a href={'https://' + token} class="link" target="_blank" rel="noopener noreferrer">{token}</a>
 				{:else}{token}{/if}
 			{/each}
 		</p>

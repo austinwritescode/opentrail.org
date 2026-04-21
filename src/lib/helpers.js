@@ -29,3 +29,7 @@ function deg2rad(deg) {
 export function parseDescURL(desc) {
     return desc.split(/((?:(?:http:\/\/|https:\/\/|www.)\S+)|(?:\S+.com\S*))/)
 }
+
+export function isSafeURL(url) {
+    return url.startsWith('http://') || url.startsWith('https://')
+}

@@ -1,6 +1,5 @@
-import { PrismaClient } from '$lib/prisma.ts'
+import { prisma } from '$lib/prisma.ts'
 import { json } from '@sveltejs/kit'
-const prisma = new PrismaClient()
 
 //(used for offline image fetching)
 export async function GET({ url }) {

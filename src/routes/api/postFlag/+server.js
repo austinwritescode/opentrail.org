@@ -1,5 +1,4 @@
-import { PrismaClient } from '$lib/prisma.ts'
-const prisma = new PrismaClient()
+import { prisma } from '$lib/prisma.ts'
 
 export async function POST({ request, url, getClientAddress }) {
     try {

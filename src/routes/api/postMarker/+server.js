@@ -1,5 +1,4 @@
-import { PrismaClient } from '$lib/prisma.ts'
-const prisma = new PrismaClient()
+import { prisma } from '$lib/prisma.ts'
 import fetch from 'node-fetch';
 import { TRAILS } from '$lib/store.js'
 import { searchTrailRoute } from '$lib/helpers.js'

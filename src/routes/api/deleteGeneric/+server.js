@@ -1,5 +1,4 @@
-import { PrismaClient } from '$lib/prisma.ts'
-const prisma = new PrismaClient()
+import { prisma } from '$lib/prisma.ts'
 import { env } from '$env/dynamic/private'
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
 const s3 = new S3Client({

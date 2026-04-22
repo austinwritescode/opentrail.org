@@ -1,6 +1,5 @@
 import { env } from '$env/dynamic/private'
-import { PrismaClient } from '$lib/prisma.ts'
-const prisma = new PrismaClient()
+import { prisma } from '$lib/prisma.ts'
 import { json } from '@sveltejs/kit'
 
 function getAuthToken(request) {

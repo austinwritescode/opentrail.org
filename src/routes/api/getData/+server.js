@@ -1,6 +1,5 @@
-import { PrismaClient } from '$lib/prisma.ts'
+import { prisma } from '$lib/prisma.ts'
 import { json } from '@sveltejs/kit'
-const prisma = new PrismaClient()
 
 export async function GET({ url }) {
     try {

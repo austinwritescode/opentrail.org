@@ -8,4 +8,10 @@ const { PrismaClient: RequiredPrismaClient } = require('@prisma/client');
 
 const _PrismaClient: typeof ImportedPrismaClient = RequiredPrismaClient;
 
-export class PrismaClient extends _PrismaClient {}
+class PrismaClient extends _PrismaClient {}
+
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+
+export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;

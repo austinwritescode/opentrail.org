@@ -11,15 +11,14 @@ const s3 = new S3Client({
     }
 })
 
-export async function DELETE({ request, url }) {
+export async function DELETE({ request, url, getClientAddress }) {
     try {
         const type = url.searchParams.get('type')
         const id = parseInt(url.searchParams.get('id'))
         const ignore = url.searchParams.get('ignore')
         const auth = request.headers.get('authorization')
         const key = auth ? auth.replace('Bearer ', '') : null
-        let ip = request.headers.get("x-forwarded-for") || ''
-        if (ip !== '') ip = ip.split(',').slice(0, -1).join(',')
+        const ip = getClientAddress()
         if (key !== env.MOD_KEY) {
             console.log(`failed moderator login from ip [${ip}]`)
             return new Response(null, { status: 403 })

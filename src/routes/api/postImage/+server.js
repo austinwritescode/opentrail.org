@@ -28,14 +28,13 @@ async function initializeCount() {
     initialized = true
 }
 
-export async function POST({ request, url }) {
+export async function POST({ request, url, getClientAddress }) {
     console.log('received image post')
     if (!initialized) await initializeCount()
     try {
             const auth = request.headers.get('authorization')
             const key = auth ? auth.replace('Bearer ', '') : null
-            let ip = request.headers.get("x-forwarded-for") || ''
-            if (ip !== '') ip = ip.split(',').slice(0, -1).join(',')
+            const ip = getClientAddress()
             if (!key) {
             console.log(`received image from ip [${ip}]`)
             const blob = await request.blob()

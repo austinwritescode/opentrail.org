@@ -20,7 +20,7 @@ async function initialize() {
     initialized = true
 }
 
-export async function POST({ request, url }) {
+export async function POST({ request, url, getClientAddress }) {
     if (!initialized) await initialize()
     try {
         const auth = request.headers.get('authorization')
@@ -32,8 +32,7 @@ export async function POST({ request, url }) {
                 const nearest = nearestPointPerTrail(req.lat, req.lng)
                 if (!(req.trail in nearest)) throw new Error('Marker too far from current trail. Must be within 50 miles.')
             }
-            let ip = request.headers.get("x-forwarded-for") || ''
-            if (ip !== '') ip = ip.split(',').slice(0, -1).join(',')
+            const ip = getClientAddress()
             console.log(`received new/edit marker from ip [${ip}] / user [${req.user}]`)
             await prisma.moderation.create({
                 data: {

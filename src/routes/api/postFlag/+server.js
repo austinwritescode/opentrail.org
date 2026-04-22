@@ -1,12 +1,11 @@
 import { PrismaClient } from '$lib/prisma.ts'
 const prisma = new PrismaClient()
 
-export async function POST({ request, url }) {
+export async function POST({ request, url, getClientAddress }) {
     try {
         const req = await request.json()
         const type = url.searchParams.get('type')
-        let ip = request.headers.get("x-forwarded-for") || ''
-        if (ip !== '') ip = ip.split(',').slice(0, -1).join(',')
+        const ip = getClientAddress()
         console.log(`received flagged item from ip [${ip}] / user [${req.user}]`)
         if (type === 'flagImage') {
             await prisma.flaggedImage.create({

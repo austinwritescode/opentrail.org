@@ -27,7 +27,7 @@ export async function handle({ event, resolve }) {
         const key = auth ? auth.replace('Bearer ', '') : null
         if (key === env.MOD_KEY) return resolve(event)
         if (key !== null || event.request.method === 'POST') {
-            const ip = event.request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || event.getClientAddress()
+            const ip = event.getClientAddress()
             if (!rateLimit(ip, 100, 3_600_000)) {
                 return new Response('Too Many Requests', { status: 429 })
             }

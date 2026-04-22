@@ -9,11 +9,10 @@ function getAuthToken(request) {
     return auth.replace('Bearer ', '')
 }
 
-export async function GET({ request, url }) {
+export async function GET({ request, url, getClientAddress }) {
     try {
         if (getAuthToken(request) === env.MOD_KEY) {
-            let ip = request.headers.get("x-forwarded-for") || ''
-            if (ip !== '') ip = ip.split(',').slice(0, -1).join(',')
+            const ip = getClientAddress()
             console.log(`successful moderation login from ip [${ip}]`)
             let mod = await prisma.moderation.findMany({})
             let markers = {}
@@ -37,8 +36,7 @@ export async function GET({ request, url }) {
             return json({ mod: mod, markers: markers, flags: [...flaggedMarkers, ...flaggedComments, ...flaggedImages] })
         }
         else {
-            let ip = request.headers.get("x-forwarded-for") || ''
-            if (ip !== '') ip = ip.split(',').slice(0, -1).join(',')
+            const ip = getClientAddress()
             console.log(`failed moderator login from ip [${ip}]`)
             return new Response(null, { status: 403 })
         }
@@ -48,7 +46,7 @@ export async function GET({ request, url }) {
     }
 }
 
-export async function DELETE({ request, url }) {
+export async function DELETE({ request, url, getClientAddress }) {
     try {
         if (getAuthToken(request) === env.MOD_KEY) {
             const req = await request.json()
@@ -59,8 +57,7 @@ export async function DELETE({ request, url }) {
             return new Response()
         }
         else {
-            let ip = request.headers.get("x-forwarded-for") || ''
-            if (ip !== '') ip = ip.split(',').slice(0, -1).join(',')
+            const ip = getClientAddress()
             console.log('Failed log-in from ip ' + ip)
             return new Response(null, { status: 403 })
         }

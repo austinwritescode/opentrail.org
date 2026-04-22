@@ -111,6 +111,7 @@
 		let compassEnabled = false;
 		let compassDisabled = false; //if user cancels compass prompt don't reprompt
 		let lastHeading;
+		let orientationEvent;
 		const compassListener = (e) => {
 			if (!compassEnabled) {
 				headingMarker.addTo(map);
@@ -124,7 +125,7 @@
 			if (geolocate._watchState === 'OFF') {
 				compassEnabled = false;
 				headingMarker.remove();
-				window.removeEventListener('deviceorientationabsolute', compassListener);
+				window.removeEventListener(orientationEvent, compassListener, true);
 			}
 		};
 		geolocate.on('geolocate', function (geo) {
@@ -142,31 +143,38 @@
 					navigator.userAgent.match(/AppleWebKit/);
 				if (isIOS) {
 					console.log('Starting iOS compass marker');
-					DeviceOrientationEvent.requestPermission() //handle existing permission without modal
-						.then((response) => {
-							if (response === 'granted')
-								window.addEventListener('deviceorientation', compassListener, true);
-						})
-						.catch((e) => {
-							//otherwise we need a special modal with requestpermission in its onclick
-							openModal({
-								type: 'iOSCompass',
-								submit: () => {
-									$modal.isModalOpen = false;
-									DeviceOrientationEvent.requestPermission().then((response) => {
-										if (response === 'granted')
-											window.addEventListener('deviceorientation', compassListener, true);
-									});
-								},
-								cancel: () => {
-									$modal.isModalOpen = false;
-									compassDisabled = true;
-								}
+					orientationEvent = 'deviceorientation';
+					if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+						DeviceOrientationEvent.requestPermission()
+							.then((response) => {
+								if (response === 'granted')
+									window.addEventListener(orientationEvent, compassListener, true);
+							})
+							.catch(() => {
+								openModal({
+									type: 'iOSCompass',
+									submit: () => {
+										$modal.isOpen = false;
+										DeviceOrientationEvent.requestPermission().then((response) => {
+											if (response === 'granted')
+												window.addEventListener(orientationEvent, compassListener, true);
+											else
+												compassDisabled = true;
+										});
+									},
+									cancel: () => {
+										$modal.isOpen = false;
+										compassDisabled = true;
+									}
+								});
 							});
-						});
+					} else {
+						window.addEventListener(orientationEvent, compassListener, true);
+					}
 				} else {
 					console.log('Starting Android compass marker');
-					window.addEventListener('deviceorientationabsolute', compassListener);
+					orientationEvent = 'deviceorientationabsolute';
+					window.addEventListener(orientationEvent, compassListener, true);
 				}
 			}
 		});

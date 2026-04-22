@@ -269,7 +269,8 @@
 					</div>
 				{/if}
 			{:else if $modal.type === 'iOSCompass'}
-				<p class="font-bold text-xl">Permission needed for compass</p>
+				<p class="font-bold text-xl">Enable compass heading?</p>
+				<p class="text-sm opacity-70">You'll be asked to allow motion access.</p>
 			{/if}
 			<div class="modal-action">
 				{#if noConfirm}

@@ -142,7 +142,7 @@ function createTrailRelations(lat, lng, trail) {
     //trail associations for nearby trails:
     for (const nearestTrail in nearest) {
         toReturn.create.push({
-            milex10: nearest[trail].index,
+            milex10: nearest[nearestTrail].index,
             trail: { connect: { name: nearestTrail } }
         })
     }

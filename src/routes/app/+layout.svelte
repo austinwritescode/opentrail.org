@@ -78,6 +78,7 @@
 
 	let map;
 	let mapInitialized = false;
+	let contextRestoreTimeout;
 	$: if (mapInitialized) map.getSource('markers')?.setData($data);
 	let selectedMarkerId = -1;
 
@@ -159,8 +160,7 @@
 										DeviceOrientationEvent.requestPermission().then((response) => {
 											if (response === 'granted')
 												window.addEventListener(orientationEvent, compassListener, true);
-											else
-												compassDisabled = true;
+											else compassDisabled = true;
 										});
 									},
 									cancel: () => {
@@ -197,26 +197,26 @@
 		);
 
 		map.on('load', populateMap);
+		slotWrapper.removeEventListener('repopulateMap', repopulateMap);
 		slotWrapper.addEventListener('repopulateMap', repopulateMap);
 
 		const canvases = document.getElementsByTagName('canvas');
 		if (canvases.length > 1) errorModal('map error');
 		canvases[0].addEventListener('webglcontextlost', (e) => {
-			console.log('Reinitilizing map on webgl context lost');
-			map.initialized = false;
-			map.remove();
-			console.log('Map cleared');
-			initializeMap();
-			console.log('Map reinitialized');
+			e.preventDefault();
+			console.log('WebGL context lost, waiting for restoration...');
+			mapInitialized = false;
+			contextRestoreTimeout = setTimeout(() => {
+				errorModal('Map failed to recover. Please refresh the page.');
+			}, 10000);
 		});
-		// this code helps reproduce the webgl lost context bug on long running instances:
-		// setTimeout(() => {
-		// 	const canvases = document.getElementsByTagName('canvas');
-		// 	console.log(canvases[0].getContext('webgl'));
-		// 	console.log(canvases.length);
-		// 	canvases[0].getContext('webgl').getExtension('WEBGL_lose_context').loseContext();
-		// 	// initializeMap();
-		// }, 3000);
+		canvases[0].addEventListener('webglcontextrestored', () => {
+			clearTimeout(contextRestoreTimeout);
+			console.log('WebGL context restored, reinitializing map...');
+			map.remove();
+			map = null;
+			initializeMap();
+		});
 	}
 
 	async function populateMap() {
@@ -322,10 +322,12 @@
 					for (const comp of slideComponents) comp.$destroy();
 					slideComponents = [];
 					for (let i = d.from; i <= d.to; i++) {
-						slideComponents.push(new MarkerSlide({
-							target: swiperEl,
-							props: { index: filteredIdx[i], offset: d.offset }
-						}));
+						slideComponents.push(
+							new MarkerSlide({
+								target: swiperEl,
+								props: { index: filteredIdx[i], offset: d.offset }
+							})
+						);
 					}
 				}
 			}

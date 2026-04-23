@@ -1,4 +1,7 @@
 import { env } from '$env/dynamic/private'
+import { initGeoJSON } from '$lib/geojson-cache.js'
+
+initGeoJSON()
 
 const hits = new Map()
 

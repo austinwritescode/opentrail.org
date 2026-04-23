@@ -2,25 +2,11 @@ import { prisma } from '$lib/prisma.ts'
 import fetch from 'node-fetch';
 import { TRAILS } from '$lib/store.js'
 import { searchTrailRoute } from '$lib/helpers.js'
+import { geoJSON, initGeoJSON } from '$lib/geojson-cache.js'
 import { env } from '$env/dynamic/private'
 
-let geoJSON = {}
-let initialized = false
-
-async function initialize() {
-    const fetches = Object.keys(TRAILS).map(async (trail) => {
-        console.log(`loading ${trail}.json`)
-        const res = await fetch(`https://cdn.opentrail.org/${trail}.json`)
-        const data = await res.json()
-        geoJSON[trail] = data
-    })
-    await Promise.all(fetches)
-    console.log('Loaded geoJSONs to memory')
-    initialized = true
-}
-
 export async function POST({ request, url, getClientAddress }) {
-    if (!initialized) await initialize()
+    await initGeoJSON()
     try {
         const auth = request.headers.get('authorization')
         const key = auth ? auth.replace('Bearer ', '') : null

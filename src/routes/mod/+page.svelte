@@ -56,8 +56,9 @@
 	}
 
 	async function approveAll() {
-		const ids = mod.map((item) => item.id);
-		ids.forEach((id) => approve(id));
+		for (const item of [...mod]) {
+			await approve(item.id);
+		}
 	}
 
 	function viewLoc(id) {
@@ -92,7 +93,9 @@
 	}
 
 	async function flagIgnoreAll() {
-		flags.forEach((item) => flagIgnore(item));
+		for (const item of [...flags]) {
+			await flagIgnore(item);
+		}
 	}
 
 	async function clearTestTrail() {

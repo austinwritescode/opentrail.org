@@ -28,6 +28,7 @@
 	let slotWrapper;
 	let swiperEl;
 	let showSwiper = false;
+	let slideComponents = [];
 
 	onMount(async () => {
 		if (!Object.keys(TRAILS).includes($settings.trail)) goto('/');
@@ -304,7 +305,11 @@
 		if (selectedMarkerId !== -1)
 			map.setFeatureState({ source: 'markers', id: selectedMarkerId }, { selected: false });
 		if (id !== -1) map.setFeatureState({ source: 'markers', id: id }, { selected: true });
-		else showSwiper = false;
+		else {
+			for (const comp of slideComponents) comp.$destroy();
+			slideComponents = [];
+			showSwiper = false;
+		}
 		if (slide && swiperEl && id >= 0) swiperSlide(id, false);
 		selectedMarkerId = id;
 	}
@@ -314,13 +319,13 @@
 			virtual: {
 				slides: filteredIdx,
 				renderExternal: (d) => {
-					const slides = swiperEl.getElementsByTagName('swiper-slide');
-					for (let i = slides.length - 1; i >= 0; i--) slides.item(i).remove();
+					for (const comp of slideComponents) comp.$destroy();
+					slideComponents = [];
 					for (let i = d.from; i <= d.to; i++) {
-						new MarkerSlide({
+						slideComponents.push(new MarkerSlide({
 							target: swiperEl,
 							props: { index: filteredIdx[i], offset: d.offset }
-						});
+						}));
 					}
 				}
 			}

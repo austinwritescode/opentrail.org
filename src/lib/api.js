@@ -54,13 +54,14 @@ export async function postGeneric(item, getDataAfter = true, pendingAdd = true) 
             data: 'Successfully submitted. It may take a day to appear since the map is manually moderated to prevent abuse. Thank you for your contribution!'
         });
         if (getDataAfter) getData()
+        return true
     }
     else {
         console.log('post received non-200 response')
         const err = await res.text()
         errorModal(`Error: ${res.status} ${err}`)
+        return false
     }
-    return true
 
 }
 
@@ -68,8 +69,18 @@ export async function syncData() {
     console.log('syncing data')
     const pending = await db.pending.toArray();
     for (const item of pending) {
-        const success = await postGeneric(item, false, false);
-        if (success) await db.pending.delete(item.id);
+        let success;
+        try {
+            success = await postGeneric(item, false, false);
+        } catch (err) {
+            console.log('sync failed, stopping:', err);
+            break;
+        }
+        if (success) {
+            await db.pending.delete(item.id);
+        } else {
+            break;
+        }
     }
     await getData();
     settings.update((n) => { n.lastsync = new dayjs(); return n })

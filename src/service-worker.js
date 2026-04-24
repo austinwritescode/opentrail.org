@@ -25,7 +25,8 @@ const ASSETS = [
 const dontDelete = [
     CACHE,
     'mapbox-tiles', //not sure what this is for but let's not mess with it
-    'offline-cache'
+    'offline-cache',
+    'image-cache'
 ];
 
 self.addEventListener('install', (event) => {

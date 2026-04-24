@@ -8,10 +8,11 @@ export async function getData() {
     const trail = get(settings).trail
     const res = await fetch('/api/getData?' + new URLSearchParams({ trail: trail }));
     if (res.status === 200) {
+        const resClone = res.clone();
         const json = await res.json();
         data.set(json)
         const cache = await caches.open('offline-cache');
-        await cache.add('/api/getData?trail=' + get(settings).trail);
+        await cache.put('/api/getData?trail=' + get(settings).trail, resClone);
         console.log('Data fetch successful')
     } else throw new Error('Failed to retrieve data: ' + res.status);
 }

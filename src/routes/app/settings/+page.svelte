@@ -85,7 +85,7 @@
 				if ($settings.offline && $settings.trail !== data)
 					openModal({
 						type: 'warning',
-						data: "This will delete your offline cache and can't be undone.",
+						data: "This will delete your offline cache and pending uploads. It can't be undone.",
 						submit: () => changeTrail(data)
 					});
 				else changeTrail(data);
@@ -97,7 +97,7 @@
 		if ($settings.offline)
 			openModal({
 				type: 'warning',
-				data: "This will delete your offline cache and can't be undone.",
+				data: "This will delete your offline cache and pending uploads. It can't be undone.",
 				submit: deleteOffline
 			});
 		else
@@ -112,7 +112,7 @@
 		if ($settings.offlineimages)
 			openModal({
 				type: 'warning',
-				data: "This will delete your offline images and can't be undone.",
+				data: "This will delete your offline cache and pending uploads. It can't be undone.",
 				submit: deleteImages
 			});
 		else

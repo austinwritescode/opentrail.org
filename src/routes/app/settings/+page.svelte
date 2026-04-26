@@ -4,7 +4,18 @@
 	import { liveQuery } from 'dexie';
 	import { browser, dev } from '$app/environment';
 	import { goto } from '$app/navigation';
-	import { settings, openModal, errorModal, modal, bgFetchStatus, TRAILS } from '$lib/store.js';
+	import {
+		settings,
+		openModal,
+		errorModal,
+		modal,
+		bgFetchStatus,
+		TRAILS,
+		isInstalled,
+		deferredPrompt,
+		platform,
+		promptInstall
+	} from '$lib/store.js';
 	import pLimit from 'p-limit';
 	const limit = pLimit(15); //fetch concurrency limit
 	import { onMount } from 'svelte';
@@ -64,6 +75,20 @@
 			() => toggle('reverseMiles'),
 			true
 		],
+		...(!$isInstalled
+			? [
+					[
+						'Install app',
+						$deferredPrompt
+							? 'Install'
+							: $platform === 'ios-safari'
+							? 'Safari → Share → Add to Home Screen'
+							: 'Browser menu → Install',
+						$deferredPrompt ? promptInstall : () => {},
+						false
+					]
+			  ]
+			: []),
 		['Offline cache', $settings.offline, toggleOffline, false],
 		...offlineSublabels,
 		['Username', $settings.username, openUsernameModal, false],
@@ -78,6 +103,7 @@
 			submit: (data) => ($settings.username = data[1])
 		});
 	}
+	function handleInstallFromSettings() {}
 	function openTrailModal() {
 		openModal({
 			type: 'trail',

@@ -8,23 +8,28 @@
 		ICONS,
 		ICON_EXPLANATIONS,
 		settings,
-		errorModal
+		errorModal,
+		isInstalled,
+		deferredPrompt
 	} from '$lib/store.js';
 	import { onMount } from 'svelte';
 	import WarnIcon from '$lib/warnIcon.svelte';
 	import ErrorIcon from '$lib/errorIcon.svelte';
 	import SuccessIcon from '$lib/successIcon.svelte';
 	let spinner = false;
-	let isInstalled = false;
 
 	onMount(() => {
-		//HACK: https://github.com/sveltejs/kit/issues/5693
-		location.hash = ''; //todo: pick up deep links for marker sharing urls
+		location.hash = '';
 		window.onhashchange = () => ($fragment = new URLSearchParams(location.hash.slice(1)));
 
-		const iOSIsInstalled = window.navigator.standalone === true;
-		const androidIsInstalled = window.matchMedia('(display-mode: standalone)').matches;
-		isInstalled = iOSIsInstalled || androidIsInstalled;
+		window.addEventListener('beforeinstallprompt', (e) => {
+			e.preventDefault();
+			deferredPrompt.set(e);
+		});
+		window.addEventListener('appinstalled', () => {
+			deferredPrompt.set(null);
+			isInstalled.set(true);
+		});
 	});
 
 	function cancelModal() {
@@ -151,7 +156,7 @@
 				<p class="font-bold text-xl">Select marker location</p>
 			{:else if $modal.type === 'confirmFetch'}
 				<p class="font-bold text-xl">Download {$modal.data[0]} now?</p>
-				{#if !isInstalled}
+				{#if !$isInstalled}
 					<div class="alert alert-warning shadow-lg mt-4">
 						<div>
 							<WarnIcon />

@@ -26,9 +26,7 @@
 <div class="p-4 flex flex-col items-center gap-1 h-full overflow-y-auto">
 	<img src="/apple-touch-icon.png" class="mask mask-squircle mt-4" height="128" width="128" />
 	<p class="text-4xl mt-2">OpenTrail.org</p>
-	<p class="text-lg opacity-70">
-		A free offline trail map with recent hiker comments and waypoints
-	</p>
+	<p class="text-2xl">A free trail info community</p>
 
 	{#if !showTrails}
 		<div class="flex flex-col items-center w-full max-w-sm mt-4 gap-3">
@@ -142,7 +140,7 @@
 		<div class="flex flex-col items-center w-full mt-4">
 			<p class="text-xl">Select a trail to begin</p>
 			<p class="text-md mb-4 opacity-70">(This can be changed later in settings)</p>
-			<div class="flex gap-4 flex-wrap justify-center">
+			<div class="flex gap-4 justify-center">
 				{#each Object.keys(TRAILS) as trail}
 					{#if trail !== 'test'}
 						{#if !$settings.offline || $settings.trail === trail}

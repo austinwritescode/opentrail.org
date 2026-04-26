@@ -83,7 +83,7 @@
 							? 'Install'
 							: $platform === 'ios-safari'
 							? 'Safari → Share → Add to Home Screen'
-							: 'Browser menu → Install',
+							: 'Use Safari on iOS or Chrome on Android',
 						$deferredPrompt ? promptInstall : () => {},
 						false
 					]
@@ -103,7 +103,6 @@
 			submit: (data) => ($settings.username = data[1])
 		});
 	}
-	function handleInstallFromSettings() {}
 	function openTrailModal() {
 		openModal({
 			type: 'trail',
@@ -358,7 +357,7 @@
 	{#each labels as [left, right, callback, subfield], i}
 		{#if !subfield && i != 0}<div class="divider h-0 my-1" />{/if}
 		<div
-			class="flex flex-row justify-between items-center my-2 text-md cursor-pointer"
+			class="flex flex-row justify-between items-center my-2 text-md cursor-pointer select-none"
 			on:click={callback}
 		>
 			<span class={subfield && 'ml-4'}>{left}</span>

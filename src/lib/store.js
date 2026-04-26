@@ -152,10 +152,10 @@ export const isInstalled = writable(initIsInstalled);
 export const deferredPrompt = writable(null);
 
 export async function promptInstall() {
-	const prompt = get(deferredPrompt);
-	if (!prompt) return false;
-	prompt.prompt();
-	const result = await prompt.userChoice;
+	const installPrompt = get(deferredPrompt);
+	if (!installPrompt) return false;
+	installPrompt.prompt();
+	const result = await installPrompt.userChoice;
 	deferredPrompt.set(null);
 	if (result.outcome === 'accepted') {
 		isInstalled.set(true);

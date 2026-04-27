@@ -19,6 +19,8 @@
 	let spinner = false;
 
 	onMount(() => {
+		window.addEventListener('error', (e) => errorModal(e.error?.message || e.message));
+		window.addEventListener('unhandledrejection', (e) => errorModal(e.reason?.message || String(e.reason)));
 		location.hash = '';
 		window.onhashchange = () => ($fragment = new URLSearchParams(location.hash.slice(1)));
 

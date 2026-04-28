@@ -43,14 +43,17 @@
 	function toggle(key) {
 		$settings[key] = !$settings[key];
 	}
+	function toggleUnits() {
+		$settings.units = $settings.units === 'imperial' ? 'metric' : 'imperial';
+	}
 	let settingsWrapper;
 	async function changeTrail(newTrail) {
 		$settings.trail = newTrail;
 		deleteOffline();
 		await getData();
 		const event = new CustomEvent('repopulateMap', { bubbles: true });
-		settingsWrapper.dispatchEvent(event);
-		goto('/app');
+		settingsWrapper?.dispatchEvent(event);
+		await goto('/app');
 	}
 
 	let pendingCount = liveQuery(() => (browser ? db.pending.count() : 0));
@@ -93,6 +96,7 @@
 		...offlineSublabels,
 		['Username', $settings.username, openUsernameModal, false],
 		['Dark mode', $settings.dark, () => toggle('dark'), false],
+		['Units', $settings.units === 'imperial' ? 'Imperial (mi/ft)' : 'Metric (km/m)', toggleUnits, false],
 		['Community guidelines', '', () => openModal({ type: 'community' }), false],
 		['About', '', () => openModal({ type: 'about' }), false]
 	];
@@ -357,7 +361,7 @@
 	{#each labels as [left, right, callback, subfield], i}
 		{#if !subfield && i != 0}<div class="divider h-0 my-1" />{/if}
 		<div
-			class="flex flex-row justify-between items-center my-2 text-md cursor-pointer select-none"
+			class="flex flex-row justify-between items-center my-2 text-md cursor-pointer"
 			on:click={callback}
 		>
 			<span class={subfield && 'ml-4'}>{left}</span>

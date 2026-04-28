@@ -1,3 +1,31 @@
+export function mToFt(m) {
+    return m * 3.28084
+}
+
+export function ftToM(ft) {
+    return ft / 3.28084
+}
+
+export function miToKm(mi) {
+    return mi * 1.60934
+}
+
+export function kmToMi(km) {
+    return km / 1.60934
+}
+
+export function formatElev(meters, imperial) {
+    if (meters == null) return ''
+    if (imperial) return Math.round(mToFt(meters)).toLocaleString('en-US') + 'ft'
+    return Math.round(meters).toLocaleString('en-US') + 'm'
+}
+
+export function formatDist(miles, imperial, decimals) {
+    if (miles == null) return ''
+    if (imperial) return miles.toFixed(decimals) + 'mi'
+    return miToKm(miles).toFixed(decimals) + 'km'
+}
+
 export function searchTrailRoute(lng, lat, geoJSON, maxDist) {
     const coords = geoJSON.features[0].geometry.coordinates
     let min = { dist: maxDist, index: -1 }

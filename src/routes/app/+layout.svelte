@@ -14,10 +14,13 @@
 		modal,
 		errorModal,
 		trailRoute,
-		userMiles
+		userMiles,
+		elevationProfileVisible,
+		profileData
 	} from '$lib/store.js';
 	import MarkerSlide from '$lib/MarkerSlide.svelte';
 	import MarkerDetail from '$lib/MarkerDetail.svelte';
+	import ElevationProfile from '$lib/ElevationProfile.svelte';
 	import { goto } from '$app/navigation';
 	import { syncData, postGeneric, getData } from '$lib/api';
 	import { searchTrailRoute } from '$lib/helpers.js';
@@ -29,6 +32,117 @@
 	let swiperEl;
 	let showSwiper = false;
 	let slideComponents = [];
+	let profileMoveTimer = null;
+	let cursorMapMarker = null;
+
+	function updateProfileData() {
+		if (!map || !mapInitialized || !$trailRoute.features) return;
+		const bounds = map.getBounds();
+		const coords = $trailRoute.features[0].geometry.coordinates;
+		if (!coords || coords.length === 0) return;
+		const sw = bounds.getSouthWest();
+		const ne = bounds.getNorthEast();
+		const minLng = sw.lng;
+		const maxLng = ne.lng;
+		const minLat = sw.lat;
+		const maxLat = ne.lat;
+		let startIdx = -1;
+		let endIdx = -1;
+		const step = coords.length > 10000 ? 10 : 1;
+		for (let i = 0; i < coords.length; i += step) {
+			const c = coords[i];
+			if (c[0] >= minLng && c[0] <= maxLng && c[1] >= minLat && c[1] <= maxLat) {
+				if (startIdx === -1) startIdx = i;
+				endIdx = i;
+			}
+		}
+		if (startIdx === -1) {
+			$profileData = { points: [], startIdx: 0, endIdx: 0 };
+			return;
+		}
+		if (step > 1) {
+			const searchStart = Math.max(0, startIdx - step);
+			const searchEnd = Math.min(coords.length - 1, endIdx + step);
+			startIdx = -1;
+			endIdx = -1;
+			for (let i = searchStart; i <= searchEnd; i++) {
+				const c = coords[i];
+				if (c[0] >= minLng && c[0] <= maxLng && c[1] >= minLat && c[1] <= maxLat) {
+					if (startIdx === -1) startIdx = i;
+					endIdx = i;
+				}
+			}
+		}
+		if (startIdx === -1) {
+			$profileData = { points: [], startIdx: 0, endIdx: 0 };
+			return;
+		}
+		const visibleCount = endIdx - startIdx + 1;
+		const chartWidthPx = document.getElementById('map')?.clientWidth || 400;
+		const targetPoints = Math.min(visibleCount, Math.floor(chartWidthPx / 2));
+		const dsStep = Math.max(1, Math.floor(visibleCount / targetPoints));
+		const points = [];
+		for (let i = startIdx; i <= endIdx; i += dsStep) {
+			points.push({ elev: coords[i][2] || 0, mile: i / 10 });
+		}
+		if (points.length === 0 || points[points.length - 1].mile !== (endIdx / 10)) {
+			points.push({ elev: coords[endIdx][2] || 0, mile: endIdx / 10 });
+		}
+		$profileData = { points, startIdx, endIdx };
+	}
+
+	function onMapMove() {
+		if (profileMoveTimer) return;
+		profileMoveTimer = setTimeout(() => {
+			profileMoveTimer = null;
+			updateProfileData();
+			storeRenderedList();
+		}, 100);
+	}
+
+	function onCursorUpdate(e) {
+		const { active, trailIdx } = e.detail;
+		if (!active) {
+			removeCursorMarker();
+			return;
+		}
+		if (!$trailRoute.features) return;
+		const coords = $trailRoute.features[0].geometry.coordinates;
+		if (trailIdx < 0 || trailIdx >= coords.length) return;
+		const lngLat = { lng: coords[trailIdx][0], lat: coords[trailIdx][1] };
+		if (cursorMapMarker) {
+			cursorMapMarker.setLngLat(lngLat);
+		} else {
+			const el = document.createElement('div');
+			el.className = 'profile-cursor-marker';
+			el.style.width = '12px';
+			el.style.height = '12px';
+			el.style.borderRadius = '50%';
+			el.style.backgroundColor = '#d22';
+			el.style.border = '2px solid white';
+			el.style.boxShadow = '0 1px 3px rgba(0,0,0,0.4)';
+			cursorMapMarker = new maplibregl.Marker(el).setLngLat(lngLat).addTo(map);
+		}
+	}
+
+	function removeCursorMarker() {
+		if (cursorMapMarker) {
+			cursorMapMarker.remove();
+			cursorMapMarker = null;
+		}
+	}
+
+	function toggleProfile() {
+		$elevationProfileVisible = !$elevationProfileVisible;
+		if ($elevationProfileVisible) {
+			updateProfileData();
+		}
+		requestAnimationFrame(() => {
+			if (map) {
+				map.resize();
+			}
+		});
+	}
 
 	onMount(async () => {
 		if (!Object.keys(TRAILS).includes($settings.trail)) goto('/');
@@ -186,6 +300,7 @@
 				map.queryRenderedFeatures(e.point).findIndex((el) => el.layer.source === 'markers') === -1
 			) {
 				updateSelectedMarker(-1);
+				removeCursorMarker();
 			}
 		});
 
@@ -196,7 +311,6 @@
 			})
 		);
 
-		map.on('error', (e) => errorModal(`Map: ${e.error?.message || JSON.stringify(e.error)}`));
 		map.on('load', populateMap);
 		slotWrapper.removeEventListener('repopulateMap', repopulateMap);
 		slotWrapper.addEventListener('repopulateMap', repopulateMap);
@@ -283,6 +397,9 @@
 			map.on('click', `markers-${icon}`, (e) => updateSelectedMarker(e.features[0].id));
 		}
 		mapInitialized = true;
+		map.off('move', onMapMove);
+		map.on('move', onMapMove);
+		updateProfileData();
 	}
 
 	function repopulateMap() {
@@ -473,8 +590,6 @@
 			});
 	}
 
-	function storeRenderedProfile() {}
-
 	function storeRenderedList() {
 		$renderedMarkers = map.queryRenderedFeatures({ layers: iconLayers }).map((val) => val.id);
 		$renderedMarkers = [...new Set($renderedMarkers)]; //remove duplicates
@@ -488,9 +603,15 @@
 		<!-- hide the map when visiting other routes -->
 		<div
 			style="visibility: {$page.url.pathname === '/app' ? 'visible' : 'hidden'};"
-			class="row-start-1 col-start-1"
+			class="row-start-1 col-start-1 relative flex flex-col"
 		>
-			<div id="map" class="h-full w-full" />
+			<div id="map" class="flex-1 w-full min-h-0" />
+			<!-- elevation profile overlay -->
+			{#if $elevationProfileVisible}
+				<div class="elevation-profile-overlay" style="background: {$settings.dark ? '#1e1e1e' : 'white'}; border-top: 1px solid {$settings.dark ? '#444' : '#ddd'};">
+					<ElevationProfile on:cursorupdate={onCursorUpdate} />
+				</div>
+			{/if}
 			<!-- filter icons -->
 			<div class="absolute top-32 right-2 btn-group btn-group-vertical">
 				<button
@@ -509,6 +630,19 @@
 					</button>
 				{/each}
 			</div>
+			<!-- profile toggle button -->
+			<button
+				class="profile-toggle-btn"
+				style="bottom: {$elevationProfileVisible ? 'calc(25% - 14px)' : '8px'}; background: {$settings.dark ? '#2a2a2a' : 'white'}; border-color: {$settings.dark ? '#555' : 'rgba(0,0,0,0.2)'}; color: {$settings.dark ? '#999' : '#666'};"
+				on:click={toggleProfile}
+				title={$elevationProfileVisible ? 'Hide elevation profile' : 'Show elevation profile'}
+			>
+				{#if $elevationProfileVisible}
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+				{:else}
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20L8 10L14 14L22 4" /></svg>
+				{/if}
+			</button>
 			<!-- detail modal -->
 			{#if $fragment.has('detail')}
 				<MarkerDetail />
@@ -516,8 +650,8 @@
 			<!-- swiper or new marker button -->
 			{#if selectedMarkerId !== -1}
 				<swiper-container
-					class="absolute bottom-20 w-full h-40"
-					style="visibility: {$fragment.toString().length < 2 && showSwiper
+					class="absolute w-full h-40"
+					style="bottom: {$elevationProfileVisible ? 'calc(25% + 8px)' : '8px'}; visibility: {$fragment.toString().length < 2 && showSwiper
 						? 'inherit'
 						: 'hidden'};"
 					slides-per-view={1.15}
@@ -531,6 +665,7 @@
 			{:else}
 				<button
 					class="absolute new-marker-button right-2 btn btn-circle btn-sm btn-primary"
+					style="bottom: {$elevationProfileVisible ? 'calc(25% + 8px)' : '8px'};"
 					on:click={newMarker}
 				>
 					<img src="/plus.png" height="20" width="20" />
@@ -549,13 +684,6 @@
 			<a href="/app" class:active={$page.url.pathname === '/app'}>
 				<button>Map</button>
 			</a>
-			<!-- <a
-				href="/app/profile"
-				class:active={$page.url.pathname === '/app/profile'}
-				on:click={storeRenderedProfile}
-			>
-				<button>Profile</button>
-			</a> -->
 			<a
 				href="/app/list"
 				class:active={$page.url.pathname === '/app/list'}
@@ -571,7 +699,29 @@
 </div>
 
 <style>
-	.new-marker-button {
-		bottom: 72px;
+	.elevation-profile-overlay {
+		flex: 0 0 25%;
+		background: white;
+		border-top: 1px solid #ddd;
+		z-index: 1;
+		overflow: hidden;
+	}
+	.profile-toggle-btn {
+		position: absolute;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		border-radius: 50%;
+		background: white;
+		border: 1px solid rgba(0, 0, 0, 0.2);
+		color: #666;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+		cursor: pointer;
+		padding: 0;
 	}
 </style>

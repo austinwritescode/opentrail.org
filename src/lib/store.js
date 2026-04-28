@@ -62,7 +62,8 @@ let initSettings = {
 	offlineimages: false,
 	enablesat: false,
 	username: '',
-	dark: false
+	dark: false,
+	units: 'imperial'
 };
 if (browser) {
 	const storedSettings = localStorage.getItem('settings');
@@ -163,3 +164,16 @@ export async function promptInstall() {
 	}
 	return false;
 }
+
+let initProfileVisible = true;
+if (browser) {
+	const stored = localStorage.getItem('elevationProfileVisible');
+	if (stored !== null) initProfileVisible = stored === 'true';
+}
+export const elevationProfileVisible = writable(initProfileVisible);
+if (browser)
+	elevationProfileVisible.subscribe((val) =>
+		localStorage.setItem('elevationProfileVisible', String(val))
+	);
+
+export const profileData = writable({ points: [], startIdx: 0, endIdx: 0 });

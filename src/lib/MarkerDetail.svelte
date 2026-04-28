@@ -147,7 +147,7 @@
 </script>
 
 <div class="modal" class:modal-open={true} on:click|self={() => (location.hash = '')}>
-	<div class="modal-box rounded-lg p-4 h-4/5">
+	<div class="modal-box rounded-lg p-4 h-4/5 select-text">
 		<div class="flex justify-between items-center mb-2">
 			<p class="text-md font-bold break-words">{prop.title}</p>
 			<div class="flex justify-end">

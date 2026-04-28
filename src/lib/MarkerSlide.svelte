@@ -10,7 +10,7 @@
 
 <swiper-slide virtualIndex={index} style={`left: ${offset}px`}>
 	<a href={`/app#detail=${$data.features[index]?.id}`}>
-		<div class="bg-base-100 rounded-lg pt-2 p-4 w-full h-full">
+		<div class="bg-base-100 rounded-lg pt-2 p-4 w-full h-full select-text">
 			{#if prop.images.length > 0}
 				<div class="indicator float-right rounded-lg m-1">
 					{#if prop.images.length > 1}

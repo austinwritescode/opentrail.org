@@ -60,7 +60,7 @@
 		$modal.type === 'generic';
 </script>
 
-<div data-theme={$settings.dark ? 'dark' : 'light'} class="h-full w-full">
+<div data-theme={$settings.dark ? 'dark' : 'light'} class="h-full w-full select-none">
 	<slot />
 	<div
 		class={'modal modal-bottom ' +
@@ -70,7 +70,7 @@
 			if ($modal.type !== 'progress' && $modal.type !== 'editLoc') cancelModal();
 		}}
 	>
-		<div class="modal-box pointer-events-auto space-y-4">
+		<div class="modal-box pointer-events-auto space-y-4" class:select-text={$modal.type === 'text' || $modal.type === 'textArea'}>
 			{#if $modal.type === 'warning' || $modal.type === 'error' || $modal.type === 'success'}
 				<!-- Ok this next part looks awful because daisy isn't smart enough to include the right class with `alert-${$modal.type}` -->
 				<div

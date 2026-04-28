@@ -1,11 +1,25 @@
 <script>
 	import { data, settings, trailRoute, userMiles } from '$lib/store.js';
-	import { parseDescURL, isSafeURL } from '$lib/helpers.js';
+	import { parseDescURL, isSafeURL, mToFt, ftToM, formatDist, formatElev } from '$lib/helpers.js';
 	export let index;
 	export let offset;
 
 	const prop = $data.features[index].properties;
-	// console.log(`rendering slide ${index}`)
+	const imp = $settings.units !== 'metric';
+	const totalMiles = $trailRoute.features?.[0]?.geometry.coordinates.length / 10;
+	const displayMile = $settings.reverseMiles && totalMiles != null
+		? totalMiles - prop.mile
+		: Number(prop.mile);
+	const userCoords = $trailRoute.features?.[0]?.geometry.coordinates;
+	const userIdx = Math.round($userMiles.miles * 10);
+	const userElevFt = userCoords?.[userIdx]?.[2] != null ? mToFt(userCoords[userIdx][2]) : null;
+	const mileDiff = Math.round(Math.abs($userMiles.miles - Number(prop.mile)) * 10) / 10;
+	const mileSign = $settings.reverseMiles
+		? ($userMiles.miles >= Number(prop.mile) ? '+' : '-')
+		: (Number(prop.mile) >= $userMiles.miles ? '+' : '-');
+	const elevDiffFt = userElevFt != null && prop.elev != null ? Math.round(Math.abs(userElevFt - Number(prop.elev))) : null;
+	const elevSign = userElevFt != null && prop.elev != null ? (Number(prop.elev) >= userElevFt ? '+' : '-') : '';
+	const userRecent = new Date() - $userMiles.date < 1000000;
 </script>
 
 <swiper-slide virtualIndex={index} style={`left: ${offset}px`}>
@@ -27,23 +41,16 @@
 					/>
 				</div>
 			{/if}
-			<p class="text-sm font-bold truncate">{prop.title}</p>
-			<p class="text-sm italic">
-				Mile {$settings.reverseMiles
-					? ($trailRoute.features[0].geometry.coordinates.length / 10 - prop.mile).toFixed(1)
-					: prop.mile}&nbsp;&nbsp;&nbsp;Elev {prop.elev?.toLocaleString('en-US')}
-			</p>
-			<p class="leading-none">
+			<p class="text-sm font-bold truncate">
+				{prop.title}
 				{#if prop.icons}
 					{#each prop.icons as icon}
-						<img src={`/map-icons/${icon}.png`} height="20" width="20" class="inline" />
+						<img src={`/map-icons/${icon}.png`} height="20" width="20" class="inline align-middle" />
 					{/each}
 				{/if}
-				{#if new Date() - $userMiles.date < 1000000}
-					<span class="text-sm italic align-middle whitespace-nowrap">
-						{Math.round(Math.abs($userMiles.miles - prop.mile) * 10) / 10} trail mi away
-					</span>
-				{/if}
+			</p>
+			<p class="text-sm italic">
+				{#if imp}Mile {displayMile.toFixed(1)}{#if userRecent}&nbsp;({mileSign}{mileDiff}){/if}{:else}{formatDist(displayMile, false, 1)}{#if userRecent}&nbsp;({mileSign}{formatDist(mileDiff, false, 1)}){/if}{/if}&nbsp;&nbsp;&nbsp;{#if imp}Elev {prop.elev?.toLocaleString('en-US')}'{#if userRecent && elevDiffFt != null}&nbsp;({elevSign}{elevDiffFt}'){/if}{:else}Elev {formatElev(prop.elev != null ? ftToM(prop.elev) : null, false)}{#if userRecent && elevDiffFt != null}&nbsp;({elevSign}{Math.round(ftToM(elevDiffFt))}m){/if}{/if}
 			</p>
 			<p class="text-sm whitespace-pre-wrap break-words">
 				{#each parseDescURL(prop.desc) as token}

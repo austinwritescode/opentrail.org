@@ -11,12 +11,27 @@
 	import { register } from 'swiper/element/bundle';
 	import { postGeneric } from '$lib/api.js';
 	import { goto } from '$app/navigation';
-	import { parseDescURL, isSafeURL } from '$lib/helpers.js';
+	import { parseDescURL, isSafeURL, mToFt, ftToM, formatDist, formatElev } from '$lib/helpers.js';
 	register();
 
 	const dataIdx = $fragment.get('detail');
 	$: prop = $data.features[dataIdx].properties;
 	$: console.log(prop);
+	$: imp = $settings.units !== 'metric';
+	$: totalMiles = $trailRoute.features?.[0]?.geometry.coordinates.length / 10;
+	$: displayMile = $settings.reverseMiles && totalMiles != null
+		? totalMiles - prop.mile
+		: Number(prop.mile);
+	$: userCoords = $trailRoute.features?.[0]?.geometry.coordinates;
+	$: userIdx = Math.round($userMiles.miles * 10);
+	$: userElevFt = userCoords?.[userIdx]?.[2] != null ? mToFt(userCoords[userIdx][2]) : null;
+	$: mileDiff = Math.round(Math.abs($userMiles.miles - Number(prop.mile)) * 10) / 10;
+	$: mileSign = $settings.reverseMiles
+		? ($userMiles.miles >= Number(prop.mile) ? '+' : '-')
+		: (Number(prop.mile) >= $userMiles.miles ? '+' : '-');
+	$: elevDiffFt = userElevFt != null && prop.elev != null ? Math.round(Math.abs(userElevFt - Number(prop.elev))) : null;
+	$: elevSign = userElevFt != null && prop.elev != null ? (Number(prop.elev) >= userElevFt ? '+' : '-') : '';
+	$: userRecent = new Date() - $userMiles.date < 1000000;
 	let newComment = '';
 	let commentSpinner = false;
 
@@ -149,7 +164,14 @@
 <div class="modal" class:modal-open={true} on:click|self={() => (location.hash = '')}>
 	<div class="modal-box rounded-lg p-4 h-4/5 select-text">
 		<div class="flex justify-between items-center mb-2">
-			<p class="text-md font-bold break-words">{prop.title}</p>
+			<p class="text-md font-bold break-words">
+				{prop.title}
+				{#if prop.icons}
+					{#each prop.icons as icon}
+						<img src={`/map-icons/${icon}.png`} height="25" width="25" class="inline align-middle" />
+					{/each}
+				{/if}
+			</p>
 			<div class="flex justify-end">
 				<div class="dropdown dropdown-end">
 					<label tabindex="0" class="btn btn-sm btn-circle btn-ghost text-lg">⋮</label>
@@ -193,22 +215,7 @@
 			</div>
 		</div>
 		<p class="text-sm italic">
-			Mile {$settings.reverseMiles
-				? ($trailRoute.features[0].geometry.coordinates.length / 10 - prop.mile).toFixed(1)
-				: prop.mile}&nbsp;&nbsp;&nbsp;Elev {prop.elev?.toLocaleString('en-US')}
-		</p>
-		<p class="text-sm italic">
-			{#if prop.icons}
-				{#each prop.icons as icon}
-					<img src={`/map-icons/${icon}.png`} height="25" width="25" class="inline" />
-				{/each}
-			{/if}
-			<!-- If our last geo coords were less than 16 min ago, display trail miles: -->
-			{#if new Date() - $userMiles.date < 1000000}
-				<span class="align-middle">
-					{Math.round(Math.abs($userMiles.miles - prop.mile) * 10) / 10} trail mi away
-				</span>
-			{/if}
+			{#if imp}Mile {displayMile.toFixed(1)}{#if userRecent}&nbsp;({mileSign}{mileDiff}){/if}{:else}{formatDist(displayMile, false, 1)}{#if userRecent}&nbsp;({mileSign}{formatDist(mileDiff, false, 1)}){/if}{/if}&nbsp;&nbsp;&nbsp;{#if imp}Elev {prop.elev?.toLocaleString('en-US')}'{#if userRecent && elevDiffFt != null}&nbsp;({elevSign}{elevDiffFt}'){/if}{:else}Elev {formatElev(prop.elev != null ? ftToM(prop.elev) : null, false)}{#if userRecent && elevDiffFt != null}&nbsp;({elevSign}{Math.round(ftToM(elevDiffFt))}m){/if}{/if}
 		</p>
 		<p class="text-sm whitespace-pre-wrap break-words my-2">
 			{#each parseDescURL(prop.desc) as token}

@@ -89,6 +89,8 @@ export const userMiles = writable({ miles: 0, date: new Date(0) });
 
 export const renderedMarkers = writable([]);
 
+export const selectedMarkerId = writable(-1);
+
 export const fragment = writable(new URLSearchParams(''));
 
 function noOp() {}

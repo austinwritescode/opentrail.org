@@ -16,7 +16,8 @@
 		trailRoute,
 		userMiles,
 		elevationProfileVisible,
-		profileData
+		profileData,
+		selectedMarkerId
 	} from '$lib/store.js';
 	import MarkerSlide from '$lib/MarkerSlide.svelte';
 	import MarkerDetail from '$lib/MarkerDetail.svelte';
@@ -194,7 +195,6 @@
 	let mapInitialized = false;
 	let contextRestoreTimeout;
 	$: if (mapInitialized) map.getSource('markers')?.setData($data);
-	let selectedMarkerId = -1;
 
 	async function initializeMap() {
 		if (!document.getElementById('map') || !slotWrapper) return setTimeout(initializeMap, 10); //for welcome screen load, wait for DOM to catch up
@@ -417,11 +417,10 @@
 	}
 
 	function updateSelectedMarker(id, slide = true) {
-		// console.log('selected: ' + id);
 		if (lockSelection) return;
-		if (selectedMarkerId === id) return;
-		if (selectedMarkerId !== -1)
-			map.setFeatureState({ source: 'markers', id: selectedMarkerId }, { selected: false });
+		if ($selectedMarkerId === id) return;
+		if ($selectedMarkerId !== -1)
+			map.setFeatureState({ source: 'markers', id: $selectedMarkerId }, { selected: false });
 		if (id !== -1) map.setFeatureState({ source: 'markers', id: id }, { selected: true });
 		else {
 			for (const comp of slideComponents) comp.$destroy();
@@ -429,10 +428,10 @@
 			showSwiper = false;
 		}
 		if (slide && swiperEl && id >= 0) swiperSlide(id, false);
-		selectedMarkerId = id;
+		$selectedMarkerId = id;
 	}
 	$: if (swiperEl) swiperSlide();
-	function swiperSlide(id = selectedMarkerId, init = true) {
+	function swiperSlide(id = $selectedMarkerId, init = true) {
 		const swiperParams = {
 			virtual: {
 				slides: filteredIdx,
@@ -511,7 +510,7 @@
 		editMarkerLoc($fragment.get('newMarker'));
 	}
 	function editMarkerLoc(newMarker) {
-		const oldCoordCopy = [...$data.features[selectedMarkerId].geometry.coordinates];
+		const oldCoordCopy = [...$data.features[$selectedMarkerId].geometry.coordinates];
 		if (newMarker) editMarkerLocOnMove(); //(initialize the new marker before map movement)
 		openModal({
 			type: 'editLoc',
@@ -524,7 +523,7 @@
 					$data.features.pop();
 					// map.getSource('markers').setData($data);
 					console.log($data);
-				} else $data.features[selectedMarkerId].geometry.coordinates = oldCoordCopy;
+				} else $data.features[$selectedMarkerId].geometry.coordinates = oldCoordCopy;
 
 				// map.getSource('markers').setData($data);
 				lockSelection = false;
@@ -535,7 +534,7 @@
 				window.location.hash = '';
 				lockSelection = false;
 
-				const feature = $data.features[selectedMarkerId];
+				const feature = $data.features[$selectedMarkerId];
 				if (newMarker) {
 					updateSelectedMarker(-1);
 					$data.features.pop(); //leaving the marker around only causes heartache since it has no dbid
@@ -569,10 +568,10 @@
 	}
 	function editMarkerLocOnMove() {
 		const latlng = map.getCenter();
-		$data.features[selectedMarkerId].geometry.coordinates[0] = latlng.lng;
-		$data.features[selectedMarkerId].geometry.coordinates[1] = latlng.lat;
-		$data.features[selectedMarkerId].properties.images = [];
-		$data.features[selectedMarkerId].properties.comments = [];
+		$data.features[$selectedMarkerId].geometry.coordinates[0] = latlng.lng;
+		$data.features[$selectedMarkerId].geometry.coordinates[1] = latlng.lat;
+		$data.features[$selectedMarkerId].properties.images = [];
+		$data.features[$selectedMarkerId].properties.comments = [];
 		map.getSource('markers').setData($data);
 	}
 
@@ -648,7 +647,7 @@
 				<MarkerDetail />
 			{/if}
 			<!-- swiper or new marker button -->
-			{#if selectedMarkerId !== -1}
+			{#if $selectedMarkerId !== -1}
 				<swiper-container
 					class="absolute w-full h-40"
 					style="bottom: {$elevationProfileVisible ? 'calc(25% + 8px)' : '8px'}; visibility: {$fragment.toString().length < 2 && showSwiper

@@ -6,7 +6,8 @@
 		data,
 		settings,
 		userMiles,
-		trailRoute
+		trailRoute,
+		selectedMarkerId
 	} from '$lib/store.js';
 	import { mToFt, ftToM, miToKm } from '$lib/helpers.js';
 	import { createEventDispatcher } from 'svelte';
@@ -63,6 +64,7 @@
 				const f = features.features[i];
 				if (!f || !f.properties) return null;
 				return {
+					id: i,
 					mile: f.properties.mile,
 					elev: f.properties.elev,
 					icon: f.properties.icon || f.properties.icons?.[0] || 'o'
@@ -293,13 +295,14 @@
 				{@const localIdx = $profileData.endIdx > $profileData.startIdx ? Math.round(((m.mile * 10) - $profileData.startIdx) / ($profileData.endIdx - $profileData.startIdx) * ($profileData.points.length - 1)) : 0}
 				{#if localIdx >= 0 && localIdx < $profileData.points.length && m.elev != null}
 					{@const elevConverted = imperial ? m.elev : ftToM(m.elev)}
+					{@const selected = m.id === $selectedMarkerId}
 					<circle
 						cx={scaleX(localIdx, $profileData.points.length)}
 						cy={scaleY(elevConverted, elevRange.min, elevRange.max)}
-						r="3"
+						r={selected ? 4 : 3}
 						fill={ICON_COLORS[m.icon] || ICON_COLORS.o}
 						stroke="white"
-						stroke-width="0.5"
+						stroke-width={selected ? 2 : 0.5}
 					/>
 				{/if}
 			{/each}

@@ -96,7 +96,7 @@
 		...offlineSublabels,
 		['Username', $settings.username, openUsernameModal, false],
 		['Dark mode', $settings.dark, () => toggle('dark'), false],
-		['Units', $settings.units === 'imperial' ? 'Imperial (mi/ft)' : 'Metric (km/m)', toggleUnits, false],
+		['Units', $settings.units === 'imperial' ? 'mi/ft' : 'km/m', toggleUnits, false],
 		['Community guidelines', '', () => openModal({ type: 'community' }), false],
 		['About', '', () => openModal({ type: 'about' }), false]
 	];

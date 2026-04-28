@@ -17,7 +17,8 @@
 		userMiles,
 		elevationProfileVisible,
 		profileData,
-		selectedMarkerId
+		selectedMarkerId,
+		activeIcons
 	} from '$lib/store.js';
 	import MarkerSlide from '$lib/MarkerSlide.svelte';
 	import MarkerDetail from '$lib/MarkerDetail.svelte';
@@ -153,41 +154,40 @@
 	});
 
 	let filteredIdx;
-	$: updateFilteredIdx(activeIcons, $data);
+	$: updateFilteredIdx($activeIcons, $data);
 	function updateFilteredIdx() {
-		updateSelectedMarker(-1); //always deselect marker to prevent reindex issues
+		updateSelectedMarker(-1);
 		filteredIdx = $data.features.reduce((acc, curr, idx) => {
 			for (const char of curr.properties.icons) {
-				if (activeIcons[ICONS.indexOf(char)]) {
+				if ($activeIcons[ICONS.indexOf(char)]) {
 					acc.push(idx);
 					break;
 				}
 			}
 			return acc;
 		}, []);
-		// console.log(filteredIdx);
 	}
 
 	const iconLayers = ICONS.map((icon) => {
 		return `markers-${icon}`;
 	});
-	let activeIcons = new Array(ICONS.length).fill(true);
 	let lastToggleAllIcons = true;
 	function toggleIconLayer(i) {
-		activeIcons[i] = !activeIcons[i];
+		$activeIcons[i] = !$activeIcons[i];
+		$activeIcons = $activeIcons;
 		updateIconLayer(i);
 	}
 	function toggleAllIcons() {
 		lastToggleAllIcons = !lastToggleAllIcons;
-		activeIcons = activeIcons.fill(lastToggleAllIcons);
+		$activeIcons = $activeIcons.fill(lastToggleAllIcons);
 		for (let i = 0; i < ICONS.length; i++) updateIconLayer(i);
 	}
 	function updateIconLayer(i) {
-		map.setLayoutProperty(iconLayers[i], 'visibility', activeIcons[i] ? 'visible' : 'none');
+		map.setLayoutProperty(iconLayers[i], 'visibility', $activeIcons[i] ? 'visible' : 'none');
 		map.setLayoutProperty(
 			iconLayers[i] + '-selected',
 			'visibility',
-			activeIcons[i] ? 'visible' : 'none'
+			$activeIcons[i] ? 'visible' : 'none'
 		);
 	}
 
@@ -403,7 +403,7 @@
 	}
 
 	function repopulateMap() {
-		activeIcons = new Array(ICONS.length).fill(true);
+		$activeIcons = new Array(ICONS.length).fill(true);
 		lastToggleAllIcons = true;
 		for (const icon of ICONS) {
 			map.removeLayer(`markers-${icon}`);
@@ -622,7 +622,7 @@
 				{#each ICONS as icon, i}
 					<button
 						class="btn btn-circle btn-sm bg-white focus:bg-white active:bg-white border-opacity-50"
-						class:opacity-40={!activeIcons[i]}
+						class:opacity-40={!$activeIcons[i]}
 						on:click={() => toggleIconLayer(i)}
 					>
 						<img src={`/map-icons/${icon}.png`} />

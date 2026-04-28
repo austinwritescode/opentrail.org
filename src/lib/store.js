@@ -52,6 +52,16 @@ export const ICON_EXPLANATIONS = {
 	t: 'town service',
 	a: 'very important or hazardous'
 };
+export const ICON_COLORS = {
+	w: '#4CA7FC',
+	s: '#B1D8FC',
+	c: '#75BB35',
+	o: '#8435DA',
+	j: '#EAB669',
+	r: '#000000',
+	t: '#BAA486',
+	a: '#D7230E'
+};
 
 let initSettings = {
 	trail: '',
@@ -179,3 +189,5 @@ if (browser)
 	);
 
 export const profileData = writable({ points: [], startIdx: 0, endIdx: 0 });
+
+export const activeIcons = writable(ICONS.map(() => true));

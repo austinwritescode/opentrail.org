@@ -7,7 +7,10 @@
 		settings,
 		userMiles,
 		trailRoute,
-		selectedMarkerId
+		selectedMarkerId,
+		ICON_COLORS,
+		ICONS,
+		activeIcons
 	} from '$lib/store.js';
 	import { mToFt, ftToM, miToKm } from '$lib/helpers.js';
 	import { createEventDispatcher } from 'svelte';
@@ -15,16 +18,7 @@
 	const dispatch = createEventDispatcher();
 
 	const PADDING = { top: 10, right: 8, bottom: 22, left: 38 };
-	const ICON_COLORS = {
-		w: '#3b82f6',
-		s: '#60a5fa',
-		c: '#22c55e',
-		j: '#a855f7',
-		r: '#f97316',
-		t: '#eab308',
-		o: '#6b7280',
-		a: '#ef4444'
-	};
+
 
 	let svgEl;
 	let containerEl;
@@ -50,14 +44,14 @@
 		return PADDING.top + (1 - (elev - elevMin) / (elevMax - elevMin)) * (height - PADDING.top - PADDING.bottom);
 	}
 
-	$: visibleMarkers = getVisibleMarkers($renderedMarkers, $data);
+	$: visibleMarkers = getVisibleMarkers($renderedMarkers, $data, $activeIcons);
 	$: elevRange = getElevRange($profileData, imperial);
 	$: paths = buildLinePath($profileData, elevRange, width, height);
 	$: xTicks = buildXTicks($profileData, width, imperial);
 	$: yTicks = buildYTicks(elevRange, height, imperial);
 	$: geoDot = getGeoDot($userMiles, $profileData, $trailRoute, $settings);
 
-	function getVisibleMarkers(renderedIdxs, features) {
+	function getVisibleMarkers(renderedIdxs, features, iconFilters) {
 		if (!features.features || features.features.length === 0) return [];
 		return renderedIdxs
 			.map((i) => {
@@ -70,7 +64,7 @@
 					icon: f.properties.icon || f.properties.icons?.[0] || 'o'
 				};
 			})
-			.filter(Boolean);
+			.filter((m) => m && iconFilters[ICONS.indexOf(m.icon)]);
 	}
 
 	function getGeoDot(um, pd, tr, s) {

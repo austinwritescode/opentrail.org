@@ -1,6 +1,7 @@
 <script>
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
+	import { slide } from 'svelte/transition';
 	import maplibregl from 'maplibre-gl';
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import {
@@ -171,6 +172,7 @@
 	const iconLayers = ICONS.map((icon) => {
 		return `markers-${icon}`;
 	});
+	let filtersVisible = false;
 	let lastToggleAllIcons = true;
 	function toggleIconLayer(i) {
 		$activeIcons[i] = !$activeIcons[i];
@@ -181,6 +183,14 @@
 		lastToggleAllIcons = !lastToggleAllIcons;
 		$activeIcons = $activeIcons.fill(lastToggleAllIcons);
 		for (let i = 0; i < ICONS.length; i++) updateIconLayer(i);
+	}
+	function toggleFilters() {
+		filtersVisible = !filtersVisible;
+		if (!filtersVisible) {
+			$activeIcons = new Array(ICONS.length).fill(true);
+			lastToggleAllIcons = true;
+			for (let i = 0; i < ICONS.length; i++) updateIconLayer(i);
+		}
 	}
 	function updateIconLayer(i) {
 		map.setLayoutProperty(iconLayers[i], 'visibility', $activeIcons[i] ? 'visible' : 'none');
@@ -611,23 +621,37 @@
 					<ElevationProfile on:cursorupdate={onCursorUpdate} />
 				</div>
 			{/if}
-			<!-- filter icons -->
-			<div class="absolute top-32 right-2 btn-group btn-group-vertical">
+			<!-- filter funnel + collapsible filter icons -->
+			<div class="absolute top-32 right-2 flex flex-col items-stretch">
 				<button
-					class="btn btn-circle btn-sm bg-white focus:bg-white active:bg-white border-opacity-50"
-					on:click={toggleAllIcons}
+					class="btn btn-circle btn-sm bg-white focus:bg-white active:bg-white border-opacity-50 filter-funnel-btn"
+					class:filter-funnel-open={filtersVisible}
+					class:filter-funnel-active={filtersVisible}
+					on:click={toggleFilters}
 				>
-					<img src={'/map-icons/select-all.png'} height="20px" width="20px" />
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 8.5V18l-4 2v-7.5L3 4z"/></svg>
 				</button>
-				{#each ICONS as icon, i}
-					<button
-						class="btn btn-circle btn-sm bg-white focus:bg-white active:bg-white border-opacity-50"
-						class:opacity-40={!$activeIcons[i]}
-						on:click={() => toggleIconLayer(i)}
-					>
-						<img src={`/map-icons/${icon}.png`} />
-					</button>
-				{/each}
+				{#if filtersVisible}
+					<div in:slide={{ duration: 200 }} out:slide={{ duration: 200 }}>
+						<div class="btn-group btn-group-vertical filter-bar-inner">
+							<button
+								class="btn btn-circle btn-sm bg-white focus:bg-white active:bg-white border-opacity-50"
+								on:click={toggleAllIcons}
+							>
+								<img src={'/map-icons/select-all.png'} height="20px" width="20px" />
+							</button>
+							{#each ICONS as icon, i}
+								<button
+									class="btn btn-circle btn-sm bg-white focus:bg-white active:bg-white border-opacity-50"
+									class:opacity-40={!$activeIcons[i]}
+									on:click={() => toggleIconLayer(i)}
+								>
+									<img src={`/map-icons/${icon}.png`} />
+								</button>
+							{/each}
+						</div>
+					</div>
+				{/if}
 			</div>
 			<!-- profile toggle button -->
 			<button
@@ -722,5 +746,25 @@
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 		cursor: pointer;
 		padding: 0;
+	}
+	.filter-funnel-btn {
+		z-index: 2;
+		border-radius: 6px;
+	}
+	.filter-funnel-open {
+		border-radius: 6px 6px 0 0;
+		border-bottom: none;
+		margin-bottom: 1px;
+	}
+	.filter-funnel-active svg {
+		stroke: #3b82f6;
+	}
+	.filter-bar-inner .btn:first-child {
+		border-top-left-radius: 0;
+		border-top-right-radius: 0;
+	}
+	.filter-bar-inner .btn:last-child {
+		border-bottom-left-radius: 6px;
+		border-bottom-right-radius: 6px;
 	}
 </style>

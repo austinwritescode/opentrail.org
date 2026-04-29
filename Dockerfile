@@ -1,6 +1,7 @@
 # Stage 1: Build
 FROM node:20-slim AS builder
 WORKDIR /app
+RUN apt-get update -y && apt-get install -y openssl
 COPY package*.json ./
 RUN npm ci
 COPY prisma ./prisma/
@@ -17,8 +18,6 @@ RUN npm run build
 # Stage 2: Run
 FROM node:20-slim
 WORKDIR /app
-
-# Install openssl (Required for Prisma engines on slim images)
 RUN apt-get update -y && apt-get install -y openssl
 
 # Copy only what is needed for production

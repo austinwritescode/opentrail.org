@@ -14,7 +14,8 @@
 		isInstalled,
 		deferredPrompt,
 		platform,
-		promptInstall
+		promptInstall,
+		swWaitingRegistration
 	} from '$lib/store.js';
 	import pLimit from 'p-limit';
 	const limit = pLimit(15); //fetch concurrency limit
@@ -92,6 +93,9 @@
 					]
 			  ]
 			: []),
+		...($swWaitingRegistration
+			? [['An update is available', 'Install now', installUpdate, false]]
+			: []),
 		['Offline cache', $settings.offline, toggleOffline, false],
 		...offlineSublabels,
 		['Username', $settings.username, openUsernameModal, false],
@@ -135,6 +139,14 @@
 				data: ['offline cache', TRAILS[$settings.trail].size],
 				submit: fetchOffline
 			});
+	}
+
+	function installUpdate() {
+		const reg = $swWaitingRegistration;
+		if (reg && reg.waiting) {
+			reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+			swWaitingRegistration.set(null);
+		}
 	}
 
 	function toggleImages() {

@@ -4,13 +4,15 @@
 	import {
 		fragment,
 		modal,
+		openModal,
 		TRAILS,
 		ICONS,
 		ICON_EXPLANATIONS,
 		settings,
 		errorModal,
 		isInstalled,
-		deferredPrompt
+		deferredPrompt,
+		swWaitingRegistration
 	} from '$lib/store.js';
 	import { onMount } from 'svelte';
 	import WarnIcon from '$lib/warnIcon.svelte';
@@ -32,6 +34,36 @@
 			deferredPrompt.set(null);
 			isInstalled.set(true);
 		});
+
+		if ('serviceWorker' in navigator) {
+			navigator.serviceWorker.ready.then((reg) => {
+				function showUpdateModal() {
+					swWaitingRegistration.set(reg);
+					openModal({
+						type: 'updateAvailable',
+						submit: () => {
+							reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+						},
+						cancel: () => {}
+					});
+				}
+
+				if (reg.waiting) showUpdateModal();
+
+				reg.addEventListener('updatefound', () => {
+					const newWorker = reg.installing;
+					newWorker.addEventListener('statechange', () => {
+						if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+							showUpdateModal();
+						}
+					});
+				});
+			});
+
+			navigator.serviceWorker.addEventListener('controllerchange', () => {
+				window.location.reload();
+			});
+		}
 	});
 
 	function cancelModal() {
@@ -278,6 +310,9 @@
 			{:else if $modal.type === 'iOSCompass'}
 				<p class="font-bold text-xl">Enable compass heading?</p>
 				<p class="text-sm opacity-70">You'll be asked to allow motion access.</p>
+			{:else if $modal.type === 'updateAvailable'}
+				<p class="font-bold text-xl">Update available</p>
+				<p class="text-sm opacity-70">A new version of OpenTrail is ready. Updating will restart the app.</p>
 			{/if}
 			<div class="modal-action">
 				{#if noConfirm}
@@ -302,6 +337,8 @@
 								Background
 							</button>
 							<button class="btn btn-primary text-xs" on:click={submitModal}>Regular</button>
+						{:else if $modal.type === 'updateAvailable'}
+							<button class="btn btn-primary" on:click={submitModal}>Update now</button>
 						{:else}
 							<button class="btn btn-primary" on:click={submitModal}>Confirm</button>
 						{/if}

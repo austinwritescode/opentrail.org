@@ -29,17 +29,11 @@ const dontDelete = [
     'image-cache'
 ];
 
+const tryCache = () => caches.open(CACHE).then(c => c.addAll(ASSETS));
 self.addEventListener('install', (event) => {
-    console.log('Service worker installing. Cache version: ' + CACHE)
-    self.skipWaiting()
-    event.waitUntil(caches.open(CACHE).then((cache) => {
-        // ASSETS.forEach(async (asset) => {
-        //     console.log(`fetching asset ${asset}`)
-        //     await cache.add(asset)
-        // })
-        return cache.addAll(ASSETS)
-    }))
-})
+  console.log('Service worker installing. Cache version: ' + CACHE);
+  event.waitUntil(tryCache().catch(tryCache).catch(tryCache));
+});
 
 self.addEventListener('activate', (event) => {
     console.log('Service worker activating. Cache version: ' + CACHE)
@@ -56,6 +50,12 @@ self.addEventListener('activate', (event) => {
         )
     )
     return self.clients.claim();
+})
+
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting()
+    }
 })
 
 self.addEventListener('fetch', (event) => {

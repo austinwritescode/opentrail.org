@@ -191,3 +191,5 @@ if (browser)
 export const profileData = writable({ points: [], startIdx: 0, endIdx: 0 });
 
 export const activeIcons = writable(ICONS.map(() => true));
+
+export const swWaitingRegistration = writable(null);

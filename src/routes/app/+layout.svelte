@@ -1,6 +1,6 @@
 <script>
 	import { page } from '$app/stores';
-	import { onMount } from 'svelte';
+	import { onMount, mount, unmount } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import maplibregl from 'maplibre-gl';
 	import 'maplibre-gl/dist/maplibre-gl.css';
@@ -433,7 +433,7 @@
 			map.setFeatureState({ source: 'markers', id: $selectedMarkerId }, { selected: false });
 		if (id !== -1) map.setFeatureState({ source: 'markers', id: id }, { selected: true });
 		else {
-			for (const comp of slideComponents) comp.$destroy();
+			for (const comp of slideComponents) unmount(comp);
 			slideComponents = [];
 			showSwiper = false;
 		}
@@ -446,11 +446,11 @@
 			virtual: {
 				slides: filteredIdx,
 				renderExternal: (d) => {
-					for (const comp of slideComponents) comp.$destroy();
+					for (const comp of slideComponents) unmount(comp);
 					slideComponents = [];
 					for (let i = d.from; i <= d.to; i++) {
 						slideComponents.push(
-							new MarkerSlide({
+							mount(MarkerSlide, {
 								target: swiperEl,
 								props: { index: filteredIdx[i], offset: d.offset }
 							})
@@ -614,7 +614,7 @@
 			style="visibility: {$page.url.pathname === '/app' ? 'visible' : 'hidden'};"
 			class="row-start-1 col-start-1 relative flex flex-col"
 		>
-			<div id="map" class="flex-1 w-full min-h-0" />
+			<div id="map" class="flex-1 w-full min-h-0"></div>
 			<!-- elevation profile overlay -->
 			{#if $elevationProfileVisible}
 				<div class="elevation-profile-overlay" style="background: {$settings.dark ? '#1e1e1e' : 'white'}; border-top: 1px solid {$settings.dark ? '#444' : '#ddd'};">
@@ -684,7 +684,7 @@
 					on:slidechange={onSlideChange}
 					bind:this={swiperEl}
 					init={false}
-				/>
+				></swiper-container>
 			{:else}
 				<button
 					class="absolute new-marker-button right-2 btn btn-circle btn-sm btn-primary"

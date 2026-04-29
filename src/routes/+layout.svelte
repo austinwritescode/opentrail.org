@@ -211,14 +211,14 @@
 			{:else if $modal.type === 'progress'}
 				<p class="font-bold text-xl">{$modal.data[2]}</p>
 				{#if $modal.data[1] > 0}
-					<progress class="progress w-full" value={$modal.data[0]} max={$modal.data[1]} />
+					<progress class="progress w-full" value={$modal.data[0]} max={$modal.data[1]}></progress>
 					<p class="text-md">{$modal.data[0]} of {$modal.data[1]}</p>
 					<p>
 						Do not turn off your screen or switch apps until complete. Your screen's sleep setting
 						has been temporarily disabled until the download is complete.
 					</p>
 				{:else if $modal.data[1] === 0}
-					<button class="btn btn-ghost btn-md loading -m-4" />
+					<button class="btn btn-ghost btn-md loading -m-4"></button>
 				{/if}
 			{:else if $modal.type === 'trail'}
 				<p class="font-bold text-2xl">Trail Selection</p>
@@ -268,7 +268,7 @@
 				/>
 			{:else if $modal.type === 'textArea'}
 				<p class="font-bold text-2xl">{$modal.data[0]}</p>
-				<textarea class="textarea textarea-accent w-full my-4" bind:value={$modal.data[1]} />
+				<textarea class="textarea textarea-accent w-full my-4" bind:value={$modal.data[1]}></textarea>
 			{:else if $modal.type === 'editIcons'}
 				<p class="font-bold text-2xl">Marker icons</p>
 				<div class="btn-group">

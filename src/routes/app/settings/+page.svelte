@@ -371,7 +371,7 @@
 
 <div class="flex flex-col w-full p-4" bind:this={settingsWrapper}>
 	{#each labels as [left, right, callback, subfield], i}
-		{#if !subfield && i != 0}<div class="divider h-0 my-1" />{/if}
+		{#if !subfield && i != 0}<div class="divider h-0 my-1"></div>{/if}
 		<div
 			class="flex flex-row justify-between items-center my-2 text-md cursor-pointer"
 			on:click={callback}
@@ -380,7 +380,7 @@
 			{#if typeof right === 'string'}
 				<span class="truncate">
 					{#if right === 'Sync' && syncSpinner}
-						<button class="btn btn-square btn-ghost btn-sm loading -my-4" />
+						<button class="btn btn-square btn-ghost btn-sm loading -my-4"></button>
 					{/if}
 					{right} >
 				</span>
@@ -391,9 +391,9 @@
 							class="radial-progress mx-4"
 							style:--value={$bgFetchStatus.progress}
 							style:--size="1.5rem"
-						/>
+						></div>
 					{:else if left === currentDownloadType && fetchSpinner}
-						<button class="btn btn-square btn-ghost btn-sm loading -my-4" />
+						<button class="btn btn-square btn-ghost btn-sm loading -my-4"></button>
 					{/if}
 					<input type="checkbox" class="toggle block" bind:checked={right} />
 				</div>

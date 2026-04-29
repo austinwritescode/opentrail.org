@@ -6,14 +6,14 @@
 <table class="table table-zebra table-fixed w-full">
 	<thead class="sticky top-0">
 		<tr>
-			<th class="w-10" />
+			<th class="w-10"></th>
 			<th class="w-16">Mile</th>
 			<th>Description</th>
 		</tr>
 	</thead>
 	<tbody>
 		{#each $renderedMarkers as i}
-			<tr onclick={`window.location='/app/list#detail=${i}';`}>
+			<tr onclick={() => window.location.hash = `detail=${i}`}>
 				<td class="p-0 pl-2">
 					<img
 						src={`/map-icons/${$data.features[i].properties.icon}.png`}

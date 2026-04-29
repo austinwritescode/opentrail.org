@@ -259,7 +259,7 @@
 				{/each}
 			</swiper-container>
 		{/if}
-		<div class="divider h-0 mb-2" />
+		<div class="divider h-0 mb-2"></div>
 		{#if $settings.username}
 			<div class="form-control">
 				<div class="m-2">
@@ -269,7 +269,7 @@
 							class="textarea bg-base-200"
 							disabled={commentSpinner}
 							bind:value={newComment}
-						/>
+						></textarea>
 					</label>
 				</div>
 			</div>

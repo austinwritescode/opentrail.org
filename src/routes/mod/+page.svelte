@@ -2,7 +2,6 @@
 	import { onMount } from 'svelte';
 	import maplibregl from 'maplibre-gl';
 	import 'maplibre-gl/dist/maplibre-gl.css';
-	export const ssr = false;
 	let key;
 	let mod;
 	let markers;
@@ -268,7 +267,7 @@
 	on:click|self={() => (isModalOpen = false)}
 >
 	<div class="modal-box h-5/6 w-5/6">
-		<div id="map" class="h-full w-full" />
+		<div id="map" class="h-full w-full"></div>
 	</div>
 </div>
 

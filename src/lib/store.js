@@ -101,7 +101,10 @@ export const renderedMarkers = writable([]);
 
 export const selectedMarkerId = writable(-1);
 
-export const fragment = writable(new URLSearchParams(''));
+export const detailId = writable(-1);
+
+export const editLocId = writable(-1);
+export const editLocNewMarker = writable(false);
 
 function noOp() {}
 export const modal = writable({

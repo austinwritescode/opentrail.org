@@ -1,5 +1,5 @@
 <script>
-	import { data, settings, trailRoute, userMiles } from '$lib/store.js';
+	import { data, settings, trailRoute, userMiles, detailId } from '$lib/store.js';
 	import { parseDescURL, isSafeURL, mToFt, ftToM, formatDist, formatElev } from '$lib/helpers.js';
 	export let index;
 	export let offset;
@@ -25,7 +25,7 @@
 </script>
 
 <swiper-slide virtualIndex={index} style={`left: ${offset}px`}>
-	<div class="block h-full cursor-pointer" onclick={() => window.location.hash = `detail=${$data.features[index]?.id}`}>
+	<div class="block h-full cursor-pointer" onclick={() => $detailId = $data.features[index]?.id}>
 		<div class="bg-base-100 rounded-lg pt-2 p-4 w-full h-full select-text relative overflow-visible">
 			{#if onPrev}
 				<button

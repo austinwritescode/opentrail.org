@@ -2,7 +2,9 @@
 	import {
 		settings,
 		data,
-		fragment,
+		detailId,
+		editLocId,
+		editLocNewMarker,
 		openModal,
 		errorModal,
 		trailRoute,
@@ -10,13 +12,12 @@
 	} from '$lib/store.js';
 	import { register } from 'swiper/element/bundle';
 	import { postGeneric } from '$lib/api.js';
-	import { goto } from '$app/navigation';
 	import { parseDescURL, isSafeURL, mToFt, ftToM, formatDist, formatElev } from '$lib/helpers.js';
 	register();
 
 	export let onPrev;
 	export let onNext;
-	$: dataIdx = $fragment.get('detail');
+	$: dataIdx = $detailId;
 	$: prop = $data.features[dataIdx].properties;
 	$: imp = $settings.units !== 'metric';
 	$: totalMiles = $trailRoute.features?.[0]?.geometry.coordinates.length / 10;
@@ -162,7 +163,7 @@
 	}
 </script>
 
-<div class="modal" class:modal-open={true} onclick={(e) => e.target === e.currentTarget && (location.hash = '')}>
+<div class="modal" class:modal-open={true} onclick={(e) => e.target === e.currentTarget && ($detailId = -1)}>
 	<div class="modal-box rounded-lg p-4 h-4/5 select-text relative overflow-visible">
 		{#if onPrev}
 			<button
@@ -214,20 +215,24 @@
 						<li onclick={() => editTitle(prop)}><a>Edit title</a></li>
 						<li onclick={() => editDescription(prop)}><a>Edit description</a></li>
 						<li
-							onclick={async () => {
-								await goto(`/app`);
-								location.hash = `editLoc=${dataIdx}`;
+							onclick={() => {
+								$editLocId = dataIdx;
+								$editLocNewMarker = false;
 							}}
 						>
 							<a>Edit location</a>
 						</li>
 						<li onclick={() => editIcons(prop)}><a>Edit icons</a></li>
+						<li onclick={() => {
+							const url = `${window.location.origin}/app?trail=${$settings.trail}&marker=${prop.dbid}`;
+							navigator.clipboard.writeText(url);
+						}}><a>Copy share link</a></li>
 						<li onclick={() => flagGeneric({}, 'flagMarker')}><a>Delete marker</a></li>
 					</ul>
 				</div>
 				<button
 					class="btn btn-sm btn-circle btn-ghost -mr-2 text-lg"
-					onclick={() => (location.hash = '')}
+					onclick={() => ($detailId = -1)}
 				>
 					✕
 				</button>
@@ -333,7 +338,7 @@
 		{/each}
 
 		<div class="modal-action m-2">
-			<button class="btn" onclick={() => (location.hash = '')}>Close</button>
+			<button class="btn" onclick={() => ($detailId = -1)}>Close</button>
 		</div>
 	</div>
 </div>

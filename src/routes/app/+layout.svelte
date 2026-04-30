@@ -10,7 +10,9 @@
 		TRAILS,
 		ICONS,
 		renderedMarkers,
-		fragment,
+		detailId,
+		editLocId,
+		editLocNewMarker,
 		openModal,
 		modal,
 		errorModal,
@@ -148,10 +150,24 @@
 	}
 
 	onMount(async () => {
+		const params = $page.url.searchParams;
+		const deepTrail = params.get('trail');
+		const deepMarkerDbid = params.get('marker');
+		if (deepTrail && TRAILS[deepTrail]) {
+			$settings.trail = deepTrail;
+			history.replaceState(null, '', '/app');
+		}
 		if (!Object.keys(TRAILS).includes($settings.trail)) goto('/');
 		if ($settings.autosync) await syncData();
 		else if ($data.features.length === 0) await getData();
 		await initializeMap();
+		if (deepMarkerDbid) {
+			const idx = $data.features.findIndex(f => f.properties.dbid == deepMarkerDbid);
+			if (idx !== -1) {
+				updateSelectedMarker(idx, true);
+				$detailId = idx;
+			}
+		}
 	});
 
 	let filteredIdx;
@@ -515,7 +531,8 @@
 								};
 								console.log(feature);
 								$data.features.push(feature);
-								location.hash = `editLoc=${feature.id}&newMarker=1`;
+								$editLocId = feature.id;
+								$editLocNewMarker = true;
 							}
 						});
 					}
@@ -524,10 +541,11 @@
 		});
 	}
 	let lockSelection = false;
-	$: if ($fragment.get('editLoc')) {
-		updateSelectedMarker(parseInt($fragment.get('editLoc')));
+	$: if ($editLocId !== -1) {
+		updateSelectedMarker($editLocId);
 		lockSelection = true;
-		editMarkerLoc($fragment.get('newMarker'));
+		editMarkerLoc($editLocNewMarker);
+		$editLocId = -1;
 	}
 	function editMarkerLoc(newMarker) {
 		const oldCoordCopy = [...$data.features[$selectedMarkerId].geometry.coordinates];
@@ -536,22 +554,18 @@
 			type: 'editLoc',
 			cancel: () => {
 				map.off('move', editMarkerLocOnMove);
-				window.location.hash = '';
 
 				if (newMarker) {
 					updateSelectedMarker(-1);
 					$data.features.pop();
-					// map.getSource('markers').setData($data);
 					console.log($data);
 				} else $data.features[$selectedMarkerId].geometry.coordinates = oldCoordCopy;
 
-				// map.getSource('markers').setData($data);
 				lockSelection = false;
 				updateSelectedMarker(-1);
 			},
 			submit: async () => {
 				map.off('move', editMarkerLocOnMove);
-				window.location.hash = '';
 				lockSelection = false;
 
 				const feature = $data.features[$selectedMarkerId];
@@ -611,12 +625,11 @@
 
 	function navigateDetail(id) {
 		updateSelectedMarker(id, true);
-		location.hash = 'detail=' + id;
+		$detailId = id;
 	}
 
 	function getDetailNavProps() {
-		const detailId = parseInt($fragment.get('detail'));
-		const pos = filteredIdx.indexOf(detailId);
+		const pos = filteredIdx.indexOf($detailId);
 		return {
 			onPrev: pos > 0 ? () => navigateDetail(filteredIdx[pos - 1]) : undefined,
 			onNext: pos < filteredIdx.length - 1 ? () => navigateDetail(filteredIdx[pos + 1]) : undefined
@@ -691,14 +704,14 @@
 				{/if}
 			</button>
 			<!-- detail modal -->
-			{#if $fragment.has('detail')}
+			{#if $detailId !== -1}
 				<MarkerDetail {...getDetailNavProps()} />
 			{/if}
 			<!-- swiper or new marker button -->
 			{#if $selectedMarkerId !== -1}
 				<swiper-container
 					class="absolute w-full h-40"
-					style="bottom: {$elevationProfileVisible ? 'calc(25% + 8px)' : '8px'}; visibility: {$fragment.toString().length < 2 && showSwiper
+					style="bottom: {$elevationProfileVisible ? 'calc(25% + 8px)' : '8px'}; visibility: {$detailId === -1 && showSwiper
 						? 'inherit'
 						: 'hidden'};"
 					slides-per-view={1.15}

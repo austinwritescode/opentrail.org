@@ -2,7 +2,6 @@
 	import 'normalize.css';
 	import '../app.css'; //tailwind
 	import {
-		fragment,
 		modal,
 		openModal,
 		TRAILS,
@@ -23,8 +22,6 @@
 	onMount(() => {
 		window.addEventListener('error', (e) => errorModal(e.error?.message || e.message));
 		window.addEventListener('unhandledrejection', (e) => errorModal(e.reason?.message || String(e.reason)));
-		location.hash = '';
-		window.onhashchange = () => ($fragment = new URLSearchParams(location.hash.slice(1)));
 
 		window.addEventListener('beforeinstallprompt', (e) => {
 			e.preventDefault();

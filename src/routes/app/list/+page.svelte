@@ -1,10 +1,14 @@
 <script>
-	import { data, fragment, renderedMarkers, settings, trailRoute, selectedMarkerId } from '$lib/store.js';
+	import { data, detailId, renderedMarkers, settings, trailRoute, selectedMarkerId } from '$lib/store.js';
 	import MarkerDetail from '$lib/MarkerDetail.svelte';
 
-	$: detailPos = $fragment.has('detail') ? $renderedMarkers.indexOf(parseInt($fragment.get('detail'))) : -1;
-	$: detailOnPrev = detailPos > 0 ? () => { $selectedMarkerId = $renderedMarkers[detailPos - 1]; location.hash = 'detail=' + $renderedMarkers[detailPos - 1]; } : undefined;
-	$: detailOnNext = detailPos >= 0 && detailPos < $renderedMarkers.length - 1 ? () => { $selectedMarkerId = $renderedMarkers[detailPos + 1]; location.hash = 'detail=' + $renderedMarkers[detailPos + 1]; } : undefined;
+	function listNavigate(id) {
+		$selectedMarkerId = id;
+		$detailId = id;
+	}
+	$: listPos = $renderedMarkers.indexOf($detailId);
+	$: listOnPrev = listPos > 0 ? () => listNavigate($renderedMarkers[listPos - 1]) : undefined;
+	$: listOnNext = listPos >= 0 && listPos < $renderedMarkers.length - 1 ? () => listNavigate($renderedMarkers[listPos + 1]) : undefined;
 </script>
 
 <table class="table table-zebra table-fixed w-full">
@@ -17,7 +21,7 @@
 	</thead>
 	<tbody>
 		{#each $renderedMarkers as i}
-			<tr onclick={() => window.location.hash = `detail=${i}`}>
+			<tr onclick={() => $detailId = i}>
 				<td class="p-0 pl-2">
 					<img
 						src={`/map-icons/${$data.features[i].properties.icon}.png`}
@@ -45,6 +49,6 @@
 	</div>
 {/if}
 
-{#if $fragment.has('detail')}
-	<MarkerDetail onPrev={detailOnPrev} onNext={detailOnNext} />
+{#if $detailId !== -1}
+	<MarkerDetail onPrev={listOnPrev} onNext={listOnNext} />
 {/if}

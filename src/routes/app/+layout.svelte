@@ -321,6 +321,7 @@
 			})
 		);
 
+		map.on('error', (e) => errorModal(`Map: ${e.error?.message || JSON.stringify(e.error)}`));
 		map.on('load', populateMap);
 		slotWrapper.removeEventListener('repopulateMap', repopulateMap);
 		slotWrapper.addEventListener('repopulateMap', repopulateMap);

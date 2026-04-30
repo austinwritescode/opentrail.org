@@ -161,7 +161,7 @@
 	}
 </script>
 
-<div class="modal" class:modal-open={true} on:click|self={() => (location.hash = '')}>
+<div class="modal" class:modal-open={true} onclick={(e) => e.target === e.currentTarget && (location.hash = '')}>
 	<div class="modal-box rounded-lg p-4 h-4/5 select-text">
 		<div class="flex justify-between items-center mb-2">
 			<p class="text-md font-bold break-words">
@@ -188,27 +188,27 @@
 									type="file"
 									accept="image/*"
 									id="upload-photo"
-									on:change={uploadImage}
+									onchange={uploadImage}
 								/>
 							</a>
 						</li>
-						<li on:click={() => editTitle(prop)}><a>Edit title</a></li>
-						<li on:click={() => editDescription(prop)}><a>Edit description</a></li>
+						<li onclick={() => editTitle(prop)}><a>Edit title</a></li>
+						<li onclick={() => editDescription(prop)}><a>Edit description</a></li>
 						<li
-							on:click={async () => {
+							onclick={async () => {
 								await goto(`/app`);
 								location.hash = `editLoc=${dataIdx}`;
 							}}
 						>
 							<a>Edit location</a>
 						</li>
-						<li on:click={() => editIcons(prop)}><a>Edit icons</a></li>
-						<li on:click={() => flagGeneric({}, 'flagMarker')}><a>Delete marker</a></li>
+						<li onclick={() => editIcons(prop)}><a>Edit icons</a></li>
+						<li onclick={() => flagGeneric({}, 'flagMarker')}><a>Delete marker</a></li>
 					</ul>
 				</div>
 				<button
 					class="btn btn-sm btn-circle btn-ghost -mr-2 text-lg"
-					on:click={() => (location.hash = '')}
+					onclick={() => (location.hash = '')}
 				>
 					✕
 				</button>
@@ -252,7 +252,7 @@
 								height="15"
 								width="15"
 								class="absolute top-1 right-1 rounded-md"
-								on:click={() => flagGeneric({ image: image }, 'flagImage')}
+								onclick={() => flagGeneric({ image: image }, 'flagImage')}
 							/>
 						</div>
 					</swiper-slide>
@@ -283,11 +283,11 @@
 				{:else}
 					<button
 						class="btn"
-						on:click={() => {
+						onclick={() => {
 							newComment = '';
 						}}>Cancel</button
 					>
-					<button class="btn btn-primary" on:click={submitComment}>Submit</button>
+					<button class="btn btn-primary" onclick={submitComment}>Submit</button>
 				{/if}
 			</div>
 		{/if}
@@ -307,14 +307,14 @@
 						class="rounded-md"
 						height="15"
 						width="15"
-						on:click={() => flagGeneric({ text: comment.text }, 'flagComment')}
+						onclick={() => flagGeneric({ text: comment.text }, 'flagComment')}
 					/>
 				</div>
 			</div>
 		{/each}
 
 		<div class="modal-action m-2">
-			<button class="btn" on:click={() => (location.hash = '')}>Close</button>
+			<button class="btn" onclick={() => (location.hash = '')}>Close</button>
 		</div>
 	</div>
 </div>

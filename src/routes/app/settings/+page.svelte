@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { db } from '$lib/db.js';
+	import { db } from '$lib/db';
 	import { getData, syncData } from '$lib/api.js';
 	import { liveQuery } from 'dexie';
 	import { browser, dev } from '$app/environment';
@@ -374,7 +374,7 @@
 		{#if !subfield && i != 0}<div class="divider h-0 my-1"></div>{/if}
 		<div
 			class="flex flex-row justify-between items-center my-2 text-md cursor-pointer"
-			on:click={callback}
+			onclick={() => { if (typeof callback === 'function') callback(); }}
 		>
 			<span class={subfield && 'ml-4'}>{left}</span>
 			{#if typeof right === 'string'}

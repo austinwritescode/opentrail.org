@@ -103,8 +103,8 @@
 		}, 100);
 	}
 
-	function onCursorUpdate(e) {
-		const { active, trailIdx } = e.detail;
+	function onCursorUpdate(detail) {
+		const { active, trailIdx } = detail;
 		if (!active) {
 			removeCursorMarker();
 			return;
@@ -618,7 +618,7 @@
 			<!-- elevation profile overlay -->
 			{#if $elevationProfileVisible}
 				<div class="elevation-profile-overlay" style="background: {$settings.dark ? '#1e1e1e' : 'white'}; border-top: 1px solid {$settings.dark ? '#444' : '#ddd'};">
-					<ElevationProfile on:cursorupdate={onCursorUpdate} />
+					<ElevationProfile oncursorupdate={onCursorUpdate} />
 				</div>
 			{/if}
 			<!-- filter funnel + collapsible filter icons -->
@@ -627,7 +627,7 @@
 					class="btn btn-circle btn-sm bg-white focus:bg-white active:bg-white border-opacity-50 filter-funnel-btn"
 					class:filter-funnel-open={filtersVisible}
 					class:filter-funnel-active={filtersVisible}
-					on:click={toggleFilters}
+					onclick={toggleFilters}
 				>
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 8.5V18l-4 2v-7.5L3 4z"/></svg>
 				</button>
@@ -636,7 +636,7 @@
 						<div class="btn-group btn-group-vertical filter-bar-inner">
 							<button
 								class="btn btn-circle btn-sm bg-white focus:bg-white active:bg-white border-opacity-50"
-								on:click={toggleAllIcons}
+							onclick={toggleAllIcons}
 							>
 								<img src={'/map-icons/select-all.png'} height="20px" width="20px" />
 							</button>
@@ -644,7 +644,7 @@
 								<button
 									class="btn btn-circle btn-sm bg-white focus:bg-white active:bg-white border-opacity-50"
 									class:opacity-40={!$activeIcons[i]}
-									on:click={() => toggleIconLayer(i)}
+									onclick={() => toggleIconLayer(i)}
 								>
 									<img src={`/map-icons/${icon}.png`} />
 								</button>
@@ -657,7 +657,7 @@
 			<button
 				class="profile-toggle-btn"
 				style="bottom: {$elevationProfileVisible ? 'calc(25% - 14px)' : '8px'}; background: {$settings.dark ? '#2a2a2a' : 'white'}; border-color: {$settings.dark ? '#555' : 'rgba(0,0,0,0.2)'}; color: {$settings.dark ? '#999' : '#666'};"
-				on:click={toggleProfile}
+				onclick={toggleProfile}
 				title={$elevationProfileVisible ? 'Hide elevation profile' : 'Show elevation profile'}
 			>
 				{#if $elevationProfileVisible}
@@ -681,7 +681,7 @@
 					space-between={15}
 					centered-slides={true}
 					speed={150}
-					on:slidechange={onSlideChange}
+					onslidechange={onSlideChange}
 					bind:this={swiperEl}
 					init={false}
 				></swiper-container>
@@ -689,7 +689,7 @@
 				<button
 					class="absolute new-marker-button right-2 btn btn-circle btn-sm btn-primary"
 					style="bottom: {$elevationProfileVisible ? 'calc(25% + 8px)' : '8px'};"
-					on:click={newMarker}
+					onclick={newMarker}
 				>
 					<img src="/plus.png" height="20" width="20" />
 				</button>
@@ -710,7 +710,7 @@
 			<a
 				href="/app/list"
 				class:active={$page.url.pathname === '/app/list'}
-				on:click={storeRenderedList}
+				onclick={storeRenderedList}
 			>
 				<button>List</button>
 			</a>

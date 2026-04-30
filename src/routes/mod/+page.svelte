@@ -108,18 +108,18 @@
 	<a
 		class="tab tab-lg tab-bordered"
 		class:tab-active={!flagsScreen}
-		on:click={() => (flagsScreen = false)}
+		onclick={() => (flagsScreen = false)}
 	>
 		Mod Queue
 	</a>
 	<a
 		class="tab tab-lg tab-bordered"
 		class:tab-active={flagsScreen}
-		on:click={() => (flagsScreen = true)}
+		onclick={() => (flagsScreen = true)}
 	>
 		Flags
 	</a>
-	<a class="tab tab-lg tab-bordered" on:click={clearTestTrail}> Clear Test Trail </a>
+	<a class="tab tab-lg tab-bordered" onclick={clearTestTrail}> Clear Test Trail </a>
 </div>
 {#if flagsScreen}
 	<div class="wrapper overflow-x-auto text-xs w-full">
@@ -127,7 +127,7 @@
 			<thead>
 				<tr>
 					<th>
-						<button class="btn bg-green-800" on:click={flagIgnoreAll}>Ign All</button>
+						<button class="btn bg-green-800" onclick={flagIgnoreAll}>Ign All</button>
 					</th>
 					<th>Date</th>
 					<th>reporting IP</th>
@@ -140,8 +140,8 @@
 				{#each flags as item}
 					<tr>
 						<th>
-							<button class="btn bg-green-800" on:click={() => flagIgnore(item)}>Ign</button>
-							<button class="btn bg-red-800" on:click={() => flagDeleteUnderlying(item)}>Del</button
+							<button class="btn bg-green-800" onclick={() => flagIgnore(item)}>Ign</button>
+							<button class="btn bg-red-800" onclick={() => flagDeleteUnderlying(item)}>Del</button
 							>
 						</th>
 						<td>{new Date(item.date).toLocaleString('en-US')}</td>
@@ -178,7 +178,7 @@
 			<thead>
 				<tr>
 					<th>
-						<button class="btn bg-green-800" on:click={approveAll}>All</button>
+						<button class="btn bg-green-800" onclick={approveAll}>All</button>
 					</th>
 					<th>Date</th>
 					<th>IP</th>
@@ -193,8 +193,8 @@
 				{#each mod as item}
 					<tr>
 						<th>
-							<button class="btn bg-green-800" on:click={() => approve(item.id)}>Y</button>
-							<button class="btn bg-red-800" on:click={() => reject(item.id)}>N</button>
+							<button class="btn bg-green-800" onclick={() => approve(item.id)}>Y</button>
+							<button class="btn bg-red-800" onclick={() => reject(item.id)}>N</button>
 						</th>
 						<td>{new Date(item.date).toLocaleString('en-US')}</td>
 						<td>{item.ip}</td>
@@ -217,7 +217,7 @@
 									<span>NEW: {item.request.payload}</span>
 								</div>
 							{:else if item.route.includes('editLoc')}
-								<div class="flex flex-col" on:click={() => viewLoc(item.id)}>
+								<div class="flex flex-col" onclick={() => viewLoc(item.id)}>
 									<span>
 										OLD: {markers[item.request.dbid].lat}, {markers[item.request.dbid].lng}
 									</span>
@@ -256,7 +256,7 @@
 				<span>Mod key:</span>
 				<input type="password" class="input input-bordered input-lg" bind:value={key} />
 			</label>
-			<button class="btn" on:click={fetchModQueue}>Submit</button>
+			<button class="btn" onclick={fetchModQueue}>Submit</button>
 		</div>
 	</div>
 {/if}
@@ -264,7 +264,7 @@
 <div
 	class={'modal modal-middle'}
 	class:modal-open={isModalOpen}
-	on:click|self={() => (isModalOpen = false)}
+	onclick={(e) => e.target === e.currentTarget && (isModalOpen = false)}
 >
 	<div class="modal-box h-5/6 w-5/6">
 		<div id="map" class="h-full w-full"></div>

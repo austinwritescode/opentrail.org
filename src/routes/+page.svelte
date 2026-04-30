@@ -31,7 +31,7 @@
 					<a
 						class="flex flex-col items-center gap-1"
 						href="/app"
-						on:click={() => {
+						onclick={() => {
 							$settings.trail = trail;
 						}}
 					>

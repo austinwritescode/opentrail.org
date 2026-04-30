@@ -98,7 +98,8 @@
 		class={'modal modal-bottom ' +
 			($modal.type === 'editLoc' ? 'pointer-events-none bg-transparent' : 'sm:modal-middle')}
 		class:modal-open={open}
-		on:click|self={() => {
+		onclick={(e) => {
+			if (e.target !== e.currentTarget) return;
 			if ($modal.type !== 'progress' && $modal.type !== 'editLoc') cancelModal();
 		}}
 	>
@@ -276,7 +277,7 @@
 						<button
 							class="btn btn-circle btn-sm bg-white focus:bg-white active:bg-white border-opacity-50"
 							class:opacity-40={!$modal.data.includes(icon)}
-							on:click={() => {
+							onclick={() => {
 								$modal.data.includes(icon)
 									? ($modal.data = $modal.data.replace(icon, ''))
 									: ($modal.data = $modal.data + icon);
@@ -295,7 +296,7 @@
 									<button
 										class="btn btn-circle btn-sm bg-white focus:bg-white active:bg-white border-opacity-50"
 										class:opacity-40={$modal.data[0] !== icon}
-										on:click={() => {
+										onclick={() => {
 											let tmp = $modal.data.replace(icon, '');
 											$modal.data = icon + tmp;
 										}}
@@ -316,31 +317,31 @@
 			{/if}
 			<div class="modal-action">
 				{#if noConfirm}
-					<button class="btn" on:click={cancelModal}>Dismiss</button>
+					<button class="btn" onclick={cancelModal}>Dismiss</button>
 				{:else}
 					{#if !spinner}
-						<button class="btn" on:click={cancelModal}>Cancel</button>
+						<button class="btn" onclick={cancelModal}>Cancel</button>
 					{/if}
 					{#if $modal.type !== 'progress'}
 						{#if spinner}
 							<button class="btn btn-primary loading">Confirm</button>
 						{:else if $modal.type === 'iOSCompass'}
-							<button class="btn btn-primary" on:click={$modal.submit}>Confirm</button>
+							<button class="btn btn-primary" onclick={$modal.submit}>Confirm</button>
 						{:else if $modal.type === 'confirmFetch' && 'BackgroundFetchManager' in self}
 							<button
 								class="btn btn-primary text-xs"
-								on:click={() => {
+								onclick={() => {
 									$modal.data[2] = true;
 									submitModal();
 								}}
 							>
 								Background
 							</button>
-							<button class="btn btn-primary text-xs" on:click={submitModal}>Regular</button>
+							<button class="btn btn-primary text-xs" onclick={submitModal}>Regular</button>
 						{:else if $modal.type === 'updateAvailable'}
-							<button class="btn btn-primary" on:click={submitModal}>Update now</button>
+							<button class="btn btn-primary" onclick={submitModal}>Update now</button>
 						{:else}
-							<button class="btn btn-primary" on:click={submitModal}>Confirm</button>
+							<button class="btn btn-primary" onclick={submitModal}>Confirm</button>
 						{/if}
 					{/if}
 				{/if}

@@ -1,6 +1,6 @@
 import { settings, data, openModal, errorModal } from '$lib/store.js'
 import { get } from 'svelte/store';
-import { db } from '$lib/db.js';
+import { db } from '$lib/db';
 import dayjs from 'dayjs';
 
 export async function getData() {

@@ -13,9 +13,8 @@
 		activeIcons
 	} from '$lib/store.js';
 	import { mToFt, ftToM, miToKm } from '$lib/helpers.js';
-	import { createEventDispatcher } from 'svelte';
 
-	const dispatch = createEventDispatcher();
+	export let oncursorupdate = () => {};
 
 	const PADDING = { top: 10, right: 8, bottom: 22, left: 38 };
 
@@ -192,7 +191,7 @@
 		const plotRight = width - PADDING.right;
 		if (x < plotLeft || x > plotRight) {
 			cursorLocalIdx = -1;
-			dispatch('cursorupdate', { active: false });
+			oncursorupdate({ active: false });
 			return;
 		}
 		const fraction = (x - plotLeft) / (plotRight - plotLeft);
@@ -203,7 +202,7 @@
 				const trailIdx = $profileData.startIdx + Math.round(
 					(cursorLocalIdx / ($profileData.points.length - 1)) * ($profileData.endIdx - $profileData.startIdx)
 				);
-				dispatch('cursorupdate', { active: true, trailIdx });
+				oncursorupdate({ active: true, trailIdx });
 			}
 		}
 	}
@@ -218,7 +217,7 @@
 
 	function handlePointerLeave() {
 		cursorLocalIdx = -1;
-		dispatch('cursorupdate', { active: false });
+		oncursorupdate({ active: false });
 	}
 
 	function handleClick() {
@@ -257,10 +256,10 @@
 			bind:this={svgEl}
 			{width}
 			{height}
-			on:pointermove={handlePointerMove}
-			on:pointerdown={handlePointerDown}
-			on:pointerleave={handlePointerLeave}
-			on:click={handleClick}
+			onpointermove={handlePointerMove}
+			onpointerdown={handlePointerDown}
+			onpointerleave={handlePointerLeave}
+			onclick={handleClick}
 			class="elevation-profile-svg"
 		>
 			<path d={paths.area} fill={theme.areaFill} stroke="none" />

@@ -411,6 +411,9 @@
 		map.off('move', onMapMove);
 		map.on('move', onMapMove);
 		updateProfileData();
+		map.once('idle', () => {
+			storeRenderedList();
+		});
 	}
 
 	function repopulateMap() {

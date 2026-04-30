@@ -14,9 +14,10 @@
 	import { parseDescURL, isSafeURL, mToFt, ftToM, formatDist, formatElev } from '$lib/helpers.js';
 	register();
 
-	const dataIdx = $fragment.get('detail');
+	export let onPrev;
+	export let onNext;
+	$: dataIdx = $fragment.get('detail');
 	$: prop = $data.features[dataIdx].properties;
-	$: console.log(prop);
 	$: imp = $settings.units !== 'metric';
 	$: totalMiles = $trailRoute.features?.[0]?.geometry.coordinates.length / 10;
 	$: displayMile = $settings.reverseMiles && totalMiles != null
@@ -162,7 +163,25 @@
 </script>
 
 <div class="modal" class:modal-open={true} onclick={(e) => e.target === e.currentTarget && (location.hash = '')}>
-	<div class="modal-box rounded-lg p-4 h-4/5 select-text">
+	<div class="modal-box rounded-lg p-4 h-4/5 select-text relative overflow-visible">
+		{#if onPrev}
+			<button
+				class="btn btn-circle btn-sm bg-base-100/80 border border-base-300 shadow-md absolute z-10"
+				style="top: calc(50% - 16px); left: -16px;"
+				onclick={onPrev}
+			>
+				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+			</button>
+		{/if}
+		{#if onNext}
+			<button
+				class="btn btn-circle btn-sm bg-base-100/80 border border-base-300 shadow-md absolute z-10"
+				style="top: calc(50% - 16px); right: -16px;"
+				onclick={onNext}
+			>
+				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+			</button>
+		{/if}
 		<div class="flex justify-between items-center mb-2">
 			<p class="text-md font-bold break-words">
 				{prop.title}

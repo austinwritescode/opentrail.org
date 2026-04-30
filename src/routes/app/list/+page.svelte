@@ -1,6 +1,10 @@
 <script>
-	import { data, fragment, renderedMarkers, settings, trailRoute } from '$lib/store.js';
+	import { data, fragment, renderedMarkers, settings, trailRoute, selectedMarkerId } from '$lib/store.js';
 	import MarkerDetail from '$lib/MarkerDetail.svelte';
+
+	$: detailPos = $fragment.has('detail') ? $renderedMarkers.indexOf(parseInt($fragment.get('detail'))) : -1;
+	$: detailOnPrev = detailPos > 0 ? () => { $selectedMarkerId = $renderedMarkers[detailPos - 1]; location.hash = 'detail=' + $renderedMarkers[detailPos - 1]; } : undefined;
+	$: detailOnNext = detailPos >= 0 && detailPos < $renderedMarkers.length - 1 ? () => { $selectedMarkerId = $renderedMarkers[detailPos + 1]; location.hash = 'detail=' + $renderedMarkers[detailPos + 1]; } : undefined;
 </script>
 
 <table class="table table-zebra table-fixed w-full">
@@ -42,5 +46,5 @@
 {/if}
 
 {#if $fragment.has('detail')}
-	<MarkerDetail />
+	<MarkerDetail onPrev={detailOnPrev} onNext={detailOnNext} />
 {/if}

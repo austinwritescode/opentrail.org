@@ -452,11 +452,17 @@
 				renderExternal: (d) => {
 					for (const comp of slideComponents) unmount(comp);
 					slideComponents = [];
+					const activeIdx = swiperEl.swiper.activeIndex;
 					for (let i = d.from; i <= d.to; i++) {
 						slideComponents.push(
 							mount(MarkerSlide, {
 								target: swiperEl,
-								props: { index: filteredIdx[i], offset: d.offset }
+								props: {
+									index: filteredIdx[i],
+									offset: d.offset,
+									onPrev: i === activeIdx && i > 0 ? () => swiperEl.swiper.slidePrev() : undefined,
+									onNext: i === activeIdx && i < filteredIdx.length - 1 ? () => swiperEl.swiper.slideNext() : undefined
+								}
 							})
 						);
 					}
@@ -603,6 +609,20 @@
 			});
 	}
 
+	function navigateDetail(id) {
+		updateSelectedMarker(id, true);
+		location.hash = 'detail=' + id;
+	}
+
+	function getDetailNavProps() {
+		const detailId = parseInt($fragment.get('detail'));
+		const pos = filteredIdx.indexOf(detailId);
+		return {
+			onPrev: pos > 0 ? () => navigateDetail(filteredIdx[pos - 1]) : undefined,
+			onNext: pos < filteredIdx.length - 1 ? () => navigateDetail(filteredIdx[pos + 1]) : undefined
+		};
+	}
+
 	function storeRenderedList() {
 		$renderedMarkers = map.queryRenderedFeatures({ layers: iconLayers }).map((val) => val.id);
 		$renderedMarkers = [...new Set($renderedMarkers)]; //remove duplicates
@@ -665,14 +685,14 @@
 				title={$elevationProfileVisible ? 'Hide elevation profile' : 'Show elevation profile'}
 			>
 				{#if $elevationProfileVisible}
-					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
 				{:else}
-					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20L8 10L14 14L22 4" /></svg>
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20L8 10L14 14L22 4" /></svg>
 				{/if}
 			</button>
 			<!-- detail modal -->
 			{#if $fragment.has('detail')}
-				<MarkerDetail />
+				<MarkerDetail {...getDetailNavProps()} />
 			{/if}
 			<!-- swiper or new marker button -->
 			{#if $selectedMarkerId !== -1}

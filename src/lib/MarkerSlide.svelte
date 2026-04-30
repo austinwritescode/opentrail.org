@@ -3,6 +3,8 @@
 	import { parseDescURL, isSafeURL, mToFt, ftToM, formatDist, formatElev } from '$lib/helpers.js';
 	export let index;
 	export let offset;
+	export let onPrev;
+	export let onNext;
 
 	const prop = $data.features[index].properties;
 	const imp = $settings.units !== 'metric';
@@ -24,7 +26,25 @@
 
 <swiper-slide virtualIndex={index} style={`left: ${offset}px`}>
 	<div class="block h-full cursor-pointer" onclick={() => window.location.hash = `detail=${$data.features[index]?.id}`}>
-		<div class="bg-base-100 rounded-lg pt-2 p-4 w-full h-full select-text">
+		<div class="bg-base-100 rounded-lg pt-2 p-4 w-full h-full select-text relative overflow-visible">
+			{#if onPrev}
+				<button
+					class="btn btn-circle btn-sm bg-base-100/80 border border-base-300 shadow-md absolute z-10"
+					style="top: calc(50% - 16px); left: -16px;"
+					onclick={(e) => { e.stopPropagation(); onPrev(); }}
+				>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+				</button>
+			{/if}
+			{#if onNext}
+				<button
+					class="btn btn-circle btn-sm bg-base-100/80 border border-base-300 shadow-md absolute z-10"
+					style="top: calc(50% - 16px); right: -16px;"
+					onclick={(e) => { e.stopPropagation(); onNext(); }}
+				>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+				</button>
+			{/if}
 			{#if prop.images.length > 0}
 				<div class="indicator float-right rounded-lg m-1">
 					{#if prop.images.length > 1}

@@ -337,7 +337,8 @@
 		);
 
 		map.on('error', (e) => errorModal(`Map: ${e.error?.message || JSON.stringify(e.error)}`));
-		map.on('load', populateMap);
+		await new Promise(resolve => map.once('load', resolve));
+		await populateMap();
 		slotWrapper.removeEventListener('repopulateMap', repopulateMap);
 		slotWrapper.addEventListener('repopulateMap', repopulateMap);
 
@@ -417,6 +418,7 @@
 	}
 
 	function repopulateMap() {
+		mapInitialized = false;
 		$activeIcons = new Array(ICONS.length).fill(true);
 		lastToggleAllIcons = true;
 		for (const icon of ICONS) {
@@ -594,6 +596,7 @@
 	}
 
 	function onSlideChange(e) {
+		if (!mapInitialized) return;
 		const id = filteredIdx[e.detail[0].activeIndex];
 		updateSelectedMarker(id, false);
 		const isCurrentlyRendered = map.queryRenderedFeatures({
@@ -621,6 +624,7 @@
 	}
 
 	function storeRenderedList() {
+		if (!mapInitialized) return;
 		$renderedMarkers = map.queryRenderedFeatures({ layers: iconLayers }).map((val) => val.id);
 		$renderedMarkers = [...new Set($renderedMarkers)]; //remove duplicates
 		$renderedMarkers.sort((a, b) => a - b); //js is special

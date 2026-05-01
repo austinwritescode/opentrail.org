@@ -26,7 +26,7 @@
 	import MarkerSlide from '$lib/MarkerSlide.svelte';
 	import MarkerDetail from '$lib/MarkerDetail.svelte';
 	import ElevationProfile from '$lib/ElevationProfile.svelte';
-	import { goto } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
 	import { syncData, postGeneric, getData } from '$lib/api';
 	import { searchTrailRoute } from '$lib/helpers.js';
 	import { register } from 'swiper/element/bundle';
@@ -155,7 +155,6 @@
 		const deepMarkerDbid = params.get('marker');
 		if (deepTrail && TRAILS[deepTrail]) {
 			$settings.trail = deepTrail;
-			history.replaceState(null, '', '/app');
 		}
 		if (!Object.keys(TRAILS).includes($settings.trail)) goto('/');
 		if ($settings.autosync) await syncData();
@@ -167,6 +166,7 @@
 				updateSelectedMarker(idx, true);
 				$detailId = idx;
 			}
+			replaceState('/app', {});
 		}
 	});
 
@@ -223,10 +223,7 @@
 	$: if (mapInitialized) map.getSource('markers')?.setData($data);
 
 	async function initializeMap() {
-		if (!document.getElementById('map') || !slotWrapper) {
-			await new Promise(resolve => setTimeout(resolve, 10));
-			return initializeMap();
-		}
+		if (!document.getElementById('map') || !slotWrapper) return setTimeout(initializeMap, 10); //for welcome screen load, wait for DOM to catch up
 
 		map = new maplibregl.Map({
 			container: 'map',
@@ -341,8 +338,7 @@
 		);
 
 		map.on('error', (e) => errorModal(`Map: ${e.error?.message || JSON.stringify(e.error)}`));
-		await new Promise(resolve => map.once('load', resolve));
-		await populateMap();
+		map.on('load', populateMap);
 		slotWrapper.removeEventListener('repopulateMap', repopulateMap);
 		slotWrapper.addEventListener('repopulateMap', repopulateMap);
 
@@ -437,7 +433,6 @@
 	}
 
 	function repopulateMap() {
-		mapInitialized = false;
 		$activeIcons = new Array(ICONS.length).fill(true);
 		lastToggleAllIcons = true;
 		for (const icon of ICONS) {
@@ -615,7 +610,6 @@
 	}
 
 	function onSlideChange(e) {
-		if (!mapInitialized) return;
 		const id = filteredIdx[e.detail[0].activeIndex];
 		updateSelectedMarker(id, false);
 		const isCurrentlyRendered = map.queryRenderedFeatures({
@@ -643,7 +637,6 @@
 	}
 
 	function storeRenderedList() {
-		if (!mapInitialized) return;
 		$renderedMarkers = map.queryRenderedFeatures({ layers: iconLayers }).map((val) => val.id);
 		$renderedMarkers = [...new Set($renderedMarkers)]; //remove duplicates
 		$renderedMarkers.sort((a, b) => a - b); //js is special

@@ -61,3 +61,11 @@ export function parseDescURL(desc) {
 export function isSafeURL(url) {
     return url.startsWith('http://') || url.startsWith('https://')
 }
+
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+dayjs.extend(relativeTime)
+
+export function timeAgo(dateStr) {
+    return dayjs(dateStr).fromNow()
+}

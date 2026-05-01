@@ -214,4 +214,32 @@ export const profileData = writable({ points: [], startIdx: 0, endIdx: 0 });
 
 export const activeIcons = writable(ICONS.map(() => true));
 
+let initListMode = 'markers';
+if (browser) {
+	const stored = localStorage.getItem('listMode');
+	if (stored === 'markers' || stored === 'comments') initListMode = stored;
+}
+export const listMode = writable(initListMode);
+if (browser) listMode.subscribe((val) => localStorage.setItem('listMode', val));
+
+let initListBoundsFilter = true;
+if (browser) {
+	const stored = localStorage.getItem('listBoundsFilter');
+	if (stored !== null) initListBoundsFilter = stored === 'true';
+}
+export const listBoundsFilter = writable(initListBoundsFilter);
+if (browser) listBoundsFilter.subscribe((val) => localStorage.setItem('listBoundsFilter', String(val)));
+
+let initListCommentSort = 'recent';
+if (browser) {
+	const stored = localStorage.getItem('listCommentSort');
+	if (stored === 'recent' || stored === 'mile') initListCommentSort = stored;
+}
+export const listCommentSort = writable(initListCommentSort);
+if (browser) listCommentSort.subscribe((val) => localStorage.setItem('listCommentSort', val));
+
+export const listSearchQuery = writable('');
+
+export const listScrollPosition = writable(0);
+
 export const swWaitingRegistration = writable(null);

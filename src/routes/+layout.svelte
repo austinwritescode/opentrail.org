@@ -11,8 +11,12 @@
 		errorModal,
 		isInstalled,
 		deferredPrompt,
-		swWaitingRegistration
+		swWaitingRegistration,
+		downloadState,
+		downloadPersist
 	} from '$lib/store.js';
+	import DownloadOverlay from '$lib/DownloadOverlay.svelte';
+	import { resumeDownload } from '$lib/download.js';
 	import { onMount } from 'svelte';
 	import WarnIcon from '$lib/warnIcon.svelte';
 	import ErrorIcon from '$lib/errorIcon.svelte';
@@ -61,6 +65,8 @@
 				window.location.reload();
 			});
 		}
+
+		resumeDownload();
 	});
 
 	function cancelModal() {
@@ -89,15 +95,18 @@
 		$modal.type === 'generic';
 </script>
 
-<div data-theme={$settings.dark ? 'dark' : 'light'} class="h-full w-full select-none">
-	<slot />
+<div data-theme={$settings.dark ? 'dark' : 'light'} class="h-full w-full select-none flex flex-col">
+	<DownloadOverlay />
+	<div class="flex-1 min-h-0 overflow-auto">
+		<slot />
+	</div>
 	<div
 		class={'modal modal-bottom ' +
 			($modal.type === 'editLoc' ? 'pointer-events-none bg-transparent' : 'sm:modal-middle')}
 		class:modal-open={open}
 		onclick={(e) => {
 			if (e.target !== e.currentTarget) return;
-			if ($modal.type !== 'progress' && $modal.type !== 'editLoc') cancelModal();
+			if ($modal.type !== 'editLoc') cancelModal();
 		}}
 	>
 		<div class="modal-box pointer-events-auto space-y-4" class:select-text={$modal.type === 'text' || $modal.type === 'textArea'}>
@@ -200,24 +209,6 @@
 					</div>
 				{/if}
 				<p class="text-md my-4">Approximate size: {$modal.data[1]}</p>
-				{#if 'BackgroundFetchManager' in self}
-					<p class="text-md my-4">
-						Your device supports downloading in the background. It may not work for everyone so you
-						get the option. Try it out?
-					</p>
-				{/if}
-			{:else if $modal.type === 'progress'}
-				<p class="font-bold text-xl">{$modal.data[2]}</p>
-				{#if $modal.data[1] > 0}
-					<progress class="progress w-full" value={$modal.data[0]} max={$modal.data[1]}></progress>
-					<p class="text-md">{$modal.data[0]} of {$modal.data[1]}</p>
-					<p>
-						Do not turn off your screen or switch apps until complete. Your screen's sleep setting
-						has been temporarily disabled until the download is complete.
-					</p>
-				{:else if $modal.data[1] === 0}
-					<button class="btn btn-ghost btn-md loading -m-4"></button>
-				{/if}
 			{:else if $modal.type === 'trail'}
 				<p class="font-bold text-2xl">Trail Selection</p>
 				<div class="flex flex-col pl-4">
@@ -319,27 +310,14 @@
 					{#if !spinner}
 						<button class="btn" onclick={cancelModal}>Cancel</button>
 					{/if}
-					{#if $modal.type !== 'progress'}
-						{#if spinner}
-							<button class="btn btn-primary loading">Confirm</button>
-						{:else if $modal.type === 'iOSCompass'}
-							<button class="btn btn-primary" onclick={$modal.submit}>Confirm</button>
-						{:else if $modal.type === 'confirmFetch' && 'BackgroundFetchManager' in self}
-							<button
-								class="btn btn-primary text-xs"
-								onclick={() => {
-									$modal.data[2] = true;
-									submitModal();
-								}}
-							>
-								Background
-							</button>
-							<button class="btn btn-primary text-xs" onclick={submitModal}>Regular</button>
-						{:else if $modal.type === 'updateAvailable'}
-							<button class="btn btn-primary" onclick={submitModal}>Update now</button>
-						{:else}
-							<button class="btn btn-primary" onclick={submitModal}>Confirm</button>
-						{/if}
+					{#if spinner}
+						<button class="btn btn-primary loading">Confirm</button>
+					{:else if $modal.type === 'iOSCompass'}
+						<button class="btn btn-primary" onclick={$modal.submit}>Confirm</button>
+					{:else if $modal.type === 'updateAvailable'}
+						<button class="btn btn-primary" onclick={submitModal}>Update now</button>
+					{:else}
+						<button class="btn btn-primary" onclick={submitModal}>Confirm</button>
 					{/if}
 				{/if}
 			</div>

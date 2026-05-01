@@ -9,7 +9,8 @@
 		openModal,
 		errorModal,
 		modal,
-		bgFetchStatus,
+		downloadState,
+		downloadPersist,
 		TRAILS,
 		isInstalled,
 		deferredPrompt,
@@ -18,7 +19,7 @@
 		swWaitingRegistration
 	} from '$lib/store.js';
 	import pLimit from 'p-limit';
-	const limit = pLimit(15); //fetch concurrency limit
+	const limit = pLimit(5);
 	import { onMount } from 'svelte';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
@@ -29,7 +30,6 @@
 	if (browser) noSleep = new NoSleep();
 
 	let syncSpinner = false;
-	let fetchSpinner = false;
 	let storageEstimate = '';
 
 	onMount(updateStorageEstimate);
@@ -174,9 +174,7 @@
 		}
 	}
 
-	let currentDownloadType;
-	async function fetchOffline(modalData) {
-		const bgFetchEnabled = modalData[2];
+	async function fetchOffline() {
 		if (!navigator.serviceWorker)
 			return errorModal('No service worker found. Refresh the page and try again.');
 		if (!navigator.serviceWorker.controller && !dev)
@@ -190,147 +188,103 @@
 		await caches.delete('offline-cache');
 		const cache = await caches.open('offline-cache');
 		try {
-			currentDownloadType = 'Offline cache';
-			openModal({
-				type: 'progress',
-				data: [0, 0, 'Downloading offline cache'],
-				cancel: deleteOffline
-			});
-			// First add trail specific files to cache
+			$downloadPersist = { type: 'offline-cache', trail: $settings.trail, status: 'in_progress' };
+			$downloadState = {
+				active: true,
+				type: 'offline-cache',
+				displayName: 'Downloading offline cache',
+				downloaded: 0,
+				total: 0,
+				trail: $settings.trail,
+				onCancel: () => {
+					limit.clearQueue();
+					deleteOffline();
+					noSleep.disable();
+				}
+			};
+			noSleep.enable();
 			const trailData = [
 				`https://cdn.opentrail.org/${$settings.trail}.json`,
 				`/api/getData?trail=${$settings.trail}`
 			];
 			await cache.addAll(trailData);
-			// Then fetch tile list
 			const res = await fetch(`https://cdn.opentrail.org/${$settings.trail}.xyz`);
 			const xyzlist = (await res.json())[0];
 			const URLlist = xyzlist.map(
 				(xyz) => `https://cdn.opentrail.org/tiles/${xyz[2]}/${xyz[0]}/${xyz[1]}.pbf`
 			);
-			// Then fetch the tiles:
-			await cacheFromList(
-				URLlist,
-				'offline-cache',
-				'offline cache',
-				() => ($settings.offline = true),
-				bgFetchEnabled
-			);
+			await cacheFromList(URLlist, 'offline-cache', 'offline cache', () => {
+				$settings.offline = true;
+			});
 		} catch (e) {
 			deleteOffline();
-			fetchSpinner = false;
+			noSleep.disable();
 			return errorModal(e.message);
 		}
 	}
 
-	async function fetchImages(modalData) {
-		const bgFetchEnabled = modalData[2];
+	async function fetchImages() {
 		await caches.delete('image-cache');
 		try {
-			currentDownloadType = 'Offline images';
-			openModal({
-				type: 'progress',
-				data: [0, 0, 'Downloading offline images'],
-				cancel: deleteImages
-			});
-			// Fetch image list
+			$downloadPersist = { type: 'image-cache', trail: $settings.trail, status: 'in_progress' };
+			$downloadState = {
+				active: true,
+				type: 'image-cache',
+				displayName: 'Downloading offline images',
+				downloaded: 0,
+				total: 0,
+				trail: $settings.trail,
+				onCancel: () => {
+					limit.clearQueue();
+					deleteImages();
+					noSleep.disable();
+				}
+			};
+			noSleep.enable();
 			const res = await fetch(`/api/getImageList?trail=${$settings.trail}`);
 			const list = await res.json();
 			const URLlist = list.map((num) => `https://cdn.opentrail.org/img/${num}.jpg`);
-			// Then fetch the tiles:
-			await cacheFromList(
-				URLlist,
-				'image-cache',
-				'offline images',
-				() => ($settings.offlineimages = true),
-				bgFetchEnabled
-			);
+			await cacheFromList(URLlist, 'image-cache', 'offline images', () => {
+				$settings.offlineimages = true;
+			});
 		} catch (e) {
 			deleteImages();
-			fetchSpinner = false;
+			noSleep.disable();
 			return errorModal(e.message);
 		}
 	}
 
-	async function cacheFromList(URLlist, cachename, displayName, onSuccess, bgFetchEnabled) {
+	async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
 		if (URLlist.length === 0) {
-			console.log('foo');
-			$modal.isOpen = false;
+			$downloadState.active = false;
+			$downloadPersist.status = 'complete';
+			noSleep.disable();
 			return onSuccess();
 		}
-		if (bgFetchEnabled) {
-			//bgFetch for Chrome
-			console.log('using bgFetch');
-			const swReg = await navigator.serviceWorker.ready;
-			let downloadTotal = URLlist.length * 100000; //images estimate
-			if (cachename === 'offline-cache') downloadTotal = TRAILS[$settings.trail].sizeInBytes; //tiles estimate
-			console.log(downloadTotal);
-			const bgFetch = await swReg.backgroundFetch.fetch(cachename, URLlist, {
-				title: 'Opentrail Offline',
-				icons: [
-					{
-						src: '/android-192x192.png',
-						sizes: '192x192',
-						type: 'image/png'
-					}
-				],
-				downloadTotal: downloadTotal
-			});
-			bgFetch.addEventListener('progress', () => {
-				if (fetchSpinner) {
-					fetchSpinner = false;
-					$bgFetchStatus.spinner = true;
-				}
-				$bgFetchStatus.progress = Math.round(
-					(bgFetch.downloaded / (URLlist.length * 150000)) * 100
-				);
-			});
-			navigator.serviceWorker.onmessage = (event) => {
-				if (event.data && event.data.type === 'BGFETCH_SUCCESS') {
-					$bgFetchStatus.spinner = false;
-					onSuccess();
-				}
-				if (event.data && event.data.type === 'BGFETCH_FAILURE') {
-					$bgFetchStatus.spinner = false;
-					errorModal('Failed to download offline cache');
-				}
-			};
-			$modal.isOpen = false;
-		} else {
-			// foreground fetch
-			try {
-				openModal({
-					type: 'progress',
-					data: [0, URLlist.length, `Downloading ${displayName}`],
-					cancel: () => {
-						limit.clearQueue();
-						if (cachename === 'offline-cache') deleteOffline();
-						if (cachename === 'image-cache') deleteImages();
-						noSleep.disable();
-					}
-				});
-				noSleep.enable();
-				const cache = await caches.open(cachename);
-				await Promise.all(
-					URLlist.map((url) =>
-						limit(async () => {
-							await cache.add(url);
-							$modal.data[0]++;
-							if ($modal.data[0] === $modal.data[1]) {
-								$modal.isOpen = false;
-								noSleep.disable();
-								onSuccess();
-							}
-						})
-					)
-				);
-			} catch (e) {
-				limit.clearQueue();
-				if (cachename === 'offline-cache') deleteOffline();
-				if (cachename === 'image-cache') deleteImages();
-				noSleep.disable();
-				return errorModal(e.message);
-			}
+		try {
+			$downloadState.downloaded = 0;
+			$downloadState.total = URLlist.length;
+			const cache = await caches.open(cachename);
+			await Promise.all(
+				URLlist.map((url) =>
+					limit(async () => {
+						await cache.add(url);
+						$downloadState.downloaded++;
+						if ($downloadState.downloaded === $downloadState.total) {
+							$downloadState.active = false;
+							$downloadPersist.status = 'complete';
+							noSleep.disable();
+							onSuccess();
+						}
+					})
+				)
+			);
+		} catch (e) {
+			limit.clearQueue();
+			if (cachename === 'offline-cache') deleteOffline();
+			if (cachename === 'image-cache') deleteImages();
+			noSleep.disable();
+			return errorModal(e.message);
 		}
 	}
 
@@ -357,6 +311,8 @@
 		}
 		$settings.offline = false;
 		$settings.offlineimages = false;
+		$downloadState.active = false;
+		$downloadPersist.status = '';
 	}
 
 	async function deleteImages() {
@@ -366,6 +322,8 @@
 			return errorModal(e.message);
 		}
 		$settings.offlineimages = false;
+		$downloadState.active = false;
+		$downloadPersist.status = '';
 	}
 </script>
 
@@ -385,18 +343,7 @@
 					{right} >
 				</span>
 			{:else if typeof right === 'boolean'}
-				<div class="flex flex-row items-center">
-					{#if left === currentDownloadType && $bgFetchStatus.spinner}
-						<div
-							class="radial-progress mx-4"
-							style:--value={$bgFetchStatus.progress}
-							style:--size="1.5rem"
-						></div>
-					{:else if left === currentDownloadType && fetchSpinner}
-						<button class="btn btn-square btn-ghost btn-sm loading -my-4"></button>
-					{/if}
-					<input type="checkbox" class="toggle block" bind:checked={right} />
-				</div>
+				<input type="checkbox" class="toggle block" bind:checked={right} />
 			{/if}
 		</div>
 	{/each}

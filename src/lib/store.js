@@ -148,7 +148,26 @@ export function errorModal(msg) {
 	openModal({ type: 'error', data: msg });
 }
 
-export const bgFetchStatus = writable({ spinner: false, progress: 0 });
+export const downloadState = writable({
+	active: false,
+	type: '',
+	displayName: '',
+	downloaded: 0,
+	total: 0,
+	trail: '',
+	onCancel: noOp
+});
+
+let initDownloadPersist = { type: '', trail: '', status: '' };
+if (browser) {
+	const stored = localStorage.getItem('downloadPersist');
+	if (stored) initDownloadPersist = JSON.parse(stored);
+}
+export const downloadPersist = writable(initDownloadPersist);
+if (browser)
+	downloadPersist.subscribe((val) =>
+		localStorage.setItem('downloadPersist', JSON.stringify(val))
+	);
 
 let initPlatform = 'other';
 if (browser) {

@@ -167,7 +167,7 @@
 	<div class="modal-box rounded-lg p-4 h-4/5 select-text relative overflow-visible">
 		{#if onPrev}
 			<button
-				class="btn btn-circle btn-sm bg-base-100/80 border border-base-300 shadow-md absolute z-10"
+				class="btn btn-circle btn-sm bg-base-100/80 hover:bg-base-100/80 border border-base-300 shadow-md absolute z-10"
 				style="top: calc(50% - 16px); left: -16px;"
 				onclick={onPrev}
 			>
@@ -176,7 +176,7 @@
 		{/if}
 		{#if onNext}
 			<button
-				class="btn btn-circle btn-sm bg-base-100/80 border border-base-300 shadow-md absolute z-10"
+				class="btn btn-circle btn-sm bg-base-100/80 hover:bg-base-100/80 border border-base-300 shadow-md absolute z-10"
 				style="top: calc(50% - 16px); right: -16px;"
 				onclick={onNext}
 			>

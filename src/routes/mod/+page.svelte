@@ -6,8 +6,9 @@
 	let mod;
 	let markers;
 	let flags;
+	let comments;
 	let isModalOpen = false;
-	let flagsScreen = false;
+	let tab = 'queue';
 	let map;
 	let loading = true;
 	function authHeaders(extra = {}) {
@@ -102,26 +103,83 @@
 			method: 'DELETE'
 		}));
 	}
+
+	async function fetchComments() {
+		const res = await fetch('/api/mod/comments', authHeaders());
+		if (res.status === 200) comments = await res.json();
+	}
+
+	async function deleteComment(id) {
+		const res = await fetch(`/api/mod/comments?id=${id}`, authHeaders({ method: 'DELETE' }));
+		if (res.status === 200) comments = comments.filter((c) => c.id !== id);
+	}
 </script>
 
 <div class="tabs flex justify-center">
 	<a
 		class="tab tab-lg tab-bordered"
-		class:tab-active={!flagsScreen}
-		onclick={() => (flagsScreen = false)}
+		class:tab-active={tab === 'queue'}
+		onclick={() => (tab = 'queue')}
 	>
 		Mod Queue
 	</a>
 	<a
 		class="tab tab-lg tab-bordered"
-		class:tab-active={flagsScreen}
-		onclick={() => (flagsScreen = true)}
+		class:tab-active={tab === 'flags'}
+		onclick={() => (tab = 'flags')}
 	>
 		Flags
 	</a>
+	<a
+		class="tab tab-lg tab-bordered"
+		class:tab-active={tab === 'comments'}
+		onclick={() => { tab = 'comments'; if (!comments) fetchComments(); }}
+	>
+		Comments
+	</a>
 	<a class="tab tab-lg tab-bordered" onclick={clearTestTrail}> Clear Test Trail </a>
 </div>
-{#if flagsScreen}
+{#if tab === 'comments'}
+	<div class="wrapper overflow-x-auto text-xs w-full">
+		<div class="p-2">
+			<button class="btn btn-sm" onclick={fetchComments}>Refresh</button>
+		</div>
+		<table class="table table-compact table-zebra w-full">
+			<thead>
+				<tr>
+					<th></th>
+					<th>Date</th>
+					<th>User</th>
+					<th>Trail</th>
+					<th>Marker</th>
+					<th>Comment</th>
+				</tr>
+			</thead>
+			<tbody>
+				{#if comments}
+					{#each comments as comment}
+						<tr>
+							<td>
+								<button class="btn bg-red-800 btn-sm" onclick={() => deleteComment(comment.id)}>Del</button>
+							</td>
+							<td>{new Date(comment.date).toLocaleDateString()}</td>
+							<td>{comment.user}</td>
+							<td>{comment.marker.trails[0]?.trail.name ?? ''}</td>
+							<td>{comment.marker.title}</td>
+							<td>
+								<div class="chat chat-start">
+									<div class="chat-bubble whitespace-pre-wrap break-words w-full max-w-full text-sm">
+										{comment.text}
+									</div>
+								</div>
+							</td>
+						</tr>
+					{/each}
+				{/if}
+			</tbody>
+		</table>
+	</div>
+{:else if tab === 'flags'}
 	<div class="wrapper overflow-x-auto text-xs w-full">
 		<table class="table table-compact table-zebra w-full">
 			<thead>
@@ -172,7 +230,7 @@
 			</tbody>
 		</table>
 	</div>
-{:else if mod}
+{:else if tab === 'queue' && mod}
 	<div class="wrapper overflow-x-auto text-xs">
 		<table class="table table-compact table-zebra w-full">
 			<thead>

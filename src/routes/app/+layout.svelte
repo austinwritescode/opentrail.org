@@ -219,7 +219,6 @@
 
 	let map;
 	let mapInitialized = false;
-	let contextRestoreTimeout;
 	$: if (mapInitialized) map.getSource('markers')?.setData($data);
 
 	async function initializeMap() {
@@ -344,21 +343,6 @@
 
 		const canvases = document.getElementsByTagName('canvas');
 		if (canvases.length > 1) errorModal('map error');
-		canvases[0].addEventListener('webglcontextlost', (e) => {
-			e.preventDefault();
-			console.log('WebGL context lost, waiting for restoration...');
-			mapInitialized = false;
-			contextRestoreTimeout = setTimeout(() => {
-				errorModal('Map failed to recover. Please refresh the page.');
-			}, 10000);
-		});
-		canvases[0].addEventListener('webglcontextrestored', () => {
-			clearTimeout(contextRestoreTimeout);
-			console.log('WebGL context restored, reinitializing map...');
-			map.remove();
-			map = null;
-			initializeMap();
-		});
 	}
 
 	async function populateMap() {

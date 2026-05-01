@@ -599,10 +599,12 @@
 		if (!mapInitialized) return;
 		const id = filteredIdx[e.detail[0].activeIndex];
 		updateSelectedMarker(id, false);
-		const isCurrentlyRendered = map.queryRenderedFeatures({
-			layers: iconLayers,
-			filter: ['==', ['id'], id]
-		});
+		const mapEl = map.getContainer();
+		const swiperTop = swiperEl.getBoundingClientRect().top - mapEl.getBoundingClientRect().top;
+		const isCurrentlyRendered = map.queryRenderedFeatures(
+			[[0, 0], [mapEl.clientWidth, swiperTop]],
+			{ layers: iconLayers, filter: ['==', ['id'], id] }
+		);
 		if (isCurrentlyRendered.length === 0)
 			map.flyTo({
 				center: $data.features[id].geometry.coordinates,

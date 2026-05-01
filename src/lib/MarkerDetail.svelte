@@ -171,7 +171,7 @@
 				style="top: calc(50% - 16px); left: -16px;"
 				onclick={onPrev}
 			>
-				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 18l-6-6 6-6"/></svg>
 			</button>
 		{/if}
 		{#if onNext}
@@ -180,7 +180,7 @@
 				style="top: calc(50% - 16px); right: -16px;"
 				onclick={onNext}
 			>
-				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 18l6-6-6-6"/></svg>
 			</button>
 		{/if}
 		<div class="flex justify-between items-center mb-2">

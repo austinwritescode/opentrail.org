@@ -35,7 +35,7 @@
 	onMount(updateStorageEstimate);
 	$: if ($settings.offline) updateStorageEstimate();
 	async function updateStorageEstimate() {
-		if (navigator && navigator.storage) {
+		if (navigator?.storage?.estimate) {
 			const estimate = await navigator.storage.estimate();
 			storageEstimate = `${prettyBytes(estimate.usage)} (${prettyBytes(estimate.quota)} available)`;
 		}
@@ -62,7 +62,7 @@
 		$pendingCount > 0 ? [['Pending uploads: ' + $pendingCount, null, null, true]] : [];
 	$: offlineSublabels = $settings.offline
 		? [
-				[`Size: ${storageEstimate}`, null, null, true],
+				...(storageEstimate ? [[`Size: ${storageEstimate}`, null, null, true]] : []),
 				...pendingSublabel,
 				['Last sync: ' + $settings.lastsync.fromNow(), 'Sync', syncDataWithSpinner, true],
 				['Automatic sync', $settings.autosync, toggleAutosync, true],

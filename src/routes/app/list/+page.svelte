@@ -5,7 +5,7 @@
 		listCommentSort, listSearchQuery, listScrollPosition, activeIcons, ICONS
 	} from '$lib/store.js';
 	import MarkerDetail from '$lib/MarkerDetail.svelte';
-	import { searchTrailRoute } from '$lib/helpers.js';
+	import { searchTrailRoute, miToKm } from '$lib/helpers.js';
 	import { onMount, onDestroy, tick } from 'svelte';
 
 	let scrollContainer;
@@ -31,8 +31,14 @@
 
 	$: userRecent = new Date() - $userMiles.date < 1000000;
 	$: totalCoords = $trailRoute.features?.[0]?.geometry?.coordinates?.length || 0;
+	$: totalMiles = totalCoords / 10;
+	$: imp = $settings.units !== 'metric';
 	$: query = ($listSearchQuery || '').toLowerCase();
 	$: gpsMile = userRecent && gpsEnabled ? $userMiles.miles : -1;
+
+	function displayMile(rawMile) {
+		return $settings.reverseMiles ? totalMiles - parseFloat(rawMile) : parseFloat(rawMile);
+	}
 
 	function toggleGps() {
 		if (gpsEnabled) {
@@ -90,7 +96,7 @@
 		const p = $data.features[id]?.properties;
 		if (!p) return false;
 		return p.title.toLowerCase().includes(query) || p.desc.toLowerCase().includes(query);
-	});
+	}).sort((a, b) => displayMile($data.features[a].properties.mile) - displayMile($data.features[b].properties.mile));
 
 	$: allComments = $data.features.flatMap((f, idx) =>
 		(f.properties.comments || []).map((c, ci) => ({
@@ -116,20 +122,22 @@
 
 	$: sortedComments = $listCommentSort === 'recent'
 		? [...filteredComments].sort((a, b) => new Date(b.date) - new Date(a.date))
-		: [...filteredComments].sort((a, b) => a.mile - b.mile);
+		: [...filteredComments].sort((a, b) => displayMile(a.mile) - displayMile(b.mile));
+
+	$: gpsDisplayMile = gpsMile >= 0 ? displayMile(gpsMile) : -1;
 
 	$: gpsLineMarkerIdx = (() => {
-		if ($listMode !== 'markers' || gpsMile < 0 || filteredMarkers.length === 0) return -1;
+		if ($listMode !== 'markers' || gpsDisplayMile < 0 || filteredMarkers.length === 0) return -1;
 		for (let i = 0; i < filteredMarkers.length; i++) {
-			if (parseFloat($data.features[filteredMarkers[i]]?.properties?.mile) > gpsMile) return i;
+			if (displayMile($data.features[filteredMarkers[i]]?.properties?.mile) > gpsDisplayMile) return i;
 		}
 		return filteredMarkers.length;
 	})();
 
 	$: gpsLineCommentIdx = (() => {
-		if ($listMode !== 'comments' || $listCommentSort !== 'mile' || gpsMile < 0 || sortedComments.length === 0) return -1;
+		if ($listMode !== 'comments' || $listCommentSort !== 'mile' || gpsDisplayMile < 0 || sortedComments.length === 0) return -1;
 		for (let i = 0; i < sortedComments.length; i++) {
-			if (sortedComments[i].mile > gpsMile) return i;
+			if (displayMile(sortedComments[i].mile) > gpsDisplayMile) return i;
 		}
 		return sortedComments.length;
 	})();
@@ -153,9 +161,9 @@
 	}
 
 	function formatMile(mile) {
-		const m = parseFloat(mile);
-		if ($settings.reverseMiles && totalCoords > 0) return (totalCoords / 10 - m).toFixed(1);
-		return m.toFixed(1);
+		const dm = displayMile(mile);
+		if (!imp) return miToKm(dm).toFixed(1) + 'km';
+		return dm.toFixed(1) + 'mi';
 	}
 </script>
 
@@ -236,7 +244,7 @@
 						width="40"
 						class="mx-1"
 					/>
-					<span class="w-14 text-center font-mono text-sm">{formatMile($data.features[i].properties.mile)}</span>
+					<span class="w-20 text-center font-mono text-sm">{formatMile($data.features[i].properties.mile)}</span>
 					<span class="truncate flex-1">{$data.features[i].properties.title}</span>
 				</div>
 			{/each}

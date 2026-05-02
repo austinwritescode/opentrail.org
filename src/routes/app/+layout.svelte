@@ -533,41 +533,72 @@
 		editMarkerLoc($editLocNewMarker);
 		$editLocId = -1;
 	}
+	let editLayerId = null;
+	let editFeatureProps = null;
+	let editCoords = null;
 	function editMarkerLoc(newMarker) {
-		const oldCoordCopy = [...$data.features[$selectedMarkerId].geometry.coordinates];
-		if (newMarker) editMarkerLocOnMove(); //(initialize the new marker before map movement)
+		const feature = $data.features[$selectedMarkerId];
+		const oldCoordCopy = [...feature.geometry.coordinates];
+		editFeatureProps = { ...feature.properties };
+		const latlng = map.getCenter();
+		editCoords = [latlng.lng, latlng.lat];
+		const editFeature = {
+			type: 'Feature',
+			geometry: { type: 'Point', coordinates: [latlng.lng, latlng.lat] },
+			properties: { ...feature.properties },
+			id: 'edit'
+		};
+		map.addSource('editMarker', { type: 'geojson', data: { type: 'FeatureCollection', features: [editFeature] } });
+		const icons = feature.properties.icons || [feature.properties.icon];
+		editLayerId = `markers-${icons[0]}-selected`;
+		map.addLayer({
+			id: 'editMarker',
+			type: 'symbol',
+			source: 'editMarker',
+			layout: {
+				'icon-image': ['concat', ['get', 'icon'], '-selected'],
+				'icon-size': 0.5,
+				'icon-allow-overlap': true,
+				'text-field': ['get', 'title'],
+				'text-size': 12,
+				'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
+				'text-optional': true,
+				'text-ignore-placement': true,
+				'text-offset': [0, 0.85],
+				'text-anchor': 'top'
+			}
+		}, editLayerId);
+		map.setFeatureState({ source: 'markers', id: feature.id }, { selected: false });
 		openModal({
 			type: 'editLoc',
 			cancel: () => {
 				map.off('move', editMarkerLocOnMove);
-
+				removeEditLayer();
 				if (newMarker) {
 					updateSelectedMarker(-1);
 					$data.features.pop();
 					$data = $data;
 				} else {
-					$data.features[$selectedMarkerId].geometry.coordinates = oldCoordCopy;
+					feature.geometry.coordinates = oldCoordCopy;
 					$data = $data;
+					updateSelectedMarker(feature.id);
 				}
-
 				lockSelection = false;
-				updateSelectedMarker(-1);
 			},
 			submit: async () => {
 				map.off('move', editMarkerLocOnMove);
+				feature.geometry.coordinates = [...editCoords];
+				removeEditLayer();
 				lockSelection = false;
-
-				const feature = $data.features[$selectedMarkerId];
 				if (newMarker) {
 					updateSelectedMarker(-1);
-					$data.features.pop(); //leaving the marker around only causes heartache since it has no dbid
-					$data = $data; //trigger things
-					// map.getSource('markers').setData($data);
+					$data.features.pop();
+					$data = $data;
 					await postGeneric({
 						route: 'postMarker?type=newMarker',
 						data: {
-							lat: feature.geometry.coordinates[1],
-							lng: feature.geometry.coordinates[0],
+							lat: editCoords[1],
+							lng: editCoords[0],
 							title: feature.properties.title,
 							desc: feature.properties.desc,
 							icons: feature.properties.icons,
@@ -575,12 +606,13 @@
 						}
 					});
 				} else {
+					$data = $data;
 					await postGeneric({
 						route: 'postMarker?type=editLoc',
 						data: {
 							dbid: feature.properties.dbid,
-							lat: feature.geometry.coordinates[1],
-							lng: feature.geometry.coordinates[0],
+							lat: editCoords[1],
+							lng: editCoords[0],
 							trail: $settings.trail
 						}
 					});
@@ -589,13 +621,23 @@
 		});
 		map.on('move', editMarkerLocOnMove);
 	}
+	function removeEditLayer() {
+		if (map.getLayer('editMarker')) map.removeLayer('editMarker');
+		if (map.getSource('editMarker')) map.removeSource('editMarker');
+		editLayerId = null;
+	}
 	function editMarkerLocOnMove() {
-		const latlng = map.getCenter();
-		$data.features[$selectedMarkerId].geometry.coordinates[0] = latlng.lng;
-		$data.features[$selectedMarkerId].geometry.coordinates[1] = latlng.lat;
-		$data.features[$selectedMarkerId].properties.images = [];
-		$data.features[$selectedMarkerId].properties.comments = [];
-		map.getSource('markers').setData($data);
+		const c = map.getCenter();
+		editCoords = [c.lng, c.lat];
+		map.getSource('editMarker').setData({
+			type: 'FeatureCollection',
+			features: [{
+				type: 'Feature',
+				geometry: { type: 'Point', coordinates: editCoords },
+				properties: editFeatureProps,
+				id: 'edit'
+			}]
+		});
 	}
 
 	function onSlideChange(e) {

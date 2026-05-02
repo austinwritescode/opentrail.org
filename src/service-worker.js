@@ -9,8 +9,8 @@ const ASSETS = [
     `/app/profile`,
     `/app/settings`,
     'https://cdn.opentrail.org/style-outdoors.json',
-    'https://cdn.opentrail.org/@2x.json',
-    'https://cdn.opentrail.org/@2x.png',
+    'https://cdn.opentrail.org/sprite@2x.json',
+    'https://cdn.opentrail.org/sprite@2x.png',
     'https://cdn.opentrail.org/fonts/DIN%20Pro%20Bold,Arial%20Unicode%20MS%20Bold/0-255.font',
     'https://cdn.opentrail.org/fonts/DIN%20Pro%20Bold,Arial%20Unicode%20MS%20Bold/8192-8447.font',
     'https://cdn.opentrail.org/fonts/DIN%20Pro%20Italic,Arial%20Unicode%20MS%20Regular/0-255.font',
@@ -24,7 +24,7 @@ const ASSETS = [
 ];
 const dontDelete = [
     CACHE,
-    'mapbox-tiles', //not sure what this is for but let's not mess with it
+    'mapbox-tiles',
     'offline-cache',
     'image-cache'
 ];

@@ -126,7 +126,7 @@
 			el.style.backgroundColor = '#d22';
 			el.style.border = '2px solid white';
 			el.style.boxShadow = '0 1px 3px rgba(0,0,0,0.4)';
-			cursorMapMarker = new maplibregl.Marker(el).setLngLat(lngLat).addTo(map);
+			cursorMapMarker = new maplibregl.Marker({element: el}).setLngLat(lngLat).addTo(map);
 		}
 	}
 
@@ -228,7 +228,8 @@
 			container: 'map',
 			style: 'https://cdn.opentrail.org/style-outdoors.json',
 			bounds: TRAILS[$settings.trail].bounds,
-			minZoom: 2
+			minZoom: 2,
+			attributionControl: false
 		});
 		map.dragRotate.disable();
 		map.touchZoomRotate.disableRotation();
@@ -248,22 +249,25 @@
 		el.style.backgroundRepeat = 'no-repeat';
 		el.style.width = '46px';
 		el.style.height = '46px';
-		const headingMarker = new maplibregl.Marker(el);
+		const headingMarker = new maplibregl.Marker({element: el});
 		let compassEnabled = false;
-		let compassDisabled = false; //if user cancels compass prompt don't reprompt
+		let compassDisabled = false;
 		let lastHeading;
 		let orientationEvent;
+		let geolocateActive = false;
+		geolocate.on('trackuserlocationstart', () => { geolocateActive = true; });
+		geolocate.on('trackuserlocationend', () => { geolocateActive = false; });
 		const compassListener = (e) => {
 			if (!compassEnabled) {
 				headingMarker.addTo(map);
 				compassEnabled = true;
 			}
-			let heading = e.webkitCompassHeading || 360 - e.alpha; // iOS || Android
-			heading = Math.round(heading / 3) * 3; //nearest 3deg
-			if (lastHeading === heading) return; //save the renderer some work
+			let heading = e.webkitCompassHeading || 360 - e.alpha;
+			heading = Math.round(heading / 3) * 3;
+			if (lastHeading === heading) return;
 			else lastHeading = heading;
 			headingMarker.setRotation(heading);
-			if (geolocate._watchState === 'OFF') {
+			if (!geolocateActive) {
 				compassEnabled = false;
 				headingMarker.remove();
 				window.removeEventListener(orientationEvent, compassListener, true);
@@ -478,14 +482,9 @@
 		if (init) showSwiper = true;
 	}
 
-	function addImageToMap(name) {
-		return new Promise((resolve, reject) => {
-			map.loadImage(`/map-icons/${name}.png`, (error, image) => {
-				if (error) throw error;
-				map.addImage(name, image);
-				resolve();
-			});
-		});
+	async function addImageToMap(name) {
+		const { data: image } = await map.loadImage(`/map-icons/${name}.png`);
+		map.addImage(name, image);
 	}
 
 	function newMarker() {
@@ -528,6 +527,7 @@
 	}
 	let lockSelection = false;
 	$: if ($editLocId !== -1) {
+		$detailId = -1;
 		updateSelectedMarker($editLocId);
 		lockSelection = true;
 		editMarkerLoc($editLocNewMarker);
@@ -544,8 +544,11 @@
 				if (newMarker) {
 					updateSelectedMarker(-1);
 					$data.features.pop();
-					console.log($data);
-				} else $data.features[$selectedMarkerId].geometry.coordinates = oldCoordCopy;
+					$data = $data;
+				} else {
+					$data.features[$selectedMarkerId].geometry.coordinates = oldCoordCopy;
+					$data = $data;
+				}
 
 				lockSelection = false;
 				updateSelectedMarker(-1);

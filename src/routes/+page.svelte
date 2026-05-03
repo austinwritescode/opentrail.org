@@ -25,8 +25,8 @@
 
 <div class="p-4 flex flex-col items-center gap-1 h-full overflow-y-auto">
 	<img src="/apple-touch-icon.png" class="mask mask-squircle mt-4" height="128" width="128" />
-	<p class="text-4xl mt-2">OpenTrail.org</p>
-	<p class="text-2xl">A free trail info community</p>
+	<p class="text-4xl mt-2 text-center">OpenTrail.org</p>
+	<p class="text-2xl text-center">A free trail info community</p>
 
 	{#if !showTrails}
 		<div class="flex flex-col items-center w-full max-w-sm mt-4 gap-3">
@@ -51,10 +51,9 @@
 								<path
 									stroke-linecap="round"
 									stroke-linejoin="round"
-									d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+									d="M12 16V4m0 0L8 8m4-4l4 4M4 14v4a2 2 0 002 2h12a2 2 0 002-2v-4"
 								/>
 							</svg>
-							at the bottom of Safari
 						</p>
 					</div>
 					<div class="flex items-center gap-3">
@@ -72,9 +71,6 @@
 						<p>Tap <strong>Add</strong> in the top right</p>
 					</div>
 				</div>
-				<p class="text-sm opacity-60 text-center">
-					Installing gives you offline maps, faster loading, and a full-screen experience.
-				</p>
 			{:else if $deferredPrompt}
 				<button class="btn btn-primary btn-lg w-full" onclick={promptInstall}>
 					<svg
@@ -138,8 +134,8 @@
 
 	{#if showTrails}
 		<div class="flex flex-col items-center w-full mt-4">
-			<p class="text-xl">Select a trail to begin</p>
-			<p class="text-md mb-4 opacity-70">(This can be changed later in settings)</p>
+			<p class="text-xl text-center">Select a trail to begin</p>
+			<p class="text-md mb-4 opacity-70 text-center">(This can be changed later in settings)</p>
 			<div class="flex gap-4 justify-center">
 				{#each Object.keys(TRAILS) as trail}
 					{#if trail !== 'test'}
@@ -160,7 +156,7 @@
 			</div>
 		</div>
 
-		<p class="text-md mt-6 opacity-50">
+		<p class="text-md mt-6 opacity-50 text-center">
 			Data contributions are open for public use under the
 			<a class="link" href="https://opendatacommons.org/licenses/odbl/summary/">
 				Open Database License
@@ -169,8 +165,4 @@
 	{/if}
 </div>
 
-<style>
-	p {
-		text-align: center;
-	}
-</style>
+

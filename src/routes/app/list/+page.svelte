@@ -186,22 +186,19 @@
 				<button
 					class="btn btn-sm {$listBoundsFilter ? 'btn-active' : ''}"
 					onclick={() => { $listBoundsFilter = true; expandedComment = -1; }}
-				>Shown</button>
+				>Visible</button>
 				<button
 					class="btn btn-sm {!$listBoundsFilter ? 'btn-active' : ''}"
 					onclick={() => { $listBoundsFilter = false; expandedComment = -1; }}
 				>All</button>
 			</div>
 			{#if $listMode === 'comments'}
-				<div class="btn-group">
-					<button
-						class="btn btn-sm {$listCommentSort === 'recent' ? 'btn-active' : ''}"
-						onclick={() => { $listCommentSort = 'recent'; expandedComment = -1; }}
-					>Sort: Recent</button>
-					<button
-						class="btn btn-sm {$listCommentSort === 'mile' ? 'btn-active' : ''}"
-						onclick={() => { $listCommentSort = 'mile'; expandedComment = -1; }}
-					>Sort: Mile</button>
+				<div class="dropdown">
+					<label tabindex="0" class="btn btn-sm">Sort: {$listCommentSort === 'recent' ? 'Recent' : 'Mile'} ▼</label>
+					<ul tabindex="0" class="menu dropdown-content p-2 shadow bg-base-300 rounded-box whitespace-nowrap">
+						<li class="{$listCommentSort === 'recent' ? 'active' : ''}" onclick={() => { $listCommentSort = 'recent'; expandedComment = -1; }}><a>Recent</a></li>
+						<li class="{$listCommentSort === 'mile' ? 'active' : ''}" onclick={() => { $listCommentSort = 'mile'; expandedComment = -1; }}><a>Mile</a></li>
+					</ul>
 				</div>
 			{/if}
 			{#if $listCommentSort === 'mile' || $listMode === 'markers'}

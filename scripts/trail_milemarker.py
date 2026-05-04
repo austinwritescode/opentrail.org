@@ -191,18 +191,10 @@ def _parse_kml_coordinates(text):
     return coords
 
 
-def parse_kmz(path: Path, name_filter=None):
+def _parse_kml_tree(root, name_filter=None):
     import xml.etree.ElementTree as ET
 
-    with zipfile.ZipFile(path) as zf:
-        kml_names = [n for n in zf.namelist() if n.lower().endswith(".kml")]
-        if not kml_names:
-            raise ValueError("No .kml file found inside KMZ archive")
-        with zf.open(kml_names[0]) as kf:
-            tree = ET.parse(kf)
-
     ns = ""
-    root = tree.getroot()
     tag = root.tag
     if tag.startswith("{"):
         ns = tag[: tag.index("}") + 1]
@@ -221,8 +213,28 @@ def parse_kmz(path: Path, name_filter=None):
     if not coords:
         if name_filter:
             raise ValueError(f"No features matched name filter: {name_filter!r}")
-        raise ValueError("No coordinates found in KMZ/KML")
+        raise ValueError("No coordinates found in KML")
     return coords
+
+
+def parse_kml(path: Path, name_filter=None):
+    import xml.etree.ElementTree as ET
+
+    tree = ET.parse(path)
+    return _parse_kml_tree(tree.getroot(), name_filter=name_filter)
+
+
+def parse_kmz(path: Path, name_filter=None):
+    import xml.etree.ElementTree as ET
+
+    with zipfile.ZipFile(path) as zf:
+        kml_names = [n for n in zf.namelist() if n.lower().endswith(".kml")]
+        if not kml_names:
+            raise ValueError("No .kml file found inside KMZ archive")
+        with zf.open(kml_names[0]) as kf:
+            tree = ET.parse(kf)
+
+    return _parse_kml_tree(tree.getroot(), name_filter=name_filter)
 
 
 def parse_track(path: Path, name_filter=None):
@@ -233,6 +245,8 @@ def parse_track(path: Path, name_filter=None):
         return parse_geojson(path)
     if suffix == ".shp":
         return parse_shapefile_coords(path)
+    if suffix == ".kml":
+        return parse_kml(path, name_filter=name_filter)
     if suffix == ".kmz":
         return parse_kmz(path, name_filter=name_filter)
     raise ValueError(f"Unsupported file format: {suffix}")
@@ -570,7 +584,7 @@ def main():
         "Use --known-distance to scale computed distance to an official total.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("input", type=Path, help="Input shapefile (.shp), GPX, GeoJSON, or KMZ")
+    parser.add_argument("input", type=Path, help="Input shapefile (.shp), GPX, GeoJSON, KML, or KMZ")
     parser.add_argument("-o", "--output", type=Path, default=None, help="Output JSON file")
     parser.add_argument(
         "--method",
@@ -629,14 +643,9 @@ def main():
         else:
             print("  No M-values found, falling back to geodesic", file=sys.stderr)
 
-    # --- Try geodesic method ---
-    if points is None and args.method in ("auto", "geodesic"):
-        print(f"Parsing track from {args.input}...", file=sys.stderr)
-        coords = parse_track(args.input, name_filter=args.name_filter)
-        print(f"  {len(coords)} coordinates", file=sys.stderr)
-        _warn_coordinate_gaps(coords)
-
-    if points is None and args.method in ("auto", "albers"):
+    # --- Parse coordinates (for geodesic/albers methods) ---
+    coords = None
+    if points is None and args.method in ("auto", "geodesic", "albers"):
         print(f"Parsing track from {args.input}...", file=sys.stderr)
         coords = parse_track(args.input, name_filter=args.name_filter)
         print(f"  {len(coords)} coordinates", file=sys.stderr)
@@ -645,6 +654,25 @@ def main():
         if len(coords) < 2:
             parser.error("Track must have at least 2 coordinates")
 
+    # --- Try geodesic method ---
+    if points is None and args.method in ("auto", "geodesic"):
+        print("Computing geodesic distances (WGS84 Vincenty)...", file=sys.stderr)
+        cum_dist = compute_cumulative_geodesic(coords)
+        total_miles = cum_dist[-1][0] / METERS_PER_MILE
+        print(f"  Total geodesic distance: {total_miles:.4f} miles", file=sys.stderr)
+
+        if args.known_distance is not None:
+            scale = args.known_distance / total_miles if total_miles > 0 else 1.0
+            print(f"  Scaling factor: {scale:.6f} (known={args.known_distance}, computed={total_miles:.4f})", file=sys.stderr)
+        print(f"Interpolating points at {interval_miles}-mile intervals ({POINTS_PER_MILE} per mile)...", file=sys.stderr)
+
+        points = interpolate_geodesic_points(cum_dist, interval_miles, args.known_distance)
+        method_used = "geodesic"
+        if args.known_distance is not None:
+            method_used = "geodesic_scaled"
+
+    # --- Try Albers method ---
+    if points is None and args.method in ("auto", "albers"):
         print("Computing Albers Equal Area distances (ESRI:102003)...", file=sys.stderr)
         cum_alb = compute_cumulative_albers(coords)
         if cum_alb is None:

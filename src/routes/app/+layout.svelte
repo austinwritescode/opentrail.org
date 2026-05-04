@@ -29,6 +29,7 @@
 	import { goto, replaceState } from '$app/navigation';
 	import { syncData, postGeneric, getData } from '$lib/api';
 	import { searchTrailRoute } from '$lib/helpers.js';
+	import { decodeTrail } from '$lib/decode-trail.js';
 	import { register } from 'swiper/element/bundle';
 	register();
 	import SwiperCore, { Virtual } from 'swiper';
@@ -352,7 +353,7 @@
 
 	async function populateMap() {
 		const res = await fetch(`https://cdn.opentrail.org/${$settings.trail}.json`);
-		$trailRoute = await res.json();
+		$trailRoute = decodeTrail(await res.json());
 		map.addSource('route', {
 			type: 'geojson',
 			data: $trailRoute

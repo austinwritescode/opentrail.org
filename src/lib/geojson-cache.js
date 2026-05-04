@@ -1,5 +1,6 @@
 import fetch from 'node-fetch'
 import { TRAILS } from '$lib/store.js'
+import { decodeTrail } from '$lib/decode-trail.js'
 
 export let geoJSON = {}
 let initPromise = null
@@ -10,7 +11,7 @@ async function initialize() {
         const res = await fetch(`https://cdn.opentrail.org/${trail}.json`)
         if (!res.ok) throw new Error(`Failed to fetch ${trail}.json: ${res.status}`)
         const data = await res.json()
-        geoJSON[trail] = data
+        geoJSON[trail] = decodeTrail(data)
     })
     await Promise.all(fetches)
     console.log('Loaded geoJSONs to memory')

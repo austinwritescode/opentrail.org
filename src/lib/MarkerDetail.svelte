@@ -227,6 +227,10 @@
 							const url = `${window.location.origin}/app?trail=${$settings.trail}&marker=${prop.dbid}`;
 							navigator.clipboard.writeText(url);
 						}}><a>Copy share link</a></li>
+						<li onclick={() => {
+							const c = $data.features[dataIdx].geometry.coordinates;
+							window.open(`https://www.google.com/maps/search/?api=1&query=${c[1]},${c[0]}`, '_blank');
+						}}><a>Open in Google Maps</a></li>
 						<li onclick={() => flagGeneric({}, 'flagMarker')}><a>Delete marker</a></li>
 					</ul>
 				</div>

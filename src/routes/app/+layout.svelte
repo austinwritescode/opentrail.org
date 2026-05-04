@@ -433,8 +433,8 @@
 		map.removeSource('markers');
 		map.removeLayer('route');
 		map.removeSource('route');
-		populateMap();
 		map.fitBounds(TRAILS[$settings.trail].bounds);
+		populateMap();
 	}
 
 	function updateSelectedMarker(id, slide = true) {
@@ -681,7 +681,7 @@
 
 <div class="flex flex-col h-full">
 	<!-- main area full height minus navbar, use grid to overlap divs + css "visibility" to cache map for fast navigation -->
-	<div style="height: calc(100% - 64px);" class="grid grid-cols-1">
+	<div style="height: calc(100dvh - 64px);" class="grid grid-cols-1 grid-rows-1">
 		<!-- hide the map when visiting other routes -->
 		<div
 			style="visibility: {$page.url.pathname === '/app' ? 'visible' : 'hidden'};"
@@ -769,7 +769,7 @@
 			{/if}
 		</div>
 
-		<div class="row-start-1 col-start-1" bind:this={slotWrapper}>
+		<div class="row-start-1 col-start-1 min-h-0 overflow-y-auto" bind:this={slotWrapper}>
 			<slot />
 		</div>
 	</div>

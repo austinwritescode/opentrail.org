@@ -151,6 +151,16 @@
 	}
 
 	onMount(async () => {
+		const viewport = document.querySelector('meta[name="viewport"]');
+		function updateViewport() {
+			if (!viewport) return;
+			const allowZoom = $detailId !== -1 || $page.url.pathname !== '/app';
+			viewport.content = allowZoom
+				? 'width=device-width, initial-scale=1'
+				: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
+		}
+		detailId.subscribe(updateViewport);
+		page.subscribe(updateViewport);
 		const params = $page.url.searchParams;
 		const deepTrail = params.get('trail');
 		const deepMarkerDbid = params.get('marker');

@@ -106,7 +106,7 @@
 		class:modal-open={open}
 		onclick={(e) => {
 			if (e.target !== e.currentTarget) return;
-			if ($modal.type !== 'editLoc') cancelModal();
+ if ($modal.type !== 'editLoc' && $modal.type !== 'updateAvailable') cancelModal();
 		}}
 	>
 		<div class="modal-box pointer-events-auto space-y-4" class:select-text={$modal.type === 'text' || $modal.type === 'textArea'}>

@@ -261,30 +261,70 @@
 		el.style.width = '46px';
 		el.style.height = '46px';
 		const headingMarker = new maplibregl.Marker({element: el});
-		let compassEnabled = false;
-		let compassDisabled = false;
-		let lastHeading;
-		let orientationEvent;
-		let geolocateActive = false;
-		geolocate.on('trackuserlocationstart', () => { geolocateActive = true; });
-		geolocate.on('trackuserlocationend', () => { geolocateActive = false; });
-		const compassListener = (e) => {
-			if (!compassEnabled) {
-				headingMarker.addTo(map);
-				compassEnabled = true;
-			}
-			let heading = e.webkitCompassHeading || 360 - e.alpha;
-			heading = Math.round(heading / 3) * 3;
-			if (lastHeading === heading) return;
-			else lastHeading = heading;
-			headingMarker.setRotation(heading);
-			if (!geolocateActive) {
-				compassEnabled = false;
-				headingMarker.remove();
-				window.removeEventListener(orientationEvent, compassListener, true);
-			}
-		};
-		geolocate.on('geolocate', function (geo) {
+    let compassEnabled = false;
+    let compassDisabled = false;
+    let lastHeading;
+    let orientationEvent;
+    let disableTimeout;
+    const disableCompass = () => {
+        compassEnabled = false;
+        headingMarker.remove();
+        window.removeEventListener(orientationEvent, compassListener, true);
+    };
+    const compassListener = (e) => {
+        if (!compassEnabled) {
+            headingMarker.addTo(map);
+            compassEnabled = true;
+        }
+        let heading = e.webkitCompassHeading || 360 - e.alpha;
+        heading = Math.round(heading / 3) * 3;
+        if (lastHeading === heading) return;
+        else lastHeading = heading;
+        headingMarker.setRotation(heading);
+    };
+    geolocate.on('trackuserlocationstart', () => { clearTimeout(disableTimeout); });
+    geolocate.on('trackuserlocationend', () => { disableTimeout = setTimeout(disableCompass, 300); });
+    function attachCompassListener() {
+        if (compassDisabled || !window.DeviceOrientationEvent) return;
+        const isIOS =
+            navigator.userAgent.match(/(iPod|iPhone|iPad)/) &&
+            navigator.userAgent.match(/AppleWebKit/);
+        if (isIOS) {
+            console.log('Starting iOS compass marker');
+            orientationEvent = 'deviceorientation';
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then((response) => {
+                        if (response === 'granted')
+                            window.addEventListener(orientationEvent, compassListener, true);
+                    })
+                    .catch(() => {
+                        openModal({
+                            type: 'iOSCompass',
+                            submit: () => {
+                                $modal.isOpen = false;
+                                DeviceOrientationEvent.requestPermission().then((response) => {
+                                    if (response === 'granted')
+                                        window.addEventListener(orientationEvent, compassListener, true);
+                                    else compassDisabled = true;
+                                });
+                            },
+                            cancel: () => {
+                                $modal.isOpen = false;
+                                compassDisabled = true;
+                            }
+                        });
+                    });
+            } else {
+                window.addEventListener(orientationEvent, compassListener, true);
+            }
+        } else {
+            console.log('Starting Android compass marker');
+            orientationEvent = 'deviceorientationabsolute';
+            window.addEventListener(orientationEvent, compassListener, true);
+        }
+    }
+    geolocate.on('geolocate', function (geo) {
 			if (new Date() - $userMiles.date > 60000) {
 				//limit the mile search algo to once per minute
 				$userMiles.date = new Date();
@@ -292,47 +332,9 @@
 				$userMiles.miles = min.index / 10;
 				console.log($userMiles.miles);
 			}
-			headingMarker.setLngLat([geo.coords.longitude, geo.coords.latitude]);
-			if (!compassEnabled && !compassDisabled && window.DeviceOrientationEvent) {
-				const isIOS =
-					navigator.userAgent.match(/(iPod|iPhone|iPad)/) &&
-					navigator.userAgent.match(/AppleWebKit/);
-				if (isIOS) {
-					console.log('Starting iOS compass marker');
-					orientationEvent = 'deviceorientation';
-					if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-						DeviceOrientationEvent.requestPermission()
-							.then((response) => {
-								if (response === 'granted')
-									window.addEventListener(orientationEvent, compassListener, true);
-							})
-							.catch(() => {
-								openModal({
-									type: 'iOSCompass',
-									submit: () => {
-										$modal.isOpen = false;
-										DeviceOrientationEvent.requestPermission().then((response) => {
-											if (response === 'granted')
-												window.addEventListener(orientationEvent, compassListener, true);
-											else compassDisabled = true;
-										});
-									},
-									cancel: () => {
-										$modal.isOpen = false;
-										compassDisabled = true;
-									}
-								});
-							});
-					} else {
-						window.addEventListener(orientationEvent, compassListener, true);
-					}
-				} else {
-					console.log('Starting Android compass marker');
-					orientationEvent = 'deviceorientationabsolute';
-					window.addEventListener(orientationEvent, compassListener, true);
-				}
-			}
-		});
+        headingMarker.setLngLat([geo.coords.longitude, geo.coords.latitude]);
+        if (!compassEnabled && !compassDisabled) attachCompassListener();
+    });
 		map.addControl(geolocate);
 
 		map.on('click', (e) => {

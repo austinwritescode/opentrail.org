@@ -1,4 +1,4 @@
-<script lang="ts">
+<script>
 	import { db } from '$lib/db';
 	import { getData, syncData } from '$lib/api.js';
 	import { liveQuery } from 'dexie';
@@ -18,16 +18,18 @@
 		promptInstall,
 		swWaitingRegistration
 	} from '$lib/store.js';
-	import pLimit from 'p-limit';
-	const limit = pLimit(5);
-	import { onMount } from 'svelte';
-	import dayjs from 'dayjs';
-	import relativeTime from 'dayjs/plugin/relativeTime';
-	dayjs.extend(relativeTime);
-	import prettyBytes from 'pretty-bytes';
-	import NoSleep from 'nosleep.js';
-	var noSleep;
-	if (browser) noSleep = new NoSleep();
+import pLimit from 'p-limit';
+const limit = pLimit(5);
+import { onMount } from 'svelte';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+dayjs.extend(relativeTime);
+import prettyBytes from 'pretty-bytes';
+import NoSleep from 'nosleep.js';
+import { streamPmtiles, deleteOffline, deleteImages } from '$lib/download.js';
+/** @type {import('nosleep.js').default | undefined} */
+var noSleep;
+if (browser) noSleep = new NoSleep();
 
 	let syncSpinner = false;
 	let storageEstimate = '';
@@ -188,105 +190,91 @@
 		await caches.delete('offline-cache');
 		const cache = await caches.open('offline-cache');
 		try {
-			$downloadPersist = { type: 'offline-cache', trail: $settings.trail, status: 'in_progress' };
-			$downloadState = {
-				active: true,
-				type: 'offline-cache',
-				displayName: 'Downloading offline cache',
-				downloaded: 0,
-				total: 0,
-				trail: $settings.trail,
-				onCancel: () => {
-					limit.clearQueue();
-					deleteOffline();
-					noSleep.disable();
-				}
-			};
-			noSleep.enable();
+			$downloadPersist = { type: 'offline-cache', trail: $settings.trail, status: 'in_progress', bytesReceived: 0, totalBytes: 0 };
 			const trailData = [
 				`https://cdn.opentrail.org/${$settings.trail}.json`,
 				`/api/getData?trail=${$settings.trail}`
 			];
 			await cache.addAll(trailData);
-			const res = await fetch(`https://cdn.opentrail.org/${$settings.trail}.xyz`);
-			const xyzlist = (await res.json())[0];
-			const URLlist = xyzlist.map(
-				(xyz) => `https://cdn.opentrail.org/tiles/${xyz[2]}/${xyz[0]}/${xyz[1]}.pbf`
-			);
-			await cacheFromList(URLlist, 'offline-cache', 'offline cache', () => {
-				$settings.offline = true;
-			});
-		} catch (e) {
-			deleteOffline();
-			noSleep.disable();
-			return errorModal(e.message);
-		}
-	}
-
-	async function fetchImages() {
-		await caches.delete('image-cache');
-		try {
-			$downloadPersist = { type: 'image-cache', trail: $settings.trail, status: 'in_progress' };
-			$downloadState = {
-				active: true,
-				type: 'image-cache',
-				displayName: 'Downloading offline images',
-				downloaded: 0,
-				total: 0,
-				trail: $settings.trail,
-				onCancel: () => {
-					limit.clearQueue();
-					deleteImages();
-					noSleep.disable();
-				}
-			};
-			noSleep.enable();
-			const res = await fetch(`/api/getImageList?trail=${$settings.trail}`);
-			const list = await res.json();
-			const URLlist = list.map((num) => `https://cdn.opentrail.org/img/${num}.jpg`);
-			await cacheFromList(URLlist, 'image-cache', 'offline images', () => {
-				$settings.offlineimages = true;
-			});
-		} catch (e) {
-			deleteImages();
-			noSleep.disable();
-			return errorModal(e.message);
-		}
-	}
-
-	async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
-		if (URLlist.length === 0) {
-			$downloadState.active = false;
-			$downloadPersist.status = 'complete';
-			noSleep.disable();
-			return onSuccess();
-		}
-		try {
-			$downloadState.downloaded = 0;
-			$downloadState.total = URLlist.length;
-			const cache = await caches.open(cachename);
-			await Promise.all(
-				URLlist.map((url) =>
-					limit(async () => {
-						await cache.add(url);
-						$downloadState.downloaded++;
-						if ($downloadState.downloaded === $downloadState.total) {
-							$downloadState.active = false;
-							$downloadPersist.status = 'complete';
-							noSleep.disable();
-							onSuccess();
-						}
-					})
-				)
+			await streamPmtiles(
+				$settings.trail,
+				0,
+				0,
+				'Downloading offline cache',
+				() => { $settings.offline = true; },
+				deleteOffline
 			);
 		} catch (e) {
-			limit.clearQueue();
-			if (cachename === 'offline-cache') deleteOffline();
-			if (cachename === 'image-cache') deleteImages();
-			noSleep.disable();
-			return errorModal(e.message);
-		}
+		deleteOffline();
+		noSleep?.disable();
+		return errorModal(/** @type {Error} */ (e).message);
 	}
+}
+
+async function fetchImages() {
+	await caches.delete('image-cache');
+	try {
+		$downloadPersist = { type: 'image-cache', trail: $settings.trail, status: 'in_progress', bytesReceived: 0, totalBytes: 0 };
+		$downloadState = {
+			active: true,
+			type: 'image-cache',
+			displayName: 'Downloading offline images',
+			downloaded: 0,
+			total: 0,
+			trail: $settings.trail,
+			onCancel: () => {
+				limit.clearQueue();
+				deleteImages();
+				noSleep?.disable();
+			}
+		};
+		noSleep?.enable();
+		const res = await fetch(`/api/getImageList?trail=${$settings.trail}`);
+		const list = await res.json();
+		const URLlist = list.map((/** @type {number} */ num) => `https://cdn.opentrail.org/img/${num}.jpg`);
+		await cacheFromList(URLlist, 'image-cache', 'offline images', () => {
+			$settings.offlineimages = true;
+		});
+	} catch (e) {
+		deleteImages();
+		noSleep?.disable();
+		return errorModal(/** @type {Error} */ (e).message);
+	}
+}
+
+async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
+	if (URLlist.length === 0) {
+		$downloadState.active = false;
+		$downloadPersist.status = 'complete';
+		noSleep?.disable();
+		return onSuccess();
+	}
+	try {
+		$downloadState.downloaded = 0;
+		$downloadState.total = URLlist.length;
+		const cache = await caches.open(cachename);
+		await Promise.all(
+			URLlist.map((url) =>
+				limit(async () => {
+					await cache.add(url);
+					$downloadState.downloaded++;
+					if ($downloadState.downloaded === $downloadState.total) {
+						$downloadState.active = false;
+						$downloadPersist.status = 'complete';
+						noSleep?.disable();
+						onSuccess();
+					}
+				})
+			)
+		);
+	} catch (e) {
+		limit.clearQueue();
+		if (cachename === 'offline-cache') deleteOffline();
+		if (cachename === 'image-cache') deleteImages();
+		noSleep?.disable();
+		return errorModal(/** @type {Error} */ (e).message);
+	}
+}
 
 	async function syncDataWithSpinner() {
 		syncSpinner = true;
@@ -295,37 +283,12 @@
 		} catch (e) {
 			//cancel sync w error:
 			syncSpinner = false;
-			return errorModal(e.message);
+			return errorModal(/** @type {Error} */ (e).message);
 		}
 		updateStorageEstimate();
 		syncSpinner = false;
 	}
-
-	async function deleteOffline() {
-		try {
-			await db.pending.clear();
-			await caches.delete('offline-cache');
-			await caches.delete('image-cache');
-		} catch (e) {
-			return errorModal(e.message);
-		}
-		$settings.offline = false;
-		$settings.offlineimages = false;
-		$downloadState.active = false;
-		$downloadPersist.status = '';
-	}
-
-	async function deleteImages() {
-		try {
-			await caches.delete('image-cache');
-		} catch (e) {
-			return errorModal(e.message);
-		}
-		$settings.offlineimages = false;
-		$downloadState.active = false;
-		$downloadPersist.status = '';
-	}
-</script>
+	</script>
 
 <div class="flex flex-col w-full p-4" bind:this={settingsWrapper}>
 	{#each labels as [left, right, callback, subfield], i}

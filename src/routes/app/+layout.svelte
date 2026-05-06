@@ -2,9 +2,10 @@
 	import { page } from '$app/stores';
 	import { onMount, mount, unmount } from 'svelte';
 	import { slide } from 'svelte/transition';
-	import maplibregl from 'maplibre-gl';
-	import 'maplibre-gl/dist/maplibre-gl.css';
-	import {
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { Protocol } from 'pmtiles';
+import {
 		settings,
 		data,
 		TRAILS,
@@ -232,12 +233,27 @@
 	let mapInitialized = false;
 	$: if (mapInitialized) map.getSource('markers')?.setData($data);
 
-	async function initializeMap() {
+/** @type {import('pmtiles').Protocol | undefined} */
+let pmtilesProtocol;
+
+async function initializeMap() {
 		if (!document.getElementById('map') || !slotWrapper) return setTimeout(initializeMap, 10); //for welcome screen load, wait for DOM to catch up
+
+		if (!pmtilesProtocol) {
+			pmtilesProtocol = new Protocol();
+			maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile);
+		}
+
+		const styleRes = await fetch('https://cdn.opentrail.org/style-outdoors.json');
+		const style = await styleRes.json();
+		style.sources.composite = {
+			type: 'vector',
+			url: `pmtiles://https://cdn.opentrail.org/${$settings.trail}.pmtiles`
+		};
 
 		map = new maplibregl.Map({
 			container: 'map',
-			style: 'https://cdn.opentrail.org/style-outdoors.json',
+			style: style,
 			bounds: TRAILS[$settings.trail].bounds,
 			minZoom: 2,
 			attributionControl: false

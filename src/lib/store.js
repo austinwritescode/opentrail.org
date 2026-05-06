@@ -158,7 +158,7 @@ export const downloadState = writable({
 	onCancel: noOp
 });
 
-let initDownloadPersist = { type: '', trail: '', status: '' };
+let initDownloadPersist = { type: '', trail: '', status: '', bytesReceived: 0, totalBytes: 0 };
 if (browser) {
 	const stored = localStorage.getItem('downloadPersist');
 	if (stored) initDownloadPersist = JSON.parse(stored);

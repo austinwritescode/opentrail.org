@@ -1,8 +1,11 @@
 <script>
 	import { onMount } from 'svelte';
-	import maplibregl from 'maplibre-gl';
-	import 'maplibre-gl/dist/maplibre-gl.css';
-	let key;
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { Protocol } from 'pmtiles';
+/** @type {import('pmtiles').Protocol | undefined} */
+let pmtilesProtocol;
+let key;
 	let mod;
 	let markers;
 	let flags;
@@ -65,16 +68,29 @@
 		isModalOpen = true;
 		const item = mod.find((val) => val.id === id);
 		const oldMarker = markers[item.request.dbid];
-		map = new maplibregl.Map({
-			container: 'map',
-			style: 'https://cdn.opentrail.org/style-outdoors.json',
-			center: [item.request.lng, item.request.lat],
-			zoom: 13
-		});
-		new maplibregl.Marker({ color: '#F00' }).setLngLat([oldMarker.lng, oldMarker.lat]).addTo(map);
-		new maplibregl.Marker({ color: '#0F0' })
-			.setLngLat([item.request.lng, item.request.lat])
-			.addTo(map);
+		const trail = item.request.trail || 'PCT';
+		if (!pmtilesProtocol) {
+			pmtilesProtocol = new Protocol();
+			maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile);
+		}
+		fetch('https://cdn.opentrail.org/style-outdoors.json')
+			.then((r) => r.json())
+			.then((style) => {
+				style.sources.composite = {
+					type: 'vector',
+					url: `pmtiles://https://cdn.opentrail.org/${trail}.pmtiles`
+				};
+				map = new maplibregl.Map({
+					container: 'map',
+					style: style,
+					center: [item.request.lng, item.request.lat],
+					zoom: 13
+				});
+				new maplibregl.Marker({ color: '#F00' }).setLngLat([oldMarker.lng, oldMarker.lat]).addTo(map);
+				new maplibregl.Marker({ color: '#0F0' })
+					.setLngLat([item.request.lng, item.request.lat])
+					.addTo(map);
+			});
 	}
 
 	async function flagDeleteUnderlying(item) {

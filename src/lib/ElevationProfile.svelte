@@ -260,9 +260,14 @@
 			onpointerdown={handlePointerDown}
 			onpointerleave={handlePointerLeave}
 			onclick={handleClick}
-			class="elevation-profile-svg"
-		>
-			<path d={paths.area} fill={theme.areaFill} stroke="none" />
+class="elevation-profile-svg"
+>
+<defs>
+<filter id="dot-shadow" x="-50%" y="-50%" width="200%" height="200%">
+<feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="rgba(0,0,0,0.35)" />
+</filter>
+</defs>
+<path d={paths.area} fill={theme.areaFill} stroke="none" />
 			<path d={paths.line} fill="none" stroke={theme.areaStroke} stroke-width="1.5" />
 
 			<!-- y-axis grid lines + labels -->
@@ -289,34 +294,36 @@
 				{#if localIdx >= 0 && localIdx < $profileData.points.length && m.elev != null}
 					{@const elevConverted = imperial ? m.elev : ftToM(m.elev)}
 					{@const selected = m.id === $selectedMarkerId}
-					<circle
-						cx={scaleX(localIdx, $profileData.points.length)}
-						cy={scaleY(elevConverted, elevRange.min, elevRange.max)}
-						r={selected ? 4 : 3}
-						fill={ICON_COLORS[m.icon] || ICON_COLORS.o}
-						stroke="white"
-						stroke-width={selected ? 2 : 0.5}
-					/>
+<circle
+cx={scaleX(localIdx, $profileData.points.length)}
+cy={scaleY(elevConverted, elevRange.min, elevRange.max)}
+r={selected ? 4 : 3}
+fill={ICON_COLORS[m.icon] || ICON_COLORS.o}
+stroke="white"
+stroke-width={selected ? 2 : 0.5}
+filter="url(#dot-shadow)"
+/>
 				{/if}
 			{/each}
 
 			<!-- geo dot -->
 			{#if geoDot}
 				{@const geoElevConverted = imperial ? mToFt(geoDot.elev) : geoDot.elev}
-				<circle
-					cx={scaleX(geoDot.localIdx, $profileData.points.length)}
-					cy={scaleY(geoElevConverted, elevRange.min, elevRange.max)}
-					r="5"
-					fill="#3b82f6"
-					stroke="white"
-					stroke-width="1.5"
-				/>
+<circle
+cx={scaleX(geoDot.localIdx, $profileData.points.length)}
+cy={scaleY(geoElevConverted, elevRange.min, elevRange.max)}
+r="5"
+fill="#3b82f6"
+stroke="white"
+stroke-width="1.5"
+filter="url(#dot-shadow)"
+/>
 			{/if}
 
 			<!-- cursor -->
 			{#if cursorLocalIdx >= 0 && cursorElev != null && cursorLabel}
 				<line x1={cursorX} y1={PADDING.top} x2={cursorX} y2={height - PADDING.bottom} stroke="#d22" stroke-width="1" stroke-dasharray="3,2" />
-				<circle cx={cursorX} cy={scaleY(cursorElev, elevRange.min, elevRange.max)} r="4" fill="#d22" stroke="white" stroke-width="1" />
+				<circle cx={cursorX} cy={scaleY(cursorElev, elevRange.min, elevRange.max)} r="4" fill="#d22" stroke="white" stroke-width="1" filter="url(#dot-shadow)" />
 				{@const labelW = cursorLabel.length * 5 + 8}
 				<rect x={cursorX - labelW / 2} y={PADDING.top - 2} width={labelW} height="14" rx="2" fill="rgba(0,0,0,0.7)" />
 				<text x={cursorX} y={PADDING.top + 9} text-anchor="middle" fill="white" class="cursor-label">{cursorLabel}</text>

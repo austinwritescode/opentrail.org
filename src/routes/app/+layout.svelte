@@ -365,20 +365,23 @@ let pmtilesProtocol;
 			}
 		});
 
-		await Promise.all(
-			ICONS.map(async (icon) => {
-				await addImageToMap(icon);
-				await addImageToMap(icon + '-selected');
-			})
-		);
-
-		map.on('error', (e) => errorModal(`Map: ${e.error?.message || JSON.stringify(e.error)}`));
+	map.on('error', (e) => errorModal(`Map: ${e.error?.message || JSON.stringify(e.error)}`));
 	await new Promise(resolve => map.once('load', resolve));
+	await Promise.all(
+		ICONS.map(async (icon) => {
+			await addImageToMap(icon);
+			await addImageToMap(icon + '-selected');
+		})
+	);
 	await populateMap();
 
 	const canvases = document.getElementsByTagName('canvas');
 	if (canvases.length > 1) errorModal('map error');
 }
+
+	function onMarkerClick(e) {
+		updateSelectedMarker(e.features[0].id);
+	}
 
 	async function populateMap() {
 		const res = await fetch(`https://cdn.opentrail.org/${$settings.trail}.json`);
@@ -440,7 +443,7 @@ let pmtilesProtocol;
 				},
 				filter: ['in', icon, ['get', 'icons']]
 			});
-			map.on('click', `markers-${icon}`, (e) => updateSelectedMarker(e.features[0].id));
+			map.on('click', `markers-${icon}`, onMarkerClick);
 		}
 		mapInitialized = true;
 		map.off('move', onMapMove);
@@ -457,10 +460,11 @@ let pmtilesProtocol;
 		$activeIcons = new Array(ICONS.length).fill(true);
 		lastToggleAllIcons = true;
 
-		for (const icon of ICONS) {
-			map.removeLayer(`markers-${icon}`);
-			map.removeLayer(`markers-${icon}-selected`);
-		}
+	for (const icon of ICONS) {
+		map.removeLayer(`markers-${icon}`);
+		map.removeLayer(`markers-${icon}-selected`);
+		map.off('click', `markers-${icon}`, onMarkerClick);
+	}
 		map.removeSource('markers');
 		map.removeLayer('route');
 		map.removeSource('route');
@@ -493,6 +497,7 @@ let pmtilesProtocol;
 	}
 
 	function updateSelectedMarker(id, slide = true) {
+		if (!mapInitialized) return;
 		if (lockSelection) return;
 		if ($selectedMarkerId === id) return;
 		if ($selectedMarkerId !== -1)

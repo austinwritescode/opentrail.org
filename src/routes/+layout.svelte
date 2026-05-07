@@ -25,7 +25,9 @@
 
 	onMount(() => {
 		window.addEventListener('error', (e) => errorModal(e.error?.message || e.message));
-		window.addEventListener('unhandledrejection', (e) => errorModal(e.reason?.message || String(e.reason)));
+		window.addEventListener('unhandledrejection', (e) =>
+			errorModal(e.reason?.message || String(e.reason))
+		);
 
 		window.addEventListener('beforeinstallprompt', (e) => {
 			e.preventDefault();
@@ -106,10 +108,13 @@
 		class:modal-open={open}
 		onclick={(e) => {
 			if (e.target !== e.currentTarget) return;
- if ($modal.type !== 'editLoc' && $modal.type !== 'updateAvailable') cancelModal();
+			if ($modal.type !== 'editLoc' && $modal.type !== 'updateAvailable') cancelModal();
 		}}
 	>
-		<div class="modal-box pointer-events-auto space-y-4" class:select-text={$modal.type === 'text' || $modal.type === 'textArea'}>
+		<div
+			class="modal-box pointer-events-auto space-y-4"
+			class:select-text={$modal.type === 'text' || $modal.type === 'textArea'}
+		>
 			{#if $modal.type === 'warning' || $modal.type === 'error' || $modal.type === 'success'}
 				<!-- Ok this next part looks awful because daisy isn't smart enough to include the right class with `alert-${$modal.type}` -->
 				<div
@@ -117,10 +122,10 @@
 						($modal.type === 'warning'
 							? 'alert-warning'
 							: $modal.type === 'error'
-							? 'alert-error'
-							: $modal.type == 'success'
-							? 'alert-success'
-							: '')}
+								? 'alert-error'
+								: $modal.type == 'success'
+									? 'alert-success'
+									: '')}
 				>
 					<div>
 						{#if $modal.type === 'warning'}
@@ -162,6 +167,11 @@
 					>
 				</p>
 			{:else if $modal.type === 'community'}
+				<p>
+					This map is a communal effort, think of it as a hiker's Wikipedia. If you see any missing
+					information please add it and if you see any wrong information please correct it! All
+					contributions are greatly appreciated.
+				</p>
 				<p class="text-lg">Marker moderation:</p>
 				<ul class="list-disc list-inside text-sm">
 					<li>Marker icon descriptions:</li>
@@ -257,7 +267,8 @@
 				/>
 			{:else if $modal.type === 'textArea'}
 				<p class="font-bold text-2xl">{$modal.data[0]}</p>
-				<textarea class="textarea textarea-accent w-full my-4" bind:value={$modal.data[1]}></textarea>
+				<textarea class="textarea textarea-accent w-full my-4" bind:value={$modal.data[1]}
+				></textarea>
 			{:else if $modal.type === 'editIcons'}
 				<p class="font-bold text-2xl">Marker icons</p>
 				<div class="btn-group">
@@ -301,7 +312,9 @@
 				<p class="text-sm opacity-70">You'll be asked to allow motion access.</p>
 			{:else if $modal.type === 'updateAvailable'}
 				<p class="font-bold text-xl">Update available</p>
-				<p class="text-sm opacity-70">A new version of OpenTrail is ready. Updating will restart the app.</p>
+				<p class="text-sm opacity-70">
+					A new version of OpenTrail is ready. Updating will restart the app.
+				</p>
 			{/if}
 			<div class="modal-action">
 				{#if noConfirm}

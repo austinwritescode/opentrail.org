@@ -49,13 +49,10 @@ if (browser) noSleep = new NoSleep();
 	function toggleUnits() {
 		$settings.units = $settings.units === 'imperial' ? 'metric' : 'imperial';
 	}
-	let settingsWrapper;
 	async function changeTrail(newTrail) {
 		$settings.trail = newTrail;
 		deleteOffline();
 		await getData();
-		const event = new CustomEvent('repopulateMap', { bubbles: true });
-		settingsWrapper?.dispatchEvent(event);
 		await goto('/app');
 	}
 
@@ -290,7 +287,7 @@ async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
 	}
 	</script>
 
-<div class="flex flex-col w-full p-4" bind:this={settingsWrapper}>
+<div class="flex flex-col w-full p-4">
 	{#each labels as [left, right, callback, subfield], i}
 		{#if !subfield && i != 0}<div class="divider h-0 my-1"></div>{/if}
 		<div

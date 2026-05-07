@@ -236,8 +236,10 @@ import {
 /** @type {import('pmtiles').Protocol | undefined} */
 let pmtilesProtocol;
 
-async function initializeMap() {
-		if (!document.getElementById('map') || !slotWrapper) return setTimeout(initializeMap, 10); //for welcome screen load, wait for DOM to catch up
+	let compositeLayerIds = [];
+
+	async function initializeMap() {
+		if (!document.getElementById('map') || !slotWrapper) return setTimeout(initializeMap, 10);
 
 		if (!pmtilesProtocol) {
 			pmtilesProtocol = new Protocol();
@@ -250,6 +252,7 @@ async function initializeMap() {
 			type: 'vector',
 			url: `pmtiles://https://cdn.opentrail.org/${$settings.trail}.pmtiles`
 		};
+		compositeLayerIds = style.layers.map((l) => l.id);
 
 		map = new maplibregl.Map({
 			container: 'map',
@@ -370,14 +373,12 @@ async function initializeMap() {
 		);
 
 		map.on('error', (e) => errorModal(`Map: ${e.error?.message || JSON.stringify(e.error)}`));
-		await new Promise(resolve => map.once('load', resolve));
-		await populateMap();
-		slotWrapper.removeEventListener('repopulateMap', repopulateMap);
-		slotWrapper.addEventListener('repopulateMap', repopulateMap);
+	await new Promise(resolve => map.once('load', resolve));
+	await populateMap();
 
-		const canvases = document.getElementsByTagName('canvas');
-		if (canvases.length > 1) errorModal('map error');
-	}
+	const canvases = document.getElementsByTagName('canvas');
+	if (canvases.length > 1) errorModal('map error');
+}
 
 	async function populateMap() {
 		const res = await fetch(`https://cdn.opentrail.org/${$settings.trail}.json`);
@@ -450,10 +451,12 @@ async function initializeMap() {
 		});
 	}
 
-	function repopulateMap() {
+	async function changeTrailOnMap() {
+		if (!map || !mapInitialized) return;
 		mapInitialized = false;
 		$activeIcons = new Array(ICONS.length).fill(true);
 		lastToggleAllIcons = true;
+
 		for (const icon of ICONS) {
 			map.removeLayer(`markers-${icon}`);
 			map.removeLayer(`markers-${icon}-selected`);
@@ -461,8 +464,32 @@ async function initializeMap() {
 		map.removeSource('markers');
 		map.removeLayer('route');
 		map.removeSource('route');
+
+		for (const id of compositeLayerIds) {
+			if (map.getLayer(id)) map.removeLayer(id);
+		}
+		if (map.getSource('composite')) map.removeSource('composite');
+
+		map.addSource('composite', {
+			type: 'vector',
+			url: `pmtiles://https://cdn.opentrail.org/${$settings.trail}.pmtiles`
+		});
+		const styleRes = await fetch('https://cdn.opentrail.org/style-outdoors.json');
+		const style = await styleRes.json();
+		const compositeLayers = style.layers.filter((l) => l.source === 'composite');
+		for (const layer of compositeLayers) {
+			map.addLayer(layer);
+		}
+		compositeLayerIds = compositeLayers.map((l) => l.id);
+
 		map.fitBounds(TRAILS[$settings.trail].bounds);
-		populateMap();
+		await populateMap();
+	}
+
+	let currentTrail = $settings.trail;
+	$: if (mapInitialized && $settings.trail !== currentTrail) {
+		currentTrail = $settings.trail;
+		changeTrailOnMap();
 	}
 
 	function updateSelectedMarker(id, slide = true) {

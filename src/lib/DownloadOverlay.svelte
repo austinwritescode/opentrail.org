@@ -4,7 +4,7 @@
 	import prettyBytes from 'pretty-bytes';
 
 	$: pct = $downloadState.total > 0 ? Math.round(($downloadState.downloaded / $downloadState.total) * 100) : 0;
-	$: isBytes = $downloadState.total > 100000;
+	$: isBytes = $downloadState.type === 'offline-cache';
 	$: downloadedLabel = isBytes ? prettyBytes($downloadState.downloaded) : $downloadState.downloaded;
 	$: totalLabel = isBytes ? prettyBytes($downloadState.total) : $downloadState.total;
 

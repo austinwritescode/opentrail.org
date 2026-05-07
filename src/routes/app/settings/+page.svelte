@@ -5,19 +5,18 @@
 	import { browser, dev } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import {
-		settings,
-		openModal,
-		errorModal,
-		modal,
-		downloadState,
-		downloadPersist,
-		TRAILS,
-		isInstalled,
-		deferredPrompt,
-		platform,
-		promptInstall,
-		swWaitingRegistration
-	} from '$lib/store.js';
+	settings,
+	openModal,
+	errorModal,
+	modal,
+	downloadState,
+	downloadPersist,
+	isInstalled,
+	deferredPrompt,
+	platform,
+	promptInstall,
+	swWaitingRegistration
+} from '$lib/store.js';
 import pLimit from 'p-limit';
 const limit = pLimit(5);
 import { onMount } from 'svelte';
@@ -125,19 +124,28 @@ if (browser) noSleep = new NoSleep();
 		});
 	}
 
-	function toggleOffline() {
+	async function toggleOffline() {
 		if ($settings.offline)
 			openModal({
 				type: 'warning',
 				data: "This will delete your offline cache and pending uploads. It can't be undone.",
 				submit: deleteOffline
 			});
-		else
+		else {
+			let sizeLabel = 'unknown size';
+			try {
+				const res = await fetch(`https://cdn.opentrail.org/${$settings.trail}.pmtiles`, {
+					method: 'HEAD'
+				});
+				const len = res.headers.get('Content-Length');
+				if (len) sizeLabel = prettyBytes(parseInt(len));
+			} catch {}
 			openModal({
 				type: 'confirmFetch',
-				data: ['offline cache', TRAILS[$settings.trail].size],
+				data: ['offline cache', sizeLabel],
 				submit: fetchOffline
 			});
+		}
 	}
 
 	function installUpdate() {
@@ -158,7 +166,7 @@ if (browser) noSleep = new NoSleep();
 		else
 			openModal({
 				type: 'confirmFetch',
-				data: ['offline images', TRAILS[$settings.trail].sizeImages],
+				data: ['offline images', '~1 MB'],
 				submit: fetchImages
 			});
 	}

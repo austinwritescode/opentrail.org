@@ -1,3 +1,4 @@
+import { sentrySvelteKit } from "@sentry/sveltekit";
 import { defineConfig } from 'vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 
@@ -6,7 +7,10 @@ const version = JSON.stringify(process.env.APP_VERSION || 'unknown');
 const lastmod = JSON.stringify(process.env.APP_LASTMOD || 'unknown');
 
 export default defineConfig({
-	plugins: [sveltekit()],
+	plugins: [sentrySvelteKit({
+        org: "opentrail",
+        project: "opentrail"
+    }), sveltekit()],
 	define: {
 		__VERSION__: version,
 		__LASTMOD__: lastmod,

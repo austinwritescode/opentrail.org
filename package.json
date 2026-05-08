@@ -41,6 +41,7 @@
 	"dependencies": {
 		"@aws-sdk/client-s3": "^3.279.0",
 		"@prisma/client": "^5.10.0",
+		"@sentry/sveltekit": "^10.52.0",
 		"daisyui": "^2.46.1",
 		"dayjs": "^1.11.7",
 		"dexie": "^3.2.3",

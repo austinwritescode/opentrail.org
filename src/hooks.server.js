@@ -1,5 +1,14 @@
+import {sequence} from '@sveltejs/kit/hooks';
+import * as Sentry from '@sentry/sveltekit';
 import { env } from '$env/dynamic/private'
 import { initGeoJSON } from '$lib/geojson-cache.js'
+
+Sentry.init({
+    dsn: "https://ce5b7f4bfa0d91de3163c9daa500b484@o4511352687951872.ingest.us.sentry.io/4511352688279552",
+    tracesSampleRate: 1,
+    enableLogs: true,
+    sendDefaultPii: true
+})
 
 initGeoJSON()
 
@@ -24,23 +33,7 @@ setInterval(() => {
     }
 }, 3_600_000)
 
-export async function handle({ event, resolve }) {
-    if (event.url.pathname.startsWith('/api/')) {
-        const auth = event.request.headers.get('authorization')
-        const key = auth ? auth.replace('Bearer ', '') : null
-        if (key === env.MOD_KEY) return resolve(event)
-        if (key !== null || event.request.method === 'POST') {
-            const ip = event.getClientAddress()
-            if (!rateLimit(ip, 100, 3_600_000)) {
-                return new Response('Too Many Requests', { status: 429 })
-            }
-        }
-    }
-    return resolve(event)
-}
-
-/** @type {import('@sveltejs/kit').HandleServerError} */
-export function handleError({ error, event }) {
+export const handleError = Sentry.handleErrorWithSentry(function _handleError({ error, event }) {
   const msg = error?.message || String(error);
   const is404 = msg.startsWith('Not found:');
 
@@ -70,4 +63,19 @@ export function handleError({ error, event }) {
 
   // 4. Real Server Crashes
   console.error('SERVER CRASH:', error);
-}
+});
+
+export const handle = sequence(Sentry.sentryHandle(), async function _handle({ event, resolve }) {
+    if (event.url.pathname.startsWith('/api/')) {
+        const auth = event.request.headers.get('authorization')
+        const key = auth ? auth.replace('Bearer ', '') : null
+        if (key === env.MOD_KEY) return resolve(event)
+        if (key !== null || event.request.method === 'POST') {
+            const ip = event.getClientAddress()
+            if (!rateLimit(ip, 100, 3_600_000)) {
+                return new Response('Too Many Requests', { status: 429 })
+            }
+        }
+    }
+    return resolve(event)
+});

@@ -3,6 +3,7 @@ FROM node:20-slim AS builder
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl
 COPY package*.json ./
+RUN npm install -g npm@11
 RUN npm ci
 COPY prisma ./prisma/
 # 1. Accept the arguments from Fly/GitHub Actions
@@ -26,6 +27,7 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/prisma ./prisma/
 
 # Install only production dependencies
+RUN npm install -g npm@11
 RUN npm ci --omit=dev
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 

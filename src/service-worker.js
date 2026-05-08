@@ -59,6 +59,7 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('fetch', (event) => {
 	const requestURL = new URL(event.request.url)
+	if (requestURL.pathname.endsWith('.pmtiles')) return;
 	//getData API uses network-first strategy to avoid stale data while online
 	if (requestURL.pathname === '/api/getData') {
 		event.respondWith(fetch(event.request).catch((error) => {

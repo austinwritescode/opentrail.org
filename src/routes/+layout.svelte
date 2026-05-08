@@ -218,7 +218,7 @@
 						</div>
 					</div>
 				{/if}
-				<p class="text-md my-4">Approximate size: {$modal.data[1]}</p>
+				<p class="text-md my-4">Size: {$modal.data[1]}</p>
 			{:else if $modal.type === 'trail'}
 				<p class="font-bold text-2xl">Trail Selection</p>
 				<div class="flex flex-col pl-4">

@@ -132,14 +132,12 @@ if (browser) noSleep = new NoSleep();
 				submit: deleteOffline
 			});
 		else {
-			let sizeLabel = 'unknown size';
-			try {
-				const res = await fetch(`https://cdn.opentrail.org/${$settings.trail}.pmtiles`, {
-					method: 'HEAD'
-				});
-				const len = res.headers.get('Content-Length');
-				if (len) sizeLabel = prettyBytes(parseInt(len));
-			} catch {}
+		let sizeLabel = 'unknown size';
+		try {
+			const res = await fetch(`https://cdn.opentrail.org/${$settings.trail}.pmtiles`, { cache: 'no-store' });
+			const len = res.headers.get('Content-Length');
+			if (len) sizeLabel = prettyBytes(parseInt(len));
+		} catch {}
 			openModal({
 				type: 'confirmFetch',
 				data: ['offline cache', sizeLabel],

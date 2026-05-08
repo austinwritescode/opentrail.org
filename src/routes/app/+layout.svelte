@@ -4,7 +4,8 @@
 	import { slide } from 'svelte/transition';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { Protocol } from 'pmtiles';
+import { Protocol, PMTiles } from 'pmtiles';
+import { OPFSSource } from '$lib/OPFSSource.js';
 import {
 		settings,
 		data,
@@ -29,6 +30,7 @@ import {
 	import ElevationProfile from '$lib/ElevationProfile.svelte';
 	import { goto, replaceState } from '$app/navigation';
 	import { syncData, postGeneric, getData } from '$lib/api';
+import { getOPFSFileSize } from '$lib/download.js';
 	import { searchTrailRoute } from '$lib/helpers.js';
 	import { decodeTrail } from '$lib/decode-trail.js';
 	import { register } from 'swiper/element/bundle';
@@ -172,6 +174,10 @@ import {
 		if ($settings.autosync) await syncData();
 		else if ($data.features.length === 0) await getData();
 		await initializeMap();
+	if ($settings.offline) {
+		const size = await getOPFSFileSize($settings.trail);
+		if (!size) $settings.offline = false;
+	}
 		if (deepMarkerDbid) {
 			const idx = $data.features.findIndex(f => f.properties.dbid == deepMarkerDbid);
 			if (idx !== -1) {
@@ -236,7 +242,17 @@ import {
 /** @type {import('pmtiles').Protocol | undefined} */
 let pmtilesProtocol;
 
-	let compositeLayerIds = [];
+let compositeLayerIds = [];
+
+function updatePmtilesSource() {
+	if (!pmtilesProtocol) return;
+	const key = `https://cdn.opentrail.org/${$settings.trail}.pmtiles`;
+	if ($settings.offline) {
+		pmtilesProtocol.add(new PMTiles(new OPFSSource($settings.trail)));
+	} else {
+		pmtilesProtocol.tiles.delete(key);
+	}
+}
 
 	async function initializeMap() {
 		if (!document.getElementById('map') || !slotWrapper) return setTimeout(initializeMap, 10);
@@ -445,8 +461,9 @@ let pmtilesProtocol;
 			});
 			map.on('click', `markers-${icon}`, onMarkerClick);
 		}
-		mapInitialized = true;
-		map.off('move', onMapMove);
+	mapInitialized = true;
+	updatePmtilesSource();
+	map.off('move', onMapMove);
 		map.on('move', onMapMove);
 		updateProfileData();
 		map.once('idle', () => {
@@ -486,15 +503,17 @@ let pmtilesProtocol;
 		}
 		compositeLayerIds = compositeLayers.map((l) => l.id);
 
-		map.fitBounds(TRAILS[$settings.trail].bounds);
-		await populateMap();
-	}
+	map.fitBounds(TRAILS[$settings.trail].bounds);
+	updatePmtilesSource();
+	await populateMap();
+}
 
-	let currentTrail = $settings.trail;
-	$: if (mapInitialized && $settings.trail !== currentTrail) {
-		currentTrail = $settings.trail;
-		changeTrailOnMap();
-	}
+let currentTrail = $settings.trail;
+$: if (mapInitialized && $settings.trail !== currentTrail) {
+	currentTrail = $settings.trail;
+	changeTrailOnMap();
+}
+$: if (mapInitialized) updatePmtilesSource();
 
 	function updateSelectedMarker(id, slide = true) {
 		if (!mapInitialized) return;

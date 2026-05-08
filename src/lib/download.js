@@ -11,6 +11,31 @@ function getPmtilesUrl(trail) {
 	return `https://cdn.opentrail.org/${trail}.pmtiles`;
 }
 
+/**
+ * @param {string} trail
+ * @returns {Promise<number>} file size in bytes, or 0 if not found
+ */
+export async function getOPFSFileSize(trail) {
+	try {
+		const root = await navigator.storage.getDirectory();
+		const handle = await root.getFileHandle(`${trail}.pmtiles`);
+		const file = await handle.getFile();
+		return file.size;
+	} catch {
+		return 0;
+	}
+}
+
+/**
+ * @param {string} trail
+ */
+async function deleteOPFSFile(trail) {
+	try {
+		const root = await navigator.storage.getDirectory();
+		await root.removeEntry(`${trail}.pmtiles`);
+	} catch {}
+}
+
 export async function resumeDownload() {
 	const persist = get(downloadPersist);
 	if (!persist || persist.status !== 'in_progress' || !persist.type) return;
@@ -26,22 +51,17 @@ export async function resumeDownload() {
 
 	try {
 		if (isOfflineCache) {
-			const url = getPmtilesUrl(persist.trail);
-			const cache = await caches.open('offline-cache');
-			const cached = await cache.match(url);
-			if (cached) {
-				const buf = await cached.arrayBuffer();
-				const total = persist.totalBytes || buf.byteLength;
-				if (buf.byteLength >= total) {
-					downloadPersist.update((p) => { p.status = 'complete'; return p; });
-					downloadState.update((d) => { d.active = false; return d; });
-					onSuccess();
-					return;
-				}
+			const fileSize = await getOPFSFileSize(persist.trail);
+			const total = persist.totalBytes || fileSize;
+			if (fileSize > 0 && fileSize >= total) {
+				downloadPersist.update((p) => { p.status = 'complete'; return p; });
+				downloadState.update((d) => { d.active = false; return d; });
+				onSuccess();
+				return;
 			}
 			await streamPmtiles(
 				persist.trail,
-				persist.bytesReceived || 0,
+				fileSize > 0 ? fileSize : (persist.bytesReceived || 0),
 				persist.totalBytes || 0,
 				'Resuming offline cache',
 				onSuccess,
@@ -162,45 +182,31 @@ export async function streamPmtiles(trail, startBytes, totalBytes, displayName, 
 	});
 	downloadState.update((d) => { d.total = totalBytes; return d; });
 
-	/** @type {ArrayBuffer[]} */
-	let existingChunks = [];
-	if (startBytes > 0) {
-		const cache = await caches.open('offline-cache');
-		const cached = await cache.match(url);
-		if (cached) {
-			existingChunks.push(await cached.arrayBuffer());
-		}
-	}
+	const root = await navigator.storage.getDirectory();
+	const fileHandle = await root.getFileHandle(`${trail}.pmtiles`, { create: true });
+	const writable = await fileHandle.createWritable({ keepExistingData: startBytes > 0 });
 
 	const body = response.body;
 	if (!body) throw new Error('Response body is null');
 	const reader = body.getReader();
-	let receivedLength = startBytes;
-	const newChunks = [];
+	let writeOffset = startBytes;
 
-	while (true) {
-		const { done, value } = await reader.read();
-		if (done) break;
-		newChunks.push(value);
-		receivedLength += value.length;
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			await writable.write(value, { at: writeOffset });
+			writeOffset += value.length;
 
-		downloadState.update((d) => { d.downloaded = receivedLength; return d; });
-		downloadPersist.update((p) => { p.bytesReceived = receivedLength; return p; });
+			downloadState.update((d) => { d.downloaded = writeOffset; return d; });
+			downloadPersist.update((p) => { p.bytesReceived = writeOffset; return p; });
+		}
+	} catch (e) {
+		await writable.abort();
+		throw e;
 	}
 
-	const allChunks = [...existingChunks.map((c) => new Uint8Array(c)), ...newChunks];
-	const totalLength = allChunks.reduce((acc, c) => acc + c.byteLength, 0);
-	const combined = new Uint8Array(totalLength);
-	let offset = 0;
-	for (const chunk of allChunks) {
-		combined.set(chunk, offset);
-		offset += chunk.byteLength;
-	}
-
-	const cache = await caches.open('offline-cache');
-	await cache.put(url, new Response(combined, {
-		headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': String(totalLength) }
-	}));
+	await writable.close();
 
 	downloadPersist.update((p) => {
 		p.status = 'complete';
@@ -214,9 +220,11 @@ export async function streamPmtiles(trail, startBytes, totalBytes, displayName, 
 }
 
 export async function deleteOffline() {
+	const trail = get(settings).trail;
 	try {
 		await db.pending.clear();
 	} catch {}
+	await deleteOPFSFile(trail);
 	await caches.delete('offline-cache');
 	await caches.delete('image-cache');
 	settings.update((s) => { s.offline = false; s.offlineimages = false; return s; });

@@ -52,51 +52,25 @@ self.addEventListener('activate', (event) => {
 })
 
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting()
-  }
+	if (event.data && event.data.type === 'SKIP_WAITING') {
+		self.skipWaiting()
+	}
 })
 
-async function handleRangeRequest(request) {
-  const cache = await caches.open('offline-cache');
-  const cached = await cache.match(request.url);
-  if (!cached) return fetch(request);
-  const full = await cached.arrayBuffer();
-  const rangeHeader = request.headers.get('Range');
-  if (!rangeHeader) return cached;
-  const match = rangeHeader.match(/bytes=(\d+)-(\d*)/);
-  if (!match) return cached;
-  const start = parseInt(match[1]);
-  const end = match[2] ? parseInt(match[2]) : full.byteLength - 1;
-  const slice = full.slice(start, end + 1);
-  return new Response(slice, {
-    status: 206,
-    headers: {
-      'Content-Range': `bytes ${start}-${end}/${full.byteLength}`,
-      'Content-Length': String(slice.byteLength),
-      'Content-Type': 'application/octet-stream'
-    }
-  });
-}
-
 self.addEventListener('fetch', (event) => {
-  const requestURL = new URL(event.request.url)
-  //getData API uses network-first strategy to avoid stale data while online
-  if (requestURL.pathname === '/api/getData') {
-    event.respondWith(fetch(event.request).catch((error) => {
-      return caches.open('offline-cache').then((cache) => {
-        return cache.match(event.request)
-      })
-    }))
-  }
-  //handle range requests for cached PMTiles files (offline tile serving)
-  else if (event.request.headers.has('Range') && requestURL.pathname.endsWith('.pmtiles')) {
-    event.respondWith(handleRangeRequest(event.request));
-  }
-  //everything else is static so use cache-first:
-  else {
-    event.respondWith(caches.match(event.request).then((res) => {
-      return res || fetch(event.request)
-    }))
-  }
+	const requestURL = new URL(event.request.url)
+	//getData API uses network-first strategy to avoid stale data while online
+	if (requestURL.pathname === '/api/getData') {
+		event.respondWith(fetch(event.request).catch((error) => {
+			return caches.open('offline-cache').then((cache) => {
+				return cache.match(event.request)
+			})
+		}))
+	}
+	//everything else is static so use cache-first:
+	else {
+		event.respondWith(caches.match(event.request).then((res) => {
+			return res || fetch(event.request)
+		}))
+	}
 })

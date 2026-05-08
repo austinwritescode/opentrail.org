@@ -25,21 +25,19 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 dayjs.extend(relativeTime);
 import prettyBytes from 'pretty-bytes';
 import NoSleep from 'nosleep.js';
-import { streamPmtiles, deleteOffline, deleteImages } from '$lib/download.js';
+	import { streamPmtiles, deleteOffline, deleteImages, getOPFSFileSize } from '$lib/download.js';
 /** @type {import('nosleep.js').default | undefined} */
 var noSleep;
 if (browser) noSleep = new NoSleep();
 
 	let syncSpinner = false;
-	let storageEstimate = '';
+	let opfsSizeLabel = '';
 
 	onMount(updateStorageEstimate);
-	$: if ($settings.offline) updateStorageEstimate();
+	$: if ($settings.offline || $settings.trail) updateStorageEstimate();
 	async function updateStorageEstimate() {
-		if (navigator?.storage?.estimate) {
-			const estimate = await navigator.storage.estimate();
-			storageEstimate = `${prettyBytes(estimate.usage)} (${prettyBytes(estimate.quota)} available)`;
-		}
+		const opfsSize = await getOPFSFileSize($settings.trail);
+		opfsSizeLabel = opfsSize > 0 ? ` (${prettyBytes(opfsSize)})` : '';
 	}
 
 	function toggle(key) {
@@ -60,13 +58,11 @@ if (browser) noSleep = new NoSleep();
 		$pendingCount > 0 ? [['Pending uploads: ' + $pendingCount, null, null, true]] : [];
 	$: offlineSublabels = $settings.offline
 		? [
-				...(storageEstimate ? [[`Size: ${storageEstimate}`, null, null, true]] : []),
 				...pendingSublabel,
 				['Last sync: ' + $settings.lastsync.fromNow(), 'Sync', syncDataWithSpinner, true],
 				['Automatic sync', $settings.autosync, toggleAutosync, true],
 				['Offline images', $settings.offlineimages, toggleImages, true]
-				//['Save satellite', $settings.enablesat, () => toggle('enablesat'), true] //todo
-		  ]
+			]
 		: [];
 	$: labels = [
 		//left label, right label, callback, subsetting
@@ -94,7 +90,7 @@ if (browser) noSleep = new NoSleep();
 		...($swWaitingRegistration
 			? [['An update is available', 'Install now', installUpdate, false]]
 			: []),
-		['Offline cache', $settings.offline, toggleOffline, false],
+		['Offline cache' + opfsSizeLabel, $settings.offline, toggleOffline, false],
 		...offlineSublabels,
 		['Username', $settings.username, openUsernameModal, false],
 		['Dark mode', $settings.dark, () => toggle('dark'), false],

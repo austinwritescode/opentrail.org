@@ -244,25 +244,37 @@ let pmtilesProtocol;
 
 let compositeLayerIds = [];
 
-function updatePmtilesSource() {
-	if (!pmtilesProtocol) return;
-	const key = `https://cdn.opentrail.org/${$settings.trail}.pmtiles`;
-	if ($settings.offline) {
-		pmtilesProtocol.add(new PMTiles(new OPFSSource($settings.trail)));
-	} else {
-		pmtilesProtocol.tiles.delete(key);
+let pmtilesUpdateInProgress = false;
+
+async function updatePmtilesSource() {
+	if (!pmtilesProtocol || pmtilesUpdateInProgress) return;
+	pmtilesUpdateInProgress = true;
+	try {
+		const key = `https://cdn.opentrail.org/${$settings.trail}.pmtiles`;
+		for (const existingKey of [...pmtilesProtocol.tiles.keys()]) {
+			if (existingKey !== key) pmtilesProtocol.tiles.delete(existingKey);
+		}
+		if ($settings.offline && await getOPFSFileSize($settings.trail)) {
+			pmtilesProtocol.add(new PMTiles(new OPFSSource($settings.trail)));
+		} else {
+			pmtilesProtocol.tiles.delete(key);
+			if ($settings.offline) $settings.offline = false;
+		}
+	} finally {
+		pmtilesUpdateInProgress = false;
 	}
 }
 
 	async function initializeMap() {
 		if (!document.getElementById('map') || !slotWrapper) return setTimeout(initializeMap, 10);
 
-		if (!pmtilesProtocol) {
-			pmtilesProtocol = new Protocol();
-			maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile);
-		}
+	if (!pmtilesProtocol) {
+		pmtilesProtocol = new Protocol();
+		maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile);
+	}
+	await updatePmtilesSource();
 
-		const styleRes = await fetch('https://cdn.opentrail.org/style-outdoors.json');
+	const styleRes = await fetch('https://cdn.opentrail.org/style-outdoors.json');
 		const style = await styleRes.json();
 		style.sources.composite = {
 			type: 'vector',
@@ -462,7 +474,6 @@ function updatePmtilesSource() {
 			map.on('click', `markers-${icon}`, onMarkerClick);
 		}
 	mapInitialized = true;
-	updatePmtilesSource();
 	map.off('move', onMapMove);
 		map.on('move', onMapMove);
 		updateProfileData();
@@ -489,13 +500,18 @@ function updatePmtilesSource() {
 		for (const id of compositeLayerIds) {
 			if (map.getLayer(id)) map.removeLayer(id);
 		}
-		if (map.getSource('composite')) map.removeSource('composite');
+	if (map.getSource('composite')) map.removeSource('composite');
 
-		map.addSource('composite', {
-			type: 'vector',
-			url: `pmtiles://https://cdn.opentrail.org/${$settings.trail}.pmtiles`
-		});
-		const styleRes = await fetch('https://cdn.opentrail.org/style-outdoors.json');
+	await updatePmtilesSource();
+	const wasOffline = $settings.offline;
+	map.addSource('composite', {
+		type: 'vector',
+		url: `pmtiles://https://cdn.opentrail.org/${$settings.trail}.pmtiles`
+	});
+	if (!wasOffline && !navigator.onLine) {
+		errorModal('No offline data for this trail. Connect to the internet to load map tiles.');
+	}
+	const styleRes = await fetch('https://cdn.opentrail.org/style-outdoors.json');
 		const style = await styleRes.json();
 		const compositeLayers = style.layers.filter((l) => l.source === 'composite');
 		for (const layer of compositeLayers) {
@@ -504,16 +520,20 @@ function updatePmtilesSource() {
 		compositeLayerIds = compositeLayers.map((l) => l.id);
 
 	map.fitBounds(TRAILS[$settings.trail].bounds);
-	updatePmtilesSource();
 	await populateMap();
 }
 
 let currentTrail = $settings.trail;
-$: if (mapInitialized && $settings.trail !== currentTrail) {
-	currentTrail = $settings.trail;
-	changeTrailOnMap();
+$: if (mapInitialized) {
+	$settings.offline;
+	$settings.trail;
+	if ($settings.trail !== currentTrail) {
+		currentTrail = $settings.trail;
+		changeTrailOnMap();
+	} else {
+		updatePmtilesSource();
+	}
 }
-$: if (mapInitialized) updatePmtilesSource();
 
 	function updateSelectedMarker(id, slide = true) {
 		if (!mapInitialized) return;

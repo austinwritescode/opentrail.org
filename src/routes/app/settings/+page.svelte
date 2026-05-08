@@ -49,8 +49,8 @@ if (browser) noSleep = new NoSleep();
 		$settings.units = $settings.units === 'imperial' ? 'metric' : 'imperial';
 	}
 	async function changeTrail(newTrail) {
+		await deleteOffline();
 		$settings.trail = newTrail;
-		deleteOffline();
 		await getData();
 		await goto('/app');
 	}

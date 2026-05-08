@@ -1,8 +1,12 @@
 <script>
 	import { downloadState } from '$lib/store.js';
 	import { slide } from 'svelte/transition';
+	import prettyBytes from 'pretty-bytes';
 
 	$: pct = $downloadState.total > 0 ? Math.round(($downloadState.downloaded / $downloadState.total) * 100) : 0;
+	$: isBytes = $downloadState.type === 'offline-cache';
+	$: downloadedLabel = isBytes ? prettyBytes($downloadState.downloaded) : $downloadState.downloaded;
+	$: totalLabel = isBytes ? prettyBytes($downloadState.total) : $downloadState.total;
 
 	function cancel() {
 		$downloadState.onCancel();
@@ -19,7 +23,7 @@
 			{#if $downloadState.total > 0}
 				<progress class="progress progress-primary w-full" value={$downloadState.downloaded} max={$downloadState.total}></progress>
 				<div class="download-overlay-info">
-					<span class="text-xs opacity-70">{$downloadState.downloaded} of {$downloadState.total} ({pct}%)</span>
+					<span class="text-xs opacity-70">{downloadedLabel} of {totalLabel} ({pct}%)</span>
 				</div>
 			{:else}
 				<button class="btn btn-ghost btn-sm loading"></button>

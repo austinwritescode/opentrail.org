@@ -7,37 +7,25 @@ export const TRAILS = {
 		bounds: [
 			[-123.8, 32.3],
 			[-116.2, 49.2]
-		],
-		size: '287 MB',
-		sizeImages: '1 MB',
-		sizeInBytes: 300000000
+		]
 	},
 	AT: {
 		bounds: [
 			[-84.4, 34.4],
 			[-68.7, 46.1]
-		],
-		size: '221 MB',
-		sizeImages: '1 MB',
-		sizeInBytes: 250000000
+		]
 	},
 	CDT: {
 		bounds: [
 			[-114.1, 31.1],
 			[-105.5, 49.2]
-		],
-		size: '284 MB',
-		sizeImages: '1 MB',
-		sizeInBytes: 300000000
+		]
 	},
 	test: {
 		bounds: [
 			[-117.0321, 42.0008],
 			[-117.0263, 42.0048]
-		],
-		size: '1 MB',
-		sizeImages: '1 MB',
-		sizeInBytes: 1000000
+		]
 	}
 };
 
@@ -158,7 +146,7 @@ export const downloadState = writable({
 	onCancel: noOp
 });
 
-let initDownloadPersist = { type: '', trail: '', status: '' };
+let initDownloadPersist = { type: '', trail: '', status: '', bytesReceived: 0, totalBytes: 0 };
 if (browser) {
 	const stored = localStorage.getItem('downloadPersist');
 	if (stored) initDownloadPersist = JSON.parse(stored);

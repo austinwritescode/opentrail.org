@@ -1,32 +1,31 @@
 import { build, files, version } from '$service-worker'
 const CACHE = `cache-${version}`
 const ASSETS = [
-    ...build,
-    ...files,
-    '/', //causing android chrome to cache SW?
-    `/app`,
-    `/app/list`,
-    `/app/profile`,
-    `/app/settings`,
-    'https://cdn.opentrail.org/style-outdoors.json',
-    'https://cdn.opentrail.org/sprite@2x.json',
-    'https://cdn.opentrail.org/sprite@2x.png',
-    'https://cdn.opentrail.org/fonts/DIN%20Pro%20Bold,Arial%20Unicode%20MS%20Bold/0-255.font',
-    'https://cdn.opentrail.org/fonts/DIN%20Pro%20Bold,Arial%20Unicode%20MS%20Bold/8192-8447.font',
-    'https://cdn.opentrail.org/fonts/DIN%20Pro%20Italic,Arial%20Unicode%20MS%20Regular/0-255.font',
-    'https://cdn.opentrail.org/fonts/DIN%20Pro%20Italic,Arial%20Unicode%20MS%20Regular/8192-8447.font',
-    'https://cdn.opentrail.org/fonts/DIN%20Pro%20Medium,Arial%20Unicode%20MS%20Regular/0-255.font',
-    'https://cdn.opentrail.org/fonts/DIN%20Pro%20Medium,Arial%20Unicode%20MS%20Regular/8192-8447.font',
-    'https://cdn.opentrail.org/fonts/DIN%20Pro%20Regular,Arial%20Unicode%20MS%20Regular/0-255.font',
-    'https://cdn.opentrail.org/fonts/DIN%20Pro%20Regular,Arial%20Unicode%20MS%20Regular/8192-8447.font',
-    'https://cdn.opentrail.org/fonts/DIN%20Pro%20Regular,Arial%20Unicode%20MS%20Regular/9472-9727.font',
-    'https://cdn.opentrail.org/fonts/DIN%20Pro%20Regular,Arial%20Unicode%20MS%20Regular/9728-9983.font',
+  ...build,
+  ...files,
+  '/', //causing android chrome to cache SW?
+  `/app`,
+  `/app/list`,
+  `/app/profile`,
+  `/app/settings`,
+  'https://cdn.opentrail.org/style-outdoors.json',
+  'https://cdn.opentrail.org/sprite@2x.json',
+  'https://cdn.opentrail.org/sprite@2x.png',
+  'https://cdn.opentrail.org/fonts/DIN%20Pro%20Bold,Arial%20Unicode%20MS%20Bold/0-255.font',
+  'https://cdn.opentrail.org/fonts/DIN%20Pro%20Bold,Arial%20Unicode%20MS%20Bold/8192-8447.font',
+  'https://cdn.opentrail.org/fonts/DIN%20Pro%20Italic,Arial%20Unicode%20MS%20Regular/0-255.font',
+  'https://cdn.opentrail.org/fonts/DIN%20Pro%20Italic,Arial%20Unicode%20MS%20Regular/8192-8447.font',
+  'https://cdn.opentrail.org/fonts/DIN%20Pro%20Medium,Arial%20Unicode%20MS%20Regular/0-255.font',
+  'https://cdn.opentrail.org/fonts/DIN%20Pro%20Medium,Arial%20Unicode%20MS%20Regular/8192-8447.font',
+  'https://cdn.opentrail.org/fonts/DIN%20Pro%20Regular,Arial%20Unicode%20MS%20Regular/0-255.font',
+  'https://cdn.opentrail.org/fonts/DIN%20Pro%20Regular,Arial%20Unicode%20MS%20Regular/8192-8447.font',
+  'https://cdn.opentrail.org/fonts/DIN%20Pro%20Regular,Arial%20Unicode%20MS%20Regular/9472-9727.font',
+  'https://cdn.opentrail.org/fonts/DIN%20Pro%20Regular,Arial%20Unicode%20MS%20Regular/9728-9983.font',
 ];
 const dontDelete = [
-    CACHE,
-    'mapbox-tiles',
-    'offline-cache',
-    'image-cache'
+  CACHE,
+  'offline-cache',
+  'image-cache'
 ];
 
 const tryCache = () => caches.open(CACHE).then(c => c.addAll(ASSETS));
@@ -36,42 +35,43 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-    console.log('Service worker activating. Cache version: ' + CACHE)
-    event.waitUntil(
-        caches.keys().then((keyList) =>
-            Promise.all(
-                keyList.map((key) => {
-                    if (!(dontDelete.includes(key))) {
-                        console.log('Service worker deleting old cache: ' + key)
-                        return caches.delete(key);
-                    }
-                })
-            )
-        )
+  console.log('Service worker activating. Cache version: ' + CACHE)
+  event.waitUntil(
+    caches.keys().then((keyList) =>
+      Promise.all(
+        keyList.map((key) => {
+          if (!(dontDelete.includes(key))) {
+            console.log('Service worker deleting old cache: ' + key)
+            return caches.delete(key);
+          }
+        })
+      )
     )
-    return self.clients.claim();
+  )
+  return self.clients.claim();
 })
 
 self.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'SKIP_WAITING') {
-        self.skipWaiting()
-    }
+	if (event.data && event.data.type === 'SKIP_WAITING') {
+		self.skipWaiting()
+	}
 })
 
 self.addEventListener('fetch', (event) => {
-    const requestURL = new URL(event.request.url)
-    //getData API uses network-first strategy to avoid stale data while online
-    if (requestURL.pathname === '/api/getData') {
-        event.respondWith(fetch(event.request).catch((error) => {
-            return caches.open('offline-cache').then((cache) => {
-                return cache.match(event.request)
-            })
-        }))
-    }
-    //everything else is static so use cache-first:
-    else {
-        event.respondWith(caches.match(event.request).then((res) => {
-            return res || fetch(event.request)
-        }))
-    }
+	const requestURL = new URL(event.request.url)
+	if (requestURL.pathname.endsWith('.pmtiles')) return;
+	//getData API uses network-first strategy to avoid stale data while online
+	if (requestURL.pathname === '/api/getData') {
+		event.respondWith(fetch(event.request).catch((error) => {
+			return caches.open('offline-cache').then((cache) => {
+				return cache.match(event.request)
+			})
+		}))
+	}
+	//everything else is static so use cache-first:
+	else {
+		event.respondWith(caches.match(event.request).then((res) => {
+			return res || fetch(event.request)
+		}))
+	}
 })

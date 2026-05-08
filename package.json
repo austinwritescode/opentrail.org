@@ -14,6 +14,7 @@
 		"format": "prettier --write ."
 	},
 	"devDependencies": {
+		"@mapbox/sphericalmercator": "^2.0.2",
 		"@sveltejs/adapter-auto": "^3.0.0",
 		"@sveltejs/adapter-node": "^2.0.0",
 		"@sveltejs/kit": "^2.0.0",
@@ -21,6 +22,7 @@
 		"@typescript-eslint/eslint-plugin": "^7.0.0",
 		"@typescript-eslint/parser": "^7.0.0",
 		"autoprefixer": "^10.4.17",
+		"better-sqlite3": "^12.9.0",
 		"eslint": "^8.56.0",
 		"eslint-config-prettier": "^9.1.0",
 		"eslint-plugin-svelte": "^2.35.0",
@@ -47,6 +49,7 @@
 		"normalize.css": "^8.0.1",
 		"nosleep.js": "^0.12.0",
 		"p-limit": "^4.0.0",
+		"pmtiles": "^4.4.1",
 		"pretty-bytes": "^6.0.0",
 		"swiper": "^9.0.4"
 	}

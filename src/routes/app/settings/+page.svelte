@@ -5,27 +5,27 @@
 	import { browser, dev } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import {
-	settings,
-	openModal,
-	errorModal,
-	modal,
-	downloadState,
-	downloadPersist,
-	isInstalled,
-	deferredPrompt,
-	platform,
-	promptInstall,
-	swWaitingRegistration
-} from '$lib/store.js';
-import pLimit from 'p-limit';
-const limit = pLimit(5);
-import { onMount } from 'svelte';
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
-dayjs.extend(relativeTime);
-import prettyBytes from 'pretty-bytes';
-import { hold, unhold } from '$lib/wakeLock.js';
-import { streamPmtiles, deleteOffline, deleteImages, getOPFSFileSize } from '$lib/download.js';
+		settings,
+		openModal,
+		errorModal,
+		modal,
+		downloadState,
+		downloadPersist,
+		isInstalled,
+		deferredPrompt,
+		platform,
+		promptInstall,
+		swWaitingRegistration
+	} from '$lib/store.js';
+	import pLimit from 'p-limit';
+	const limit = pLimit(5);
+	import { onMount } from 'svelte';
+	import dayjs from 'dayjs';
+	import relativeTime from 'dayjs/plugin/relativeTime';
+	dayjs.extend(relativeTime);
+	import prettyBytes from 'pretty-bytes';
+	import { hold, unhold } from '$lib/wakeLock.js';
+	import { streamPmtiles, deleteOffline, deleteImages, getOPFSFileSize } from '$lib/download.js';
 
 	let syncSpinner = false;
 	let opfsSizeLabel = '';
@@ -77,12 +77,12 @@ import { streamPmtiles, deleteOffline, deleteImages, getOPFSFileSize } from '$li
 						$deferredPrompt
 							? 'Install'
 							: $platform === 'ios-safari'
-							? 'Safari → Share → Add to Home Screen'
-							: 'Use Safari on iOS or Chrome on Android',
+								? 'Safari → Share → Add to Home Screen'
+								: 'Use Safari on iOS or Chrome on Android',
 						$deferredPrompt ? promptInstall : () => {},
 						false
 					]
-			  ]
+				]
 			: []),
 		...($swWaitingRegistration
 			? [['An update is available', 'Install now', installUpdate, false]]
@@ -125,12 +125,15 @@ import { streamPmtiles, deleteOffline, deleteImages, getOPFSFileSize } from '$li
 				submit: deleteOffline
 			});
 		else {
-		let sizeLabel = 'unknown size';
-		try {
-			const res = await fetch(`https://cdn.opentrail.org/${$settings.trail}.pmtiles`, { method: 'HEAD', cache: 'no-store' });
-			const len = res.headers.get('Content-Length');
-			if (len) sizeLabel = prettyBytes(parseInt(len));
-		} catch {}
+			let sizeLabel = 'unknown size';
+			try {
+				const res = await fetch(`https://cdn.opentrail.org/${$settings.trail}.pmtiles`, {
+					method: 'HEAD',
+					cache: 'no-store'
+				});
+				const len = res.headers.get('Content-Length');
+				if (len) sizeLabel = prettyBytes(parseInt(len));
+			} catch {}
 			openModal({
 				type: 'confirmFetch',
 				data: ['offline cache', sizeLabel],
@@ -174,19 +177,27 @@ import { streamPmtiles, deleteOffline, deleteImages, getOPFSFileSize } from '$li
 
 	async function fetchOffline() {
 		if (!navigator.serviceWorker)
-return errorModal(new Error('No service worker found. Refresh the page and try again.'));
-  if (!navigator.serviceWorker.controller && !dev)
-    return errorModal(new Error('Service worker not ready. Refresh the page and try again.'));
+			return errorModal(new Error('No service worker found. Refresh the page and try again.'));
+		if (!navigator.serviceWorker.controller && !dev)
+			return errorModal(new Error('Service worker not ready. Refresh the page and try again.'));
 		const persisted = await navigator.storage.persist();
 		if (!persisted)
-return errorModal(
-      new Error('No persistent storage found. Check your browser permissions. If your phone is out of date it may not support persistent storage.')
-    );
+			return errorModal(
+				new Error(
+					'No persistent storage found. This app is designed to be installed to home screen via Chrome or Safari to ensure your data does not get evicted.'
+				)
+			);
 
 		await caches.delete('offline-cache');
 		const cache = await caches.open('offline-cache');
 		try {
-			$downloadPersist = { type: 'offline-cache', trail: $settings.trail, status: 'in_progress', bytesReceived: 0, totalBytes: 0 };
+			$downloadPersist = {
+				type: 'offline-cache',
+				trail: $settings.trail,
+				status: 'in_progress',
+				bytesReceived: 0,
+				totalBytes: 0
+			};
 			const trailData = [
 				`https://cdn.opentrail.org/${$settings.trail}.json`,
 				`/api/getData?trail=${$settings.trail}`
@@ -197,80 +208,90 @@ return errorModal(
 				0,
 				0,
 				'Downloading offline cache',
-				() => { $settings.offline = true; },
+				() => {
+					$settings.offline = true;
+				},
 				deleteOffline
 			);
 		} catch (e) {
-		deleteOffline();
-		unhold();
-		return errorModal(/** @type {Error} */ (e));
+			deleteOffline();
+			unhold();
+			return errorModal(/** @type {Error} */ (e));
+		}
 	}
-}
 
-async function fetchImages() {
-	await caches.delete('image-cache');
-	try {
-		$downloadPersist = { type: 'image-cache', trail: $settings.trail, status: 'in_progress', bytesReceived: 0, totalBytes: 0 };
-		$downloadState = {
-			active: true,
-			type: 'image-cache',
-			displayName: 'Downloading offline images',
-			downloaded: 0,
-			total: 0,
-			trail: $settings.trail,
-			onCancel: () => {
-				limit.clearQueue();
-				deleteImages();
-				unhold();
-			}
-		};
-		hold();
-		const res = await fetch(`/api/getImageList?trail=${$settings.trail}`);
-		const list = await res.json();
-		const URLlist = list.map((/** @type {number} */ num) => `https://cdn.opentrail.org/img/${num}.jpg`);
-		await cacheFromList(URLlist, 'image-cache', 'offline images', () => {
-			$settings.offlineimages = true;
-		});
-	} catch (e) {
-		deleteImages();
-		unhold();
-		return errorModal(/** @type {Error} */ (e));
+	async function fetchImages() {
+		await caches.delete('image-cache');
+		try {
+			$downloadPersist = {
+				type: 'image-cache',
+				trail: $settings.trail,
+				status: 'in_progress',
+				bytesReceived: 0,
+				totalBytes: 0
+			};
+			$downloadState = {
+				active: true,
+				type: 'image-cache',
+				displayName: 'Downloading offline images',
+				downloaded: 0,
+				total: 0,
+				trail: $settings.trail,
+				onCancel: () => {
+					limit.clearQueue();
+					deleteImages();
+					unhold();
+				}
+			};
+			hold();
+			const res = await fetch(`/api/getImageList?trail=${$settings.trail}`);
+			const list = await res.json();
+			const URLlist = list.map(
+				(/** @type {number} */ num) => `https://cdn.opentrail.org/img/${num}.jpg`
+			);
+			await cacheFromList(URLlist, 'image-cache', 'offline images', () => {
+				$settings.offlineimages = true;
+			});
+		} catch (e) {
+			deleteImages();
+			unhold();
+			return errorModal(/** @type {Error} */ (e));
+		}
 	}
-}
 
-async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
-	if (URLlist.length === 0) {
-		$downloadState.active = false;
-		$downloadPersist.status = 'complete';
-		unhold();
-		return onSuccess();
+	async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
+		if (URLlist.length === 0) {
+			$downloadState.active = false;
+			$downloadPersist.status = 'complete';
+			unhold();
+			return onSuccess();
+		}
+		try {
+			$downloadState.downloaded = 0;
+			$downloadState.total = URLlist.length;
+			const cache = await caches.open(cachename);
+			await Promise.all(
+				URLlist.map((url) =>
+					limit(async () => {
+						await cache.add(url);
+						$downloadState.downloaded++;
+						if ($downloadState.downloaded === $downloadState.total) {
+							$downloadState.active = false;
+							$downloadPersist.status = 'complete';
+							unhold();
+							onSuccess();
+						}
+					})
+				)
+			);
+		} catch (e) {
+			limit.clearQueue();
+			if (cachename === 'offline-cache') deleteOffline();
+			if (cachename === 'image-cache') deleteImages();
+			unhold();
+			return errorModal(/** @type {Error} */ (e));
+		}
 	}
-	try {
-		$downloadState.downloaded = 0;
-		$downloadState.total = URLlist.length;
-		const cache = await caches.open(cachename);
-		await Promise.all(
-			URLlist.map((url) =>
-				limit(async () => {
-					await cache.add(url);
-					$downloadState.downloaded++;
-					if ($downloadState.downloaded === $downloadState.total) {
-						$downloadState.active = false;
-						$downloadPersist.status = 'complete';
-						unhold();
-						onSuccess();
-					}
-				})
-			)
-		);
-	} catch (e) {
-		limit.clearQueue();
-		if (cachename === 'offline-cache') deleteOffline();
-		if (cachename === 'image-cache') deleteImages();
-		unhold();
-		return errorModal(/** @type {Error} */ (e));
-	}
-}
 
 	async function syncDataWithSpinner() {
 		syncSpinner = true;
@@ -284,14 +305,16 @@ async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
 		updateStorageEstimate();
 		syncSpinner = false;
 	}
-	</script>
+</script>
 
 <div class="flex flex-col w-full p-4">
 	{#each labels as [left, right, callback, subfield], i}
 		{#if !subfield && i != 0}<div class="divider h-0 my-1"></div>{/if}
 		<div
 			class="flex flex-row justify-between items-center my-2 text-md cursor-pointer"
-			onclick={() => { if (typeof callback === 'function') callback(); }}
+			onclick={() => {
+				if (typeof callback === 'function') callback();
+			}}
 		>
 			<span class={subfield && 'ml-4'}>{left}</span>
 			{#if typeof right === 'string'}

@@ -146,11 +146,16 @@ export async function streamPmtiles(trail, startBytes, totalBytes, displayName, 
 		downloaded: startBytes,
 		total: totalBytes,
 		trail: trail,
-		onCancel: () => {
-			downloadAbortController?.abort();
-			onDelete();
-			noSleep?.disable();
-		}
+  onCancel: () => {
+      downloadAbortController?.abort();
+      if (opfsWorker) {
+        opfsWorker.postMessage({ type: 'abort', startBytes });
+        opfsWorker.terminate();
+        opfsWorker = null;
+      }
+      onDelete();
+      noSleep?.disable();
+    }
 	});
 	noSleep?.enable();
 
@@ -182,31 +187,64 @@ export async function streamPmtiles(trail, startBytes, totalBytes, displayName, 
 	});
 	downloadState.update((d) => { d.total = totalBytes; return d; });
 
-	const root = await navigator.storage.getDirectory();
-	const fileHandle = await root.getFileHandle(`${trail}.pmtiles`, { create: true });
-	const writable = await fileHandle.createWritable({ keepExistingData: startBytes > 0 });
+	/** @type {Worker | null} */
+	let opfsWorker = null;
+	/** @type {((reason?: any) => void) | null} */
+	let workerReject = null;
+	/**
+	 * @param {string} type
+	 * @param {{ transferables?: Transferable[]; [key: string]: any }} data
+	 */
+	function workerMessage(type, data = {}) {
+		return new Promise((resolve, reject) => {
+			if (!opfsWorker) return reject(new Error('Worker not initialized'));
+			workerReject = reject;
+			opfsWorker.onmessage = (e) => {
+				workerReject = null;
+				if (e.data.error) reject(new Error(e.data.error));
+				else resolve(e.data);
+			};
+			const transferables = data.transferables || [];
+			const { transferables: _, ...rest } = data;
+			opfsWorker.postMessage({ type, ...rest }, transferables);
+		});
+	}
 
 	const body = response.body;
 	if (!body) throw new Error('Response body is null');
 	const reader = body.getReader();
 	let writeOffset = startBytes;
 
-	try {
-		while (true) {
-			const { done, value } = await reader.read();
+	opfsWorker = new Worker(new URL('./opfs-worker.js', import.meta.url), { type: 'module' });
+	opfsWorker.onerror = (e) => {
+		if (workerReject) workerReject(new Error(e.message || 'Worker failed to load'));
+		workerReject = null;
+	};
+
+  try {
+    await workerMessage('open', { trail, startBytes });
+    while (true) {
+		const { done, value } = await reader.read();
 			if (done) break;
-			await writable.write(value, { at: writeOffset });
-			writeOffset += value.length;
+			const chunkLength = value.length;
+			await workerMessage('write', { data: value.buffer, offset: writeOffset, transferables: [value.buffer] });
+			writeOffset += chunkLength;
 
-			downloadState.update((d) => { d.downloaded = writeOffset; return d; });
-			downloadPersist.update((p) => { p.bytesReceived = writeOffset; return p; });
-		}
-	} catch (e) {
-		await writable.abort();
-		throw e;
-	}
-
-	await writable.close();
+      downloadState.update((d) => { d.downloaded = writeOffset; return d; });
+      downloadPersist.update((p) => { p.bytesReceived = writeOffset; return p; });
+    }
+    await workerMessage('flush');
+    await workerMessage('close');
+    opfsWorker.terminate();
+    opfsWorker = null;
+  } catch (e) {
+    if (opfsWorker) {
+      opfsWorker.postMessage({ type: 'abort', startBytes });
+      opfsWorker.terminate();
+      opfsWorker = null;
+    }
+    throw e;
+  }
 
 	downloadPersist.update((p) => {
 		p.status = 'complete';

@@ -1,5 +1,5 @@
 import { writable, get } from 'svelte/store';
-import { browser } from '$app/environment';
+import { browser, dev } from '$app/environment';
 import dayjs from 'dayjs';
 
 export const TRAILS = {
@@ -132,8 +132,12 @@ export function openModal({
 	});
 }
 
-export function errorModal(msg) {
-	openModal({ type: 'error', data: msg });
+export function errorModal(err) {
+  const errObj = err instanceof Error ? err : new Error(err);
+if (browser && !dev) {
+    import('@sentry/sveltekit').then(Sentry => Sentry.captureException(errObj)).catch(() => {});
+  }
+  openModal({ type: 'error', data: errObj.message });
 }
 
 export const downloadState = writable({

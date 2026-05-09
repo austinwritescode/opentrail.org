@@ -1,6 +1,8 @@
 import { env } from '$env/dynamic/private'
 import { prisma } from '$lib/prisma.ts'
 import { json } from '@sveltejs/kit'
+import * as Sentry from '@sentry/sveltekit';
+import { dev } from '$app/environment';
 
 function getAuthToken(request) {
     const auth = request.headers.get('authorization')
@@ -39,29 +41,31 @@ export async function GET({ request, url, getClientAddress }) {
             console.log(`failed moderator login from ip [${ip}]`)
             return new Response(null, { status: 403 })
         }
-    } catch (e) {
-        console.log(e)
-        return new Response(null, { status: 400 })
-    }
+} catch (e) {
+    if (!dev) Sentry.captureException(e);
+    console.log(e)
+    return new Response(null, { status: 400 })
+  }
 }
 
 export async function DELETE({ request, url, getClientAddress }) {
-    try {
-        if (getAuthToken(request) === env.MOD_KEY) {
-            const req = await request.json()
-            console.log(`moderator cleared ${req} from moderation queue`)
-            await prisma.moderation.delete({
-                where: { id: req }
-            })
-            return new Response()
-        }
-        else {
-            const ip = getClientAddress()
-            console.log('Failed log-in from ip ' + ip)
-            return new Response(null, { status: 403 })
-        }
-    } catch (e) {
-        console.log(e)
-        return new Response(null, { status: 400 })
+  try {
+    if (getAuthToken(request) === env.MOD_KEY) {
+      const req = await request.json()
+      console.log(`moderator cleared ${req} from moderation queue`)
+      await prisma.moderation.delete({
+        where: { id: req }
+      })
+      return new Response()
+    }
+    else {
+      const ip = getClientAddress()
+      console.log('Failed log-in from ip ' + ip)
+      return new Response(null, { status: 403 })
+    }
+  } catch (e) {
+    if (!dev) Sentry.captureException(e);
+    console.log(e)
+    return new Response(null, { status: 400 })
     }
 }

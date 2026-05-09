@@ -1,10 +1,10 @@
 <script>
-	import { page } from '$app/stores';
-	import { onMount, mount, unmount } from 'svelte';
-	import { slide } from 'svelte/transition';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
-import { Protocol, PMTiles } from 'pmtiles';
+  import { page } from '$app/stores';
+  import { onMount, mount, unmount } from 'svelte';
+  import { slide } from 'svelte/transition';
+  import maplibregl from 'maplibre-gl';
+  import 'maplibre-gl/dist/maplibre-gl.css';
+  import { Protocol, PMTiles } from 'pmtiles';
 import { OPFSSource } from '$lib/OPFSSource.js';
 import {
 		settings,
@@ -345,8 +345,8 @@ async function updatePmtilesSource() {
                         if (response === 'granted')
                             window.addEventListener(orientationEvent, compassListener, true);
                     })
-                    .catch(() => {
-                        openModal({
+.catch(() => {
+    openModal({
                             type: 'iOSCompass',
                             submit: () => {
                                 $modal.isOpen = false;
@@ -393,7 +393,7 @@ async function updatePmtilesSource() {
 			}
 		});
 
-	map.on('error', (e) => errorModal(`Map: ${e.error?.message || JSON.stringify(e.error)}`));
+	map.on('error', (e) => errorModal(e.error || new Error(`Map: ${JSON.stringify(e.error)}`)));
 	await new Promise(resolve => map.once('load', resolve));
 	await Promise.all(
 		ICONS.map(async (icon) => {
@@ -404,7 +404,7 @@ async function updatePmtilesSource() {
 	await populateMap();
 
 	const canvases = document.getElementsByTagName('canvas');
-	if (canvases.length > 1) errorModal('map error');
+	if (canvases.length > 1) errorModal(new Error('Multiple map canvases detected'));
 }
 
 	function onMarkerClick(e) {
@@ -508,9 +508,9 @@ async function updatePmtilesSource() {
 		type: 'vector',
 		url: `pmtiles://https://cdn.opentrail.org/${$settings.trail}.pmtiles`
 	});
-	if (!wasOffline && !navigator.onLine) {
-		errorModal('No offline data for this trail. Connect to the internet to load map tiles.');
-	}
+if (!wasOffline && !navigator.onLine) {
+    errorModal(new Error('No offline data for this trail. Connect to the internet to load map tiles.'));
+  }
 	const styleRes = await fetch('https://cdn.opentrail.org/style-outdoors.json');
 		const style = await styleRes.json();
 		const compositeLayers = style.layers.filter((l) => l.source === 'composite');

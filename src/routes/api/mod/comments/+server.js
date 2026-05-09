@@ -1,6 +1,8 @@
 import { env } from '$env/dynamic/private'
 import { prisma } from '$lib/prisma.ts'
 import { json } from '@sveltejs/kit'
+import * as Sentry from '@sentry/sveltekit';
+import { dev } from '$app/environment';
 
 function getAuthToken(request) {
     const auth = request.headers.get('authorization')
@@ -27,23 +29,25 @@ export async function GET({ request }) {
             }
         })
         return json(comments)
-    } catch (e) {
-        console.log(e)
-        return new Response(null, { status: 400 })
-    }
+} catch (e) {
+    if (!dev) Sentry.captureException(e);
+    console.log(e)
+    return new Response(null, { status: 400 })
+  }
 }
 
 export async function DELETE({ request, url }) {
-    try {
-        if (getAuthToken(request) !== env.MOD_KEY) {
-            return new Response(null, { status: 403 })
-        }
-        const id = parseInt(url.searchParams.get('id'))
-        if (!id) return new Response(null, { status: 400 })
-        await prisma.comment.delete({ where: { id } })
-        return new Response()
-    } catch (e) {
-        console.log(e)
-        return new Response(null, { status: 400 })
+  try {
+    if (getAuthToken(request) !== env.MOD_KEY) {
+      return new Response(null, { status: 403 })
+    }
+    const id = parseInt(url.searchParams.get('id'))
+    if (!id) return new Response(null, { status: 400 })
+    await prisma.comment.delete({ where: { id } })
+    return new Response()
+  } catch (e) {
+    if (!dev) Sentry.captureException(e);
+    console.log(e)
+    return new Response(null, { status: 400 })
     }
 }

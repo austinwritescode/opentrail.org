@@ -1,5 +1,7 @@
 import { prisma } from '$lib/prisma.ts'
 import { json } from '@sveltejs/kit'
+import * as Sentry from '@sentry/sveltekit';
+import { dev } from '$app/environment';
 
 //(used for offline image fetching)
 export async function GET({ url }) {
@@ -25,8 +27,9 @@ export async function GET({ url }) {
         })
 
         return json(markers.flatMap((el) => (el.images)))
-    } catch (e) {
-        console.log(e)
-        return new Response(e.message, { status: 400 })
+} catch (e) {
+    if (!dev) Sentry.captureException(e);
+    console.log(e)
+    return new Response(e.message, { status: 400 })
     }
 }

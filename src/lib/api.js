@@ -41,8 +41,8 @@ export async function postGeneric(item, getDataAfter = true, pendingAdd = true) 
         }
         else {
             console.log('post unsuccessful and not offline, throwing error')
-            const e = new Error(err.message + ' and not in offline mode to save to pending queue.')
-            errorModal(e.message)
+const e = new Error(err.message + ' and not in offline mode to save to pending queue.')
+      errorModal(e)
             throw e
         }
         return
@@ -59,7 +59,7 @@ export async function postGeneric(item, getDataAfter = true, pendingAdd = true) 
     else {
         console.log('post received non-200 response')
         const err = await res.text()
-        errorModal(`Error: ${res.status} ${err}`)
+        errorModal(new Error(`Error: ${res.status} ${err}`))
         return false
     }
 

@@ -1,4 +1,6 @@
 import { prisma } from '$lib/prisma.ts'
+import * as Sentry from '@sentry/sveltekit';
+import { dev } from '$app/environment';
 
 export async function POST({ request, getClientAddress }) {
     try {
@@ -20,8 +22,9 @@ export async function POST({ request, getClientAddress }) {
                     }
         })
         return new Response();
-    } catch (e) {
-        console.log(e)
-        return new Response(e.message, { status: 400 })
+} catch (e) {
+    if (!dev) Sentry.captureException(e);
+    console.log(e)
+    return new Response(e.message, { status: 400 })
     }
 }

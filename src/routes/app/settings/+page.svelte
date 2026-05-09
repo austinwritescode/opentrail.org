@@ -177,14 +177,14 @@ if (browser) noSleep = new NoSleep();
 
 	async function fetchOffline() {
 		if (!navigator.serviceWorker)
-			return errorModal('No service worker found. Refresh the page and try again.');
-		if (!navigator.serviceWorker.controller && !dev)
-			return errorModal('Service worker not ready. Refresh the page and try again.');
+return errorModal(new Error('No service worker found. Refresh the page and try again.'));
+  if (!navigator.serviceWorker.controller && !dev)
+    return errorModal(new Error('Service worker not ready. Refresh the page and try again.'));
 		const persisted = await navigator.storage.persist();
 		if (!persisted)
-			return errorModal(
-				'No persistent storage found. Check your browser permissions. If your phone is out of date it may not support persistent storage.'
-			);
+return errorModal(
+      new Error('No persistent storage found. Check your browser permissions. If your phone is out of date it may not support persistent storage.')
+    );
 
 		await caches.delete('offline-cache');
 		const cache = await caches.open('offline-cache');
@@ -206,7 +206,7 @@ if (browser) noSleep = new NoSleep();
 		} catch (e) {
 		deleteOffline();
 		noSleep?.disable();
-		return errorModal(/** @type {Error} */ (e).message);
+		return errorModal(/** @type {Error} */ (e));
 	}
 }
 
@@ -237,7 +237,7 @@ async function fetchImages() {
 	} catch (e) {
 		deleteImages();
 		noSleep?.disable();
-		return errorModal(/** @type {Error} */ (e).message);
+		return errorModal(/** @type {Error} */ (e));
 	}
 }
 
@@ -271,7 +271,7 @@ async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
 		if (cachename === 'offline-cache') deleteOffline();
 		if (cachename === 'image-cache') deleteImages();
 		noSleep?.disable();
-		return errorModal(/** @type {Error} */ (e).message);
+		return errorModal(/** @type {Error} */ (e));
 	}
 }
 
@@ -282,7 +282,7 @@ async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
 		} catch (e) {
 			//cancel sync w error:
 			syncSpinner = false;
-			return errorModal(/** @type {Error} */ (e).message);
+			return errorModal(/** @type {Error} */ (e));
 		}
 		updateStorageEstimate();
 		syncSpinner = false;

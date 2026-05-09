@@ -1,20 +1,20 @@
 <script>
-	import 'normalize.css';
-	import '../app.css'; //tailwind
-	import {
-		modal,
-		openModal,
-		TRAILS,
-		ICONS,
-		ICON_EXPLANATIONS,
-		settings,
-		errorModal,
-		isInstalled,
-		deferredPrompt,
-		swWaitingRegistration,
-		downloadState,
-		downloadPersist
-	} from '$lib/store.js';
+import 'normalize.css';
+import '../app.css'; //tailwind
+import {
+  modal,
+  openModal,
+  TRAILS,
+  ICONS,
+  ICON_EXPLANATIONS,
+  settings,
+  errorModal,
+  isInstalled,
+  deferredPrompt,
+  swWaitingRegistration,
+  downloadState,
+  downloadPersist
+} from '$lib/store.js';
 	import DownloadOverlay from '$lib/DownloadOverlay.svelte';
 	import { resumeDownload } from '$lib/download.js';
 	import { onMount } from 'svelte';
@@ -24,10 +24,10 @@
 	let spinner = false;
 
 	onMount(() => {
-		window.addEventListener('error', (e) => errorModal(e.error?.message || e.message));
-		window.addEventListener('unhandledrejection', (e) =>
-			errorModal(e.reason?.message || String(e.reason))
-		);
+window.addEventListener('error', (e) => errorModal(e.error || new Error(e.message)));
+  window.addEventListener('unhandledrejection', (e) =>
+    errorModal(e.reason)
+  );
 
 		window.addEventListener('beforeinstallprompt', (e) => {
 			e.preventDefault();
@@ -82,11 +82,9 @@
 			if ($modal.spinner) spinner = true;
 			$modal.isOpen = false;
 			await $modal.submit($modal.data);
-		} catch (e) {
-			errorModal(e);
-		} finally {
-			spinner = false;
-		}
+} catch (e) {
+    errorModal(e);
+  }
 	}
 	$: open = $modal.isOpen || spinner;
 	$: noConfirm =

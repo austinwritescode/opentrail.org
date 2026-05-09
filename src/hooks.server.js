@@ -1,14 +1,17 @@
 import {sequence} from '@sveltejs/kit/hooks';
 import * as Sentry from '@sentry/sveltekit';
 import { env } from '$env/dynamic/private'
+import { dev } from '$app/environment';
 import { initGeoJSON } from '$lib/geojson-cache.js'
 
+if (!dev) {
 Sentry.init({
-    dsn: "https://ce5b7f4bfa0d91de3163c9daa500b484@o4511352687951872.ingest.us.sentry.io/4511352688279552",
-    tracesSampleRate: 1,
-    enableLogs: true,
-    sendDefaultPii: true
+dsn: "https://ce5b7f4bfa0d91de3163c9daa500b484@o4511352687951872.ingest.us.sentry.io/4511352688279552",
+tracesSampleRate: 1,
+enableLogs: true,
+sendDefaultPii: false
 })
+}
 
 initGeoJSON()
 

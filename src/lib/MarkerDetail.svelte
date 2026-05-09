@@ -130,9 +130,9 @@
 				console.log(`Processing image. Width: ${image.width} height: ${image.height}`);
 				const aspectRatio = image.width / image.height;
 				if (aspectRatio > 2 || aspectRatio < 0.5)
-					return errorModal(
-						'Aspect ratio must be between 1:2 and 2:1. Crop image to be more square.'
-					);
+return errorModal(
+      new Error('Aspect ratio must be between 1:2 and 2:1. Crop image to be more square.')
+    );
 				let newWidth = image.width;
 				let newHeight = image.height;
 				if (image.height > 600) {
@@ -149,9 +149,9 @@
 				canvas.toBlob(
 					(blob) => {
 						if (blob.size > 100000)
-							return errorModal(
-								'Image too large. Try cropping the height to 400px or 500px first.'
-							);
+return errorModal(
+      new Error('Image too large. Try cropping the height to 400px or 500px first.')
+    );
 						postGeneric({ route: `postImage?id=${prop.dbid}`, data: blob });
 					},
 					'image/jpeg',

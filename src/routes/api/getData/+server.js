@@ -1,5 +1,7 @@
 import { prisma } from '$lib/prisma.ts'
 import { json } from '@sveltejs/kit'
+import * as Sentry from '@sentry/sveltekit';
+import { dev } from '$app/environment';
 
 export async function GET({ url }) {
     try {
@@ -75,8 +77,9 @@ export async function GET({ url }) {
             'type': 'FeatureCollection',
             'features': features
         })
-    } catch (e) {
-        console.log(e)
-        return new Response(e.message, { status: 400 })
+} catch (e) {
+    if (!dev) Sentry.captureException(e);
+    console.log(e)
+    return new Response(e.message, { status: 400 })
     }
 }

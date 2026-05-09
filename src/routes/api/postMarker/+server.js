@@ -3,6 +3,8 @@ import fetch from 'node-fetch';
 import { TRAILS } from '$lib/store.js'
 import { searchTrailRoute } from '$lib/helpers.js'
 import { geoJSON, initGeoJSON } from '$lib/geojson-cache.js'
+import * as Sentry from '@sentry/sveltekit';
+import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private'
 
 export async function POST({ request, url, getClientAddress }) {
@@ -107,9 +109,10 @@ export async function POST({ request, url, getClientAddress }) {
             }
             return new Response();
         }
-    } catch (e) {
-        console.log(e)
-        return new Response(e.message, { status: 400 })
+} catch (e) {
+    if (!dev) Sentry.captureException(e);
+    console.log(e)
+    return new Response(e.message, { status: 400 })
     }
 }
 

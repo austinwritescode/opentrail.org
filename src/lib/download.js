@@ -120,7 +120,7 @@ export async function resumeDownload() {
 	} catch (/** @type {any} */ e) {
 		onDelete();
 		noSleep?.disable();
-		errorModal(e.message);
+		errorModal(/** @type {Error} */ (e));
 	}
 }
 

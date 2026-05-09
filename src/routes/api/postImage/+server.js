@@ -1,5 +1,7 @@
 import { prisma } from '$lib/prisma.ts'
 import { env } from '$env/dynamic/private'
+import * as Sentry from '@sentry/sveltekit';
+import { dev } from '$app/environment';
 import { S3Client, PutObjectCommand, ListObjectsCommand } from "@aws-sdk/client-s3";
 const s3 = new S3Client({
     region: 'auto',
@@ -87,8 +89,9 @@ export async function POST({ request, url, getClientAddress }) {
             }
             else throw new Error('Error storing image')
         }
-    } catch (e) {
-        console.log(e)
-        return new Response(e.message, { status: 400 })
+} catch (e) {
+    if (!dev) Sentry.captureException(e);
+    console.log(e)
+    return new Response(e.message, { status: 400 })
     }
 }

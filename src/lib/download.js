@@ -1,10 +1,7 @@
 import { get } from 'svelte/store';
 import { downloadState, downloadPersist, settings, errorModal } from './store.js';
 import { db } from './db';
-import NoSleep from 'nosleep.js';
-/** @type {import('nosleep.js').default | undefined} */
-var noSleep;
-if (typeof window !== 'undefined') noSleep = new NoSleep();
+import { hold, unhold } from './wakeLock.js';
 
 /** @param {string} trail */
 function getPmtilesUrl(trail) {
@@ -97,10 +94,10 @@ export async function resumeDownload() {
 				onCancel: () => {
 					limit.clearQueue();
 					onDelete();
-					noSleep?.disable();
+					unhold();
 				}
 			});
-			noSleep?.enable();
+			hold();
 			await Promise.all(
 				remaining.map((url) =>
 					limit(async () => {
@@ -110,7 +107,7 @@ export async function resumeDownload() {
 						if (state.downloaded === state.total) {
 							downloadState.update((d) => { d.active = false; return d; });
 							downloadPersist.update((p) => { p.status = 'complete'; return p; });
-							noSleep?.disable();
+							unhold();
 							onSuccess();
 						}
 					})
@@ -119,7 +116,7 @@ export async function resumeDownload() {
 		}
 	} catch (/** @type {any} */ e) {
 		onDelete();
-		noSleep?.disable();
+		unhold();
 		errorModal(/** @type {Error} */ (e));
 	}
 }
@@ -154,10 +151,10 @@ export async function streamPmtiles(trail, startBytes, totalBytes, displayName, 
         opfsWorker = null;
       }
       onDelete();
-      noSleep?.disable();
+      unhold();
     }
 	});
-	noSleep?.enable();
+	hold();
 
 	/** @type {RequestInit} */
 	const fetchOpts = { signal: downloadAbortController.signal };
@@ -253,7 +250,7 @@ export async function streamPmtiles(trail, startBytes, totalBytes, displayName, 
 		return p;
 	});
 	downloadState.update((d) => { d.active = false; return d; });
-	noSleep?.disable();
+	unhold();
 	onSuccess();
 }
 

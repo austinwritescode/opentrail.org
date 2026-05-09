@@ -24,11 +24,8 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 dayjs.extend(relativeTime);
 import prettyBytes from 'pretty-bytes';
-import NoSleep from 'nosleep.js';
-	import { streamPmtiles, deleteOffline, deleteImages, getOPFSFileSize } from '$lib/download.js';
-/** @type {import('nosleep.js').default | undefined} */
-var noSleep;
-if (browser) noSleep = new NoSleep();
+import { hold, unhold } from '$lib/wakeLock.js';
+import { streamPmtiles, deleteOffline, deleteImages, getOPFSFileSize } from '$lib/download.js';
 
 	let syncSpinner = false;
 	let opfsSizeLabel = '';
@@ -205,7 +202,7 @@ return errorModal(
 			);
 		} catch (e) {
 		deleteOffline();
-		noSleep?.disable();
+		unhold();
 		return errorModal(/** @type {Error} */ (e));
 	}
 }
@@ -224,10 +221,10 @@ async function fetchImages() {
 			onCancel: () => {
 				limit.clearQueue();
 				deleteImages();
-				noSleep?.disable();
+				unhold();
 			}
 		};
-		noSleep?.enable();
+		hold();
 		const res = await fetch(`/api/getImageList?trail=${$settings.trail}`);
 		const list = await res.json();
 		const URLlist = list.map((/** @type {number} */ num) => `https://cdn.opentrail.org/img/${num}.jpg`);
@@ -236,7 +233,7 @@ async function fetchImages() {
 		});
 	} catch (e) {
 		deleteImages();
-		noSleep?.disable();
+		unhold();
 		return errorModal(/** @type {Error} */ (e));
 	}
 }
@@ -245,7 +242,7 @@ async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
 	if (URLlist.length === 0) {
 		$downloadState.active = false;
 		$downloadPersist.status = 'complete';
-		noSleep?.disable();
+		unhold();
 		return onSuccess();
 	}
 	try {
@@ -260,7 +257,7 @@ async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
 					if ($downloadState.downloaded === $downloadState.total) {
 						$downloadState.active = false;
 						$downloadPersist.status = 'complete';
-						noSleep?.disable();
+						unhold();
 						onSuccess();
 					}
 				})
@@ -270,7 +267,7 @@ async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
 		limit.clearQueue();
 		if (cachename === 'offline-cache') deleteOffline();
 		if (cachename === 'image-cache') deleteImages();
-		noSleep?.disable();
+		unhold();
 		return errorModal(/** @type {Error} */ (e));
 	}
 }

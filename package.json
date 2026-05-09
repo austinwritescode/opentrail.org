@@ -48,7 +48,7 @@
 		"maplibre-gl": "^4.7.0",
 		"node-fetch": "^3.3.0",
 		"normalize.css": "^8.0.1",
-		"nosleep.js": "^0.12.0",
+
 		"p-limit": "^4.0.0",
 		"pmtiles": "^4.4.1",
 		"pretty-bytes": "^6.0.0",

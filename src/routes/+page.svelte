@@ -156,12 +156,16 @@
 			</div>
 		</div>
 
-		<p class="text-md mt-6 opacity-50 text-center">
-			Data contributions are open for public use under the
-			<a class="link" href="https://opendatacommons.org/licenses/odbl/summary/">
-				Open Database License
-			</a>
-		</p>
+<p class="text-md mt-6 opacity-50 text-center">
+        Data contributions are open for public use under the
+        <a class="link" href="https://opendatacommons.org/licenses/odbl/summary/">
+          Open Database License
+        </a>
+        ·
+        <a class="link" href="https://cdn.opentrail.org/terms.html">Terms</a>
+        ·
+        <a class="link" href="https://cdn.opentrail.org/privacy.html">Privacy</a>
+      </p>
 	{/if}
 </div>
 

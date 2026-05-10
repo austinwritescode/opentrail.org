@@ -150,8 +150,8 @@ window.addEventListener('error', (e) => errorModal(e.error || new Error(e.messag
 						Discussion board
 					</a>
 				</p>
-				<p><a href="/terms.html" class="link">Terms of Use</a></p>
-				<p><a href="/privacy.html" class="link">Privacy Policy</a></p>
+<p><a href="https://cdn.opentrail.org/terms.html" class="link">Terms of Service</a></p>
+<p><a href="https://cdn.opentrail.org/privacy.html" class="link">Privacy Policy</a></p>
 				<!-- svelte-ignore missing-declaration -->
 				<p>Version: {__VERSION__} {__LASTMOD__}</p>
 				<p>Contact: <a href="mailto:admin@opentrail.org">admin@opentrail.org</a></p>

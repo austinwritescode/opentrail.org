@@ -57,17 +57,18 @@ export async function GET({ url }) {
                     type: 'Point',
                     coordinates: [m.lng, m.lat]
                 },
-                properties: {
-                    title: m.title,
-                    mile: (m.trails[0].milex10 / 10).toFixed(1), //flatten + handle db storage optimization
-                    elev: m.elev,
-                    images: m.images,
-                    desc: m.desc,
-                    comments: m.comments,
-                    icon: m.icons.charAt(0), //kind of dumb but map needs it this way
-                    icons: m.icons,
-                    dbid: m.id //ref this for writing to db
-                },
+ properties: {
+ title: m.title,
+ mile: (m.trails[0].milex10 / 10).toFixed(1), //flatten + handle db storage optimization
+ elev: m.elev,
+ images: m.images,
+ desc: m.desc,
+ comments: m.comments,
+ commentCount: m.comments.length,
+ icon: m.icons.charAt(0), //kind of dumb but map needs it this way
+ icons: m.icons,
+ dbid: m.id //ref this for writing to db
+ },
                 id: i
             }
         }

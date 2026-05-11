@@ -60,13 +60,15 @@
  $: yTicks = buildYTicks(elevRange, height, imperial);
  $: geoDot = getGeoDot($userMiles, $profileData, $trailRoute, $settings);
 
+ let _prevPlacedIds = new Set();
  let _lmCache = { key: '', result: new Map() };
  $: labeledMarkers = (() => {
  const pd = $profileData;
  const key = visibleMarkers.map((m) => m.id).join(',') + '|' + $selectedMarkerId + '|' + imperial + '|' + elevRange.min + '|' + elevRange.max + '|' + width + '|' + height + '|' + pd.points.length + '|' + pd.startIdx + '|' + pd.endIdx;
  if (key !== _lmCache.key) {
  _lmCache.key = key;
- _lmCache.result = computeLabeledMarkers(visibleMarkers, pd, $selectedMarkerId, imperial, elevRange, width, height);
+ _lmCache.result = computeLabeledMarkers(visibleMarkers, pd, $selectedMarkerId, imperial, elevRange, width, height, _prevPlacedIds);
+ _prevPlacedIds = new Set(_lmCache.result.keys());
  }
  return _lmCache.result;
  })();
@@ -89,7 +91,7 @@
  .filter((m) => m && iconFilters[ICONS.indexOf(m.icon)]);
  }
 
- function computeLabeledMarkers(markers, pd, selId, imp, er, w, h) {
+ function computeLabeledMarkers(markers, pd, selId, imp, er, w, h, prevPlacedIds) {
  if (!markers || markers.length === 0 || pd.points.length === 0) return new Map();
  const plotLeft = PADDING.left;
  const plotRight = w - PADDING.right;
@@ -106,13 +108,14 @@
  const cx = scaleX(localIdx, pd.points.length);
  const cy = scaleY(elevConverted, er.min, er.max);
  const truncated = maxChars > 0 && m.title.length > maxChars ? m.title.slice(0, maxChars - 1) + '\u2026' : m.title;
- allItems.push({ id: m.id, cx, cy, icon: m.icon, title: truncated, commentCount: m.commentCount });
+ const prevBonus = prevPlacedIds.has(m.id) ? 0.5 : 0;
+ allItems.push({ id: m.id, cx, cy, icon: m.icon, title: truncated, commentCount: m.commentCount, sortKey: m.commentCount + prevBonus });
  }
  if (allItems.length > MAX_VISIBLE_MARKERS) {
  const selItem = allItems.find((it) => it.id === selId);
  const rest = allItems.filter((it) => it.id !== selId);
  rest.sort((a, b) => {
- if (b.commentCount !== a.commentCount) return b.commentCount - a.commentCount;
+ if (b.sortKey !== a.sortKey) return b.sortKey - a.sortKey;
  return a.cx - b.cx;
  });
  const slots = selItem ? MAX_VISIBLE_MARKERS - 1 : MAX_VISIBLE_MARKERS;
@@ -120,8 +123,8 @@
  let i = 0;
  while (kept.length < slots && i < rest.length) {
  const start = i;
- const cc = rest[i].commentCount;
- while (i < rest.length && rest[i].commentCount === cc) i++;
+ const sk = rest[i].sortKey;
+ while (i < rest.length && rest[i].sortKey === sk) i++;
  const group = rest.slice(start, i);
  const available = slots - kept.length;
  if (group.length <= available) {

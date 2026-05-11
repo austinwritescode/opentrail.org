@@ -275,13 +275,12 @@ return errorModal(
 								class="h-full w-auto"
 								loading="lazy"
 							/>
-							<img
-								src="/flag.png"
-								height="15"
-								width="15"
-								class="absolute top-1 right-1 rounded-md"
-								onclick={() => flagGeneric({ image: image }, 'flagImage')}
-							/>
+			<button
+					class="absolute top-1 right-1 rounded-md"
+					onclick={() => flagGeneric({ image: image }, 'flagImage')}
+				>
+					<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="2" x2="5" y2="22"/><path d="M5 2h10l-2.5 4.5L15 11H5z"/></svg>
+				</button>
 						</div>
 					</swiper-slide>
 				{/each}
@@ -330,13 +329,12 @@ return errorModal(
 				</div>
 				<div class="chat-footer w-full flex justify-between">
 					<div class="opacity-60">{comment.pending ? 'Pending' : ''}</div>
-					<img
-						src="/flag.png"
-						class="rounded-md"
-						height="15"
-						width="15"
-						onclick={() => flagGeneric({ text: comment.text }, 'flagComment')}
-					/>
+			<button
+				class="rounded-md"
+				onclick={() => flagGeneric({ text: comment.text }, 'flagComment')}
+			>
+				<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="2" x2="5" y2="22"/><path d="M5 2h10l-2.5 4.5L15 11H5z"/></svg>
+			</button>
 				</div>
 			</div>
 		{/each}

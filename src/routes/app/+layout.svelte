@@ -301,12 +301,12 @@ async function updatePmtilesSource() {
 
 		//maplibre doesn't supply a heading indicator... :/
 		const el = document.createElement('div');
-		el.style.backgroundImage = 'url(/heading_indicator.png)';
-		el.style.backgroundPosition = 'top';
-		el.style.backgroundSize = '16px';
-		el.style.backgroundRepeat = 'no-repeat';
-		el.style.width = '46px';
-		el.style.height = '46px';
+	el.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="#1CA1F3" style="display:block;margin:0 auto"><path d="M12 2l8 16H4z"/></svg>';
+	el.style.width = '46px';
+	el.style.height = '46px';
+	el.style.display = 'flex';
+	el.style.alignItems = 'flex-start';
+	el.style.justifyContent = 'center';
 		const headingMarker = new maplibregl.Marker({element: el});
     let compassEnabled = false;
     let compassDisabled = false;
@@ -863,7 +863,7 @@ $: if (mapInitialized) {
 					style="bottom: {$elevationProfileVisible ? 'calc(25% + 8px)' : '8px'};"
 					onclick={newMarker}
 				>
-					<img src="/plus.png" height="20" width="20" />
+					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 				</button>
 			{/if}
 		</div>

@@ -14,7 +14,9 @@ ENV APP_VERSION=$APP_VERSION
 ENV APP_LASTMOD=$APP_LASTMOD
 RUN npx prisma generate
 COPY . .
-RUN npm run build
+# Mount the Sentry auth token as a build secret
+RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN \
+    SENTRY_AUTH_TOKEN=$(cat /run/secrets/SENTRY_AUTH_TOKEN) npm run build
 
 # Stage 2: Run
 FROM node:20-slim

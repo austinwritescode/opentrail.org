@@ -1,7 +1,7 @@
 # Stage 1: Build
 FROM node:20-slim AS builder
 WORKDIR /app
-RUN apt-get update -y && apt-get install -y openssl
+RUN apt-get update -y && apt-get install -y openssl ca-certificates
 COPY package*.json ./
 RUN npm install -g npm@11
 RUN npm ci

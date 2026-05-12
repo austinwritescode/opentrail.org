@@ -21,6 +21,26 @@ const ASSETS = [
   'https://cdn.opentrail.org/fonts/DIN%20Pro%20Regular,Arial%20Unicode%20MS%20Regular/8192-8447.font',
   'https://cdn.opentrail.org/fonts/DIN%20Pro%20Regular,Arial%20Unicode%20MS%20Regular/9472-9727.font',
   'https://cdn.opentrail.org/fonts/DIN%20Pro%20Regular,Arial%20Unicode%20MS%20Regular/9728-9983.font',
+  'https://cdn.opentrail.org/icons/w.png',
+  'https://cdn.opentrail.org/icons/w-selected.png',
+  'https://cdn.opentrail.org/icons/s.png',
+  'https://cdn.opentrail.org/icons/s-selected.png',
+  'https://cdn.opentrail.org/icons/c.png',
+  'https://cdn.opentrail.org/icons/c-selected.png',
+  'https://cdn.opentrail.org/icons/j.png',
+  'https://cdn.opentrail.org/icons/j-selected.png',
+  'https://cdn.opentrail.org/icons/r.png',
+  'https://cdn.opentrail.org/icons/r-selected.png',
+  'https://cdn.opentrail.org/icons/t.png',
+  'https://cdn.opentrail.org/icons/t-selected.png',
+  'https://cdn.opentrail.org/icons/o.png',
+  'https://cdn.opentrail.org/icons/o-selected.png',
+  'https://cdn.opentrail.org/icons/a.png',
+  'https://cdn.opentrail.org/icons/a-selected.png',
+  'https://cdn.opentrail.org/icons/select-all.png',
+  'https://cdn.opentrail.org/PCT_logo.png',
+  'https://cdn.opentrail.org/AT_logo.png',
+  'https://cdn.opentrail.org/CDT_logo.png',
 ];
 const dontDelete = [
   CACHE,
@@ -28,7 +48,11 @@ const dontDelete = [
   'image-cache'
 ];
 
-const tryCache = () => caches.open(CACHE).then(c => c.addAll(ASSETS));
+const tryCache = () => caches.open(CACHE).then(cache =>
+  Promise.all(ASSETS.map(url =>
+    cache.add(url.startsWith('https://') ? new Request(url, { mode: 'cors' }) : url)
+  ))
+);
 self.addEventListener('install', (event) => {
   console.log('Service worker installing. Cache version: ' + CACHE);
   event.waitUntil(tryCache().catch(tryCache).catch(tryCache));
@@ -52,9 +76,18 @@ self.addEventListener('activate', (event) => {
 })
 
 self.addEventListener('message', (event) => {
-	if (event.data && event.data.type === 'SKIP_WAITING') {
-		self.skipWaiting()
-	}
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting()
+  }
+  if (event.data && event.data.type === 'VERIFY_CACHE' && event.ports[0]) {
+    caches.open(CACHE).then(cache => {
+      Promise.all(ASSETS.map(url =>
+        cache.match(url).then(r => r ? null : url)
+      )).then(results => {
+        event.ports[0].postMessage({ missing: results.filter(Boolean) });
+      });
+    });
+  }
 })
 
 self.addEventListener('fetch', (event) => {

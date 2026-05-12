@@ -583,7 +583,7 @@ $: if (mapInitialized) {
 	}
 
 	async function addImageToMap(name) {
-		const { data: image } = await map.loadImage(`/map-icons/${name}.png`);
+		const { data: image } = await map.loadImage(`https://cdn.opentrail.org/icons/${name}.png`);
 		map.addImage(name, image);
 	}
 
@@ -810,7 +810,7 @@ $: if (mapInitialized) {
 								class="btn btn-circle btn-sm bg-white focus:bg-white active:bg-white border-opacity-50"
 							onclick={toggleAllIcons}
 							>
-								<img src={'/map-icons/select-all.png'} height="20px" width="20px" />
+								<img src={'https://cdn.opentrail.org/icons/select-all.png'} height="20px" width="20px" />
 							</button>
 							{#each ICONS as icon, i}
 								<button
@@ -818,9 +818,9 @@ $: if (mapInitialized) {
 									class:opacity-40={!$activeIcons[i]}
 									onclick={() => toggleIconLayer(i)}
 								>
-									<img src={`/map-icons/${icon}.png`} />
-								</button>
-							{/each}
+	<img src={`https://cdn.opentrail.org/icons/${icon}.png`} />
+	</button>
+	{/each}
 						</div>
 					</div>
 				{/if}

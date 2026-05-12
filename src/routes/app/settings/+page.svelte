@@ -175,50 +175,86 @@
 		}
 	}
 
-	async function fetchOffline() {
-		if (!navigator.serviceWorker)
-			return errorModal(new Error('No service worker found. Refresh the page and try again.'));
-		if (!navigator.serviceWorker.controller && !dev)
-			return errorModal(new Error('Service worker not ready. Refresh the page and try again.'));
-		const persisted = await navigator.storage.persist();
-		if (!persisted)
-			return errorModal(
-				new Error(
-					'No persistent storage found. This app is designed to be installed to home screen via Chrome or Safari to ensure your data does not get evicted.'
-				)
-			);
+async function getMissingAssets() {
+  const reg = await navigator.serviceWorker.ready;
+  return new Promise((resolve, reject) => {
+    const channel = new MessageChannel();
+    const timeout = setTimeout(() => reject(new Error('Cache verification timed out')), 5000);
+    channel.port1.onmessage = (e) => { clearTimeout(timeout); resolve(e.data.missing); };
+    channel.port1.onmessageerror = () => { clearTimeout(timeout); reject(new Error('Cache verification failed')); };
+    reg.active.postMessage({ type: 'VERIFY_CACHE' }, [channel.port2]);
+  });
+}
 
-		await caches.delete('offline-cache');
-		const cache = await caches.open('offline-cache');
-		try {
-			$downloadPersist = {
-				type: 'offline-cache',
-				trail: $settings.trail,
-				status: 'in_progress',
-				bytesReceived: 0,
-				totalBytes: 0
-			};
-			const trailData = [
-				`https://cdn.opentrail.org/${$settings.trail}.json`,
-				`/api/getData?trail=${$settings.trail}`
-			];
-			await cache.addAll(trailData);
-			await streamPmtiles(
-				$settings.trail,
-				0,
-				0,
-				'Downloading offline cache',
-				() => {
-					$settings.offline = true;
-				},
-				deleteOffline
-			);
-		} catch (e) {
-			deleteOffline();
-			unhold();
-			return errorModal(/** @type {Error} */ (e));
-		}
-	}
+async function fetchOffline() {
+  if (!navigator.serviceWorker)
+    return errorModal(new Error('No service worker found. Refresh the page and try again.'));
+  if (!navigator.serviceWorker.controller && !dev)
+    return errorModal(new Error('Service worker not ready. Refresh the page and try again.'));
+  const persisted = await navigator.storage.persist();
+  if (!persisted)
+    return errorModal(
+      new Error(
+        'No persistent storage found. This app is designed to be installed to home screen via Chrome or Safari to ensure your data does not get evicted.'
+      )
+    );
+
+  let missing;
+  try {
+    missing = await getMissingAssets();
+  } catch (e) {
+    return errorModal(new Error('Could not verify cached assets. Refresh the page and try again.'));
+  }
+  if (missing.length > 0) {
+    const cacheName = (await caches.keys()).find(k => k.startsWith('cache-'));
+    if (!cacheName)
+      return errorModal(new Error('No app cache found. Refresh the page and try again.'));
+    const cache = await caches.open(cacheName);
+    const results = await Promise.allSettled(
+      missing.map(url => fetch(url).then(res => {
+        if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
+        return cache.put(url, res);
+      }))
+    );
+    const failed = results.filter(r => r.status === 'rejected');
+    if (failed.length > 0) {
+      const stillMissing = await getMissingAssets();
+      if (stillMissing.length > 0)
+        return errorModal(new Error(`Could not cache ${stillMissing.length} essential asset(s). Check your connection and try again.`));
+    }
+  }
+
+  await caches.delete('offline-cache');
+  const cache = await caches.open('offline-cache');
+  try {
+    $downloadPersist = {
+      type: 'offline-cache',
+      trail: $settings.trail,
+      status: 'in_progress',
+      bytesReceived: 0,
+      totalBytes: 0
+    };
+    const trailData = [
+      `https://cdn.opentrail.org/${$settings.trail}.json`,
+      `/api/getData?trail=${$settings.trail}`
+    ];
+    await cache.addAll(trailData);
+    await streamPmtiles(
+      $settings.trail,
+      0,
+      0,
+      'Downloading offline cache',
+      () => {
+        $settings.offline = true;
+      },
+      deleteOffline
+    );
+  } catch (e) {
+    deleteOffline();
+    unhold();
+    return errorModal(/** @type {Error} */ (e));
+  }
+}
 
 	async function fetchImages() {
 		await caches.delete('image-cache');

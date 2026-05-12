@@ -140,14 +140,15 @@
 				{#each Object.keys(TRAILS) as trail}
 					{#if trail !== 'test'}
 						{#if !$settings.offline || $settings.trail === trail}
-							<a
-								class="flex flex-col items-center gap-1"
-								href="/app"
-								onclick={() => {
-									$settings.trail = trail;
-								}}
-							>
-								<img src={`${trail}_logo.png`} width="100" height="100" />
+		<a
+			class="flex flex-col items-center gap-1"
+			href="/app"
+			onclick={() => {
+				$settings.trail = trail;
+				fetch(`https://cdn.opentrail.org/${trail}.json`);
+			}}
+		>
+			<img src={`https://cdn.opentrail.org/${trail}_logo.png`} width="100" height="100" />
 								<button class="btn btn-accent btn-lg">{trail}</button>
 							</a>
 						{/if}

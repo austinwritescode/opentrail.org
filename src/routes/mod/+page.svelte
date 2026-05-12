@@ -301,13 +301,13 @@ let key;
 									<span>
 										OLD:
 										{#each markers[item.request.dbid].icons as icon}
-											<img src={`/map-icons/${icon}.png`} height="25" width="25" class="inline" />
+											<img src={`https://cdn.opentrail.org/icons/${icon}.png`} height="25" width="25" class="inline" />
 										{/each}
 									</span>
 									<span
 										>NEW:
 										{#each item.request.payload as icon}
-											<img src={`/map-icons/${icon}.png`} height="25" width="25" class="inline" />
+											<img src={`https://cdn.opentrail.org/icons/${icon}.png`} height="25" width="25" class="inline" />
 										{/each}</span
 									>
 								</div>

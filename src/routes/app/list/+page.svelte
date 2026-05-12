@@ -236,7 +236,7 @@
 					onclick={() => $detailId = i}
 				>
 					<img
-						src={`/map-icons/${$data.features[i].properties.icon}.png`}
+						src={`https://cdn.opentrail.org/icons/${$data.features[i].properties.icon}.png`}
 						height="40"
 						width="40"
 						class="mx-1"

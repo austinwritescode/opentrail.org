@@ -175,7 +175,7 @@ window.addEventListener('error', (e) => errorModal(e.error || new Error(e.messag
 					<li>Marker icon descriptions:</li>
 					{#each ICONS as icon}<li>
 							<img
-								src={`/map-icons/${icon}.png`}
+								src={`https://cdn.opentrail.org/icons/${icon}.png`}
 								height="25"
 								width="25"
 								class="inline"
@@ -248,7 +248,7 @@ window.addEventListener('error', (e) => errorModal(e.error || new Error(e.messag
 											bind:group={$modal.data}
 											value={trail}
 										/>
-										<img src={`/${trail}_logo.png`} width="50" height="50" />
+										<img src={`https://cdn.opentrail.org/${trail}_logo.png`} width="50" height="50" />
 										<span class="text-xl">{trail}</span>
 									</div>
 								</label>
@@ -280,7 +280,7 @@ window.addEventListener('error', (e) => errorModal(e.error || new Error(e.messag
 									: ($modal.data = $modal.data + icon);
 							}}
 						>
-							<img src={`/map-icons/${icon}.png`} />
+							<img src={`https://cdn.opentrail.org/icons/${icon}.png`} />
 						</button>
 					{/each}
 				</div>
@@ -298,7 +298,7 @@ window.addEventListener('error', (e) => errorModal(e.error || new Error(e.messag
 											$modal.data = icon + tmp;
 										}}
 									>
-										<img src={`/map-icons/${icon}.png`} />
+										<img src={`https://cdn.opentrail.org/icons/${icon}.png`} />
 									</button>
 								{/if}
 							{/each}

@@ -67,5 +67,31 @@ import relativeTime from 'dayjs/plugin/relativeTime'
 dayjs.extend(relativeTime)
 
 export function timeAgo(dateStr) {
-    return dayjs(dateStr).fromNow()
+	return dayjs(dateStr).fromNow()
+}
+
+export async function fetchWithProgress(url, onProgress) {
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+	const total = parseInt(res.headers.get('content-length') || '0', 10);
+	if (!total || !res.body) {
+		onProgress(1);
+		return res;
+	}
+	let received = 0;
+	const reader = res.body.getReader();
+	const chunks = [];
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		chunks.push(value);
+		received += value.length;
+		onProgress(received / total);
+	}
+	const blob = new Blob(chunks);
+	return new Response(blob, {
+		status: res.status,
+		statusText: res.statusText,
+		headers: res.headers
+	});
 }

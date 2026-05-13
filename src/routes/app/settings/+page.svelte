@@ -187,17 +187,23 @@ async function getMissingAssets() {
 }
 
 async function fetchOffline() {
-  if (!navigator.serviceWorker)
-    return errorModal(new Error('No service worker found. Refresh the page and try again.'));
-  if (!navigator.serviceWorker.controller && !dev)
-    return errorModal(new Error('Service worker not ready. Refresh the page and try again.'));
-  const persisted = await navigator.storage.persist();
-  if (!persisted)
-    return errorModal(
-      new Error(
-        'No persistent storage found. This app is designed to be installed to home screen via Chrome or Safari to ensure your data does not get evicted.'
-      )
-    );
+	if (!navigator.serviceWorker)
+		return errorModal(new Error('No service worker found. Refresh the page and try again.'));
+	if (!navigator.serviceWorker.controller && !dev)
+		return errorModal(new Error('Service worker not ready. Refresh the page and try again.'));
+	if (!$isInstalled)
+		return errorModal(
+			new Error(
+				'Install this app to your home screen to enable offline mode. This ensures your cached data will not be evicted by the browser.'
+			)
+		);
+	const persisted = await navigator.storage.persist();
+	if (!persisted)
+		return errorModal(
+			new Error(
+				'Could not secure persistent storage. Make sure the app is installed to your home screen and try again.'
+			)
+		);
 
   let missing;
   try {

@@ -104,7 +104,11 @@ self.addEventListener('fetch', (event) => {
 	//everything else is static so use cache-first:
 	else {
 		event.respondWith(caches.match(event.request).then((res) => {
-			return res || fetch(event.request)
+			if (res) return res;
+			if (requestURL.origin !== self.location.origin) {
+				return fetch(new Request(event.request, { mode: 'cors' }));
+			}
+			return fetch(event.request);
 		}))
 	}
 })

@@ -6,7 +6,7 @@
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { Protocol, PMTiles } from 'pmtiles';
 import { OPFSSource } from '$lib/OPFSSource.js';
-import {
+	import {
 		settings,
 		data,
 		TRAILS,
@@ -23,13 +23,16 @@ import {
 		elevationProfileVisible,
 		profileData,
 		selectedMarkerId,
-		activeIcons
+		activeIcons,
+		loadStatus
 	} from '$lib/store.js';
+	import { fetchWithProgress } from '$lib/helpers.js';
 	import MarkerSlide from '$lib/MarkerSlide.svelte';
 	import MarkerDetail from '$lib/MarkerDetail.svelte';
 	import ElevationProfile from '$lib/ElevationProfile.svelte';
 	import { goto, replaceState } from '$app/navigation';
 	import { syncData, postGeneric, getData } from '$lib/api';
+	import { get } from 'svelte/store';
 import { getOPFSFileSize } from '$lib/download.js';
 	import { searchTrailRoute } from '$lib/helpers.js';
 	import { decodeTrail } from '$lib/decode-trail.js';
@@ -37,6 +40,38 @@ import { getOPFSFileSize } from '$lib/download.js';
 	register();
 	import SwiperCore, { Virtual } from 'swiper';
 	SwiperCore.use([Virtual]);
+
+	const PHASES = {
+		data:     { start: 0,  end: 20,  msg: 'Loading trail data' },
+		style:    { start: 20, end: 35,  msg: 'Loading map style' },
+		canvas:   { start: 35, end: 55,  msg: 'Reticulating splines' },
+		icons:    { start: 55, end: 75,  msg: 'Loading marker icons' },
+		populate: { start: 75, end: 90,  msg: 'Loading markers' },
+		tiles:    { start: 90, end: 100, msg: 'Loading map tiles' }
+	};
+
+	let bootStartTime = 0;
+	let tileBarActive = false;
+	let tileLoadingTimer = null;
+	let tileBarStartTime = 0;
+
+	function setLoadPhase(phase, progressWithinPhase) {
+		const p = PHASES[phase];
+		if (!p) return;
+		const fraction = Math.min(Math.max(progressWithinPhase, 0), 1);
+		$loadStatus = {
+			phase,
+			message: p.msg,
+			progress: Math.round(p.start + (p.end - p.start) * fraction),
+			indeterminate: phase === 'tiles',
+			error: false
+		};
+	}
+
+	function setLoadError(message) {
+		$loadStatus = { phase: 'error', message, progress: $loadStatus.progress, indeterminate: false, error: true };
+	}
+
 	let slotWrapper;
 	let swiperEl;
 	let showSwiper = false;
@@ -153,7 +188,30 @@ import { getOPFSFileSize } from '$lib/download.js';
 		});
 	}
 
+	async function getDataWithProgress() {
+		setLoadPhase('data', 0);
+		const trail = get(settings).trail;
+		const res = await fetchWithProgress(
+			'/api/getData?' + new URLSearchParams({ trail }),
+			(p) => setLoadPhase('data', p)
+		);
+		if (res.status === 200) {
+			const resClone = res.clone();
+			const json = await res.json();
+			data.set(json);
+			const cache = await caches.open('offline-cache');
+			await cache.put('/api/getData?trail=' + get(settings).trail, resClone);
+			setLoadPhase('data', 1);
+		} else {
+			throw new Error('Failed to retrieve data: ' + res.status);
+		}
+	}
+
 	onMount(async () => {
+	const preBar = document.getElementById('pre-hydrate-bar');
+	if (preBar) preBar.remove();
+	bootStartTime = Date.now();
+		$loadStatus = { phase: 'data', message: PHASES.data.msg, progress: 0, indeterminate: false, error: false };
 		const viewport = document.querySelector('meta[name="viewport"]');
 		function updateViewport() {
 			if (!viewport) return;
@@ -171,9 +229,18 @@ import { getOPFSFileSize } from '$lib/download.js';
 			$settings.trail = deepTrail;
 		}
 		if (!Object.keys(TRAILS).includes($settings.trail)) goto('/');
-		if ($settings.autosync) await syncData();
-		else if ($data.features.length === 0) await getData();
-		await initializeMap();
+		try {
+			if ($settings.autosync) {
+				await syncData();
+				setLoadPhase('data', 1);
+			} else if ($data.features.length === 0) {
+				await getDataWithProgress();
+			}
+			await initializeMap();
+		} catch (err) {
+			setLoadError(err.message || 'Load failed');
+			errorModal(err);
+		}
 	if ($settings.offline) {
 		const size = await getOPFSFileSize($settings.trail);
 		if (!size) $settings.offline = false;
@@ -274,7 +341,11 @@ async function updatePmtilesSource() {
 	}
 	await updatePmtilesSource();
 
-	const styleRes = await fetch('https://cdn.opentrail.org/style-outdoors.json');
+		setLoadPhase('style', 0);
+		const styleRes = await fetchWithProgress(
+			'https://cdn.opentrail.org/style-outdoors.json',
+			(p) => setLoadPhase('style', p)
+		);
 		const style = await styleRes.json();
 		style.sources.composite = {
 			type: 'vector',
@@ -393,26 +464,67 @@ async function updatePmtilesSource() {
 			}
 		});
 
-	map.on('error', (e) => errorModal(e.error || new Error(`Map: ${JSON.stringify(e.error)}`)));
-	await new Promise(resolve => map.once('load', resolve));
-	await Promise.all(
-		ICONS.map(async (icon) => {
-			await addImageToMap(icon);
-			await addImageToMap(icon + '-selected');
-		})
-	);
-	await populateMap();
+	map.on('error', (e) => {
+			errorModal(e.error || new Error(`Map: ${JSON.stringify(e.error)}`));
+			setLoadError('Map load error');
+		});
+		setLoadPhase('canvas', 0);
+		await new Promise(resolve => map.once('load', resolve));
+		setLoadPhase('canvas', 1);
 
-	const canvases = document.getElementsByTagName('canvas');
-	if (canvases.length > 1) errorModal(new Error('Multiple map canvases detected'));
-}
+		setLoadPhase('icons', 0);
+		let iconsLoaded = 0;
+		const totalIcons = ICONS.length * 2;
+		for (const icon of ICONS) {
+			await addImageToMap(icon);
+			iconsLoaded++;
+			setLoadPhase('icons', iconsLoaded / totalIcons);
+			await addImageToMap(icon + '-selected');
+			iconsLoaded++;
+			setLoadPhase('icons', iconsLoaded / totalIcons);
+		}
+await populateMap();
+setLoadPhase('tiles', 0);
+
+const canvases = document.getElementsByTagName('canvas');
+if (canvases.length > 1) errorModal(new Error('Multiple map canvases detected'));
+
+	map.on('dataloading', () => {
+		if (!tileLoadingTimer && !tileBarActive) {
+			tileLoadingTimer = setTimeout(() => {
+				tileLoadingTimer = null;
+				tileBarActive = true;
+				tileBarStartTime = Date.now();
+				setLoadPhase('tiles', 0);
+			}, 500);
+		}
+	});
+	map.on('idle', () => {
+		clearTimeout(tileLoadingTimer);
+		tileLoadingTimer = null;
+		if (tileBarActive) {
+			tileBarActive = false;
+			const elapsed = Date.now() - tileBarStartTime;
+			const hideDelay = Math.max(0, 500 - elapsed);
+			setTimeout(() => {
+				$loadStatus = { phase: 'idle', message: '', progress: 100, indeterminate: false, error: false };
+			}, hideDelay);
+		} else if ($loadStatus.phase !== 'idle') {
+			$loadStatus = { phase: 'idle', message: '', progress: 100, indeterminate: false, error: false };
+		}
+	});
+	}
 
 	function onMarkerClick(e) {
 		updateSelectedMarker(e.features[0].id);
 	}
 
 	async function populateMap() {
-		const res = await fetch(`https://cdn.opentrail.org/${$settings.trail}.json`);
+		setLoadPhase('populate', 0);
+		const res = await fetchWithProgress(
+			`https://cdn.opentrail.org/${$settings.trail}.json`,
+			() => {}
+		);
 		$trailRoute = decodeTrail(await res.json());
 		map.addSource('route', {
 			type: 'geojson',
@@ -474,25 +586,27 @@ async function updatePmtilesSource() {
 			map.on('click', `markers-${icon}`, onMarkerClick);
 		}
 	mapInitialized = true;
-	map.off('move', onMapMove);
+		map.off('move', onMapMove);
 		map.on('move', onMapMove);
 		updateProfileData();
+		setLoadPhase('populate', 1);
 		map.once('idle', () => {
 			storeRenderedList();
 		});
 	}
 
-	async function changeTrailOnMap() {
+async function changeTrailOnMap() {
 		if (!map || !mapInitialized) return;
+		bootStartTime = Date.now();
 		mapInitialized = false;
 		$activeIcons = new Array(ICONS.length).fill(true);
 		lastToggleAllIcons = true;
 
-	for (const icon of ICONS) {
-		map.removeLayer(`markers-${icon}`);
-		map.removeLayer(`markers-${icon}-selected`);
-		map.off('click', `markers-${icon}`, onMarkerClick);
-	}
+		for (const icon of ICONS) {
+			map.removeLayer(`markers-${icon}`);
+			map.removeLayer(`markers-${icon}-selected`);
+			map.off('click', `markers-${icon}`, onMarkerClick);
+		}
 		map.removeSource('markers');
 		map.removeLayer('route');
 		map.removeSource('route');
@@ -500,18 +614,22 @@ async function updatePmtilesSource() {
 		for (const id of compositeLayerIds) {
 			if (map.getLayer(id)) map.removeLayer(id);
 		}
-	if (map.getSource('composite')) map.removeSource('composite');
+		if (map.getSource('composite')) map.removeSource('composite');
 
-	await updatePmtilesSource();
-	const wasOffline = $settings.offline;
-	map.addSource('composite', {
-		type: 'vector',
-		url: `pmtiles://https://cdn.opentrail.org/${$settings.trail}.pmtiles`
-	});
-if (!wasOffline && !navigator.onLine) {
-    errorModal(new Error('No offline data for this trail. Connect to the internet to load map tiles.'));
-  }
-	const styleRes = await fetch('https://cdn.opentrail.org/style-outdoors.json');
+		await updatePmtilesSource();
+		const wasOffline = $settings.offline;
+		map.addSource('composite', {
+			type: 'vector',
+			url: `pmtiles://https://cdn.opentrail.org/${$settings.trail}.pmtiles`
+		});
+		if (!wasOffline && !navigator.onLine) {
+			errorModal(new Error('No offline data for this trail. Connect to the internet to load map tiles.'));
+		}
+		setLoadPhase('style', 0);
+		const styleRes = await fetchWithProgress(
+			'https://cdn.opentrail.org/style-outdoors.json',
+			(p) => setLoadPhase('style', p)
+		);
 		const style = await styleRes.json();
 		const compositeLayers = style.layers.filter((l) => l.source === 'composite');
 		for (const layer of compositeLayers) {
@@ -519,9 +637,13 @@ if (!wasOffline && !navigator.onLine) {
 		}
 		compositeLayerIds = compositeLayers.map((l) => l.id);
 
-	map.fitBounds(TRAILS[$settings.trail].bounds);
-	await populateMap();
-}
+map.fitBounds(TRAILS[$settings.trail].bounds);
+await populateMap();
+	setLoadPhase('tiles', 0);
+	tileBarActive = false;
+	clearTimeout(tileLoadingTimer);
+	tileLoadingTimer = null;
+	}
 
 let currentTrail = $settings.trail;
 $: if (mapInitialized) {
@@ -779,6 +901,25 @@ $: if (mapInitialized) {
 </script>
 
 <div class="flex flex-col h-full">
+	<!-- loading indicator -->
+{#if $loadStatus.phase !== 'idle'}
+  <div
+    class="load-indicator"
+    class:load-indicator-error={$loadStatus.error}
+		style="--bar-color: #333; --bar-error: #d7230e;"
+  >
+		<div class="load-bar-track">
+			<div
+				class="load-bar-fill"
+				class:load-bar-indeterminate={$loadStatus.indeterminate}
+				style="width: {$loadStatus.progress}%;"
+			></div>
+		</div>
+	<div class="load-bar-text" style="color: #666;">
+      {$loadStatus.message}
+    </div>
+  </div>
+{/if}
 	<!-- main area full height minus navbar, use grid to overlap divs + css "visibility" to cache map for fast navigation -->
 	<div style="height: calc(100dvh - 64px);" class="grid grid-cols-1 grid-rows-1">
 		<!-- hide the map when visiting other routes -->
@@ -894,7 +1035,63 @@ $: if (mapInitialized) {
 </div>
 
 <style>
-	.elevation-profile-overlay {
+	.load-indicator {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 9999;
+		transition: opacity 300ms ease;
+	}
+	.load-bar-track {
+		height: 4px;
+		background: transparent;
+		overflow: hidden;
+	}
+	.load-bar-fill {
+		height: 100%;
+		background: var(--bar-color);
+		transition: width 200ms ease;
+		position: relative;
+	}
+	.load-bar-indeterminate {
+		width: 100% !important;
+		transition: none;
+	}
+	.load-bar-fill::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: linear-gradient(
+			90deg,
+			transparent 0%,
+			rgba(255, 255, 255, 0.3) 50%,
+			transparent 100%
+		);
+		animation: load-shimmer 1.5s infinite;
+	}
+.load-bar-text {
+  font-size: 11px;
+  padding: 2px 8px 4px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+.load-indicator-error .load-bar-fill {
+		background: var(--bar-error) !important;
+		animation: none;
+	}
+	.load-indicator-error .load-bar-fill::after {
+		animation: none;
+		background: none;
+	}
+	@keyframes load-shimmer {
+		0% { transform: translateX(-100%); }
+		100% { transform: translateX(100%); }
+	}
+.elevation-profile-overlay {
 		flex: 0 0 25%;
 		background: white;
 		border-top: 1px solid #ddd;

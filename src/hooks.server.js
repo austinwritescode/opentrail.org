@@ -3,6 +3,8 @@ import * as Sentry from '@sentry/sveltekit';
 import { env } from '$env/dynamic/private'
 import { dev } from '$app/environment';
 import { initGeoJSON } from '$lib/geojson-cache.js'
+import { existsSync, readFileSync } from 'fs';
+import { resolve } from 'path';
 
 if (!dev) {
 Sentry.init({
@@ -14,6 +16,23 @@ sendDefaultPii: false
 }
 
 initGeoJSON()
+
+let cachedChunkCount = null;
+function getChunkCount() {
+	if (cachedChunkCount !== null) return cachedChunkCount;
+	const p = resolve('.svelte-kit/output/client/__chunk_count.json');
+	if (existsSync(p)) {
+		try {
+			const d = JSON.parse(readFileSync(p, 'utf8'));
+			cachedChunkCount = d.total || 0;
+		} catch {
+			cachedChunkCount = 0;
+		}
+	} else {
+		cachedChunkCount = 0;
+	}
+	return cachedChunkCount;
+}
 
 const hits = new Map()
 
@@ -69,16 +88,24 @@ export const handleError = Sentry.handleErrorWithSentry(function _handleError({ 
 });
 
 export const handle = sequence(Sentry.sentryHandle(), async function _handle({ event, resolve }) {
-    if (event.url.pathname.startsWith('/api/')) {
-        const auth = event.request.headers.get('authorization')
-        const key = auth ? auth.replace('Bearer ', '') : null
-        if (key === env.MOD_KEY) return resolve(event)
-        if (key !== null || event.request.method === 'POST') {
-            const ip = event.getClientAddress()
-            if (!rateLimit(ip, 100, 3_600_000)) {
-                return new Response('Too Many Requests', { status: 429 })
-            }
-        }
+  if (event.url.pathname.startsWith('/api/')) {
+    const auth = event.request.headers.get('authorization')
+    const key = auth ? auth.replace('Bearer ', '') : null
+    if (key === env.MOD_KEY) return resolve(event)
+    if (key !== null || event.request.method === 'POST') {
+      const ip = event.getClientAddress()
+      if (!rateLimit(ip, 100, 3_600_000)) {
+        return new Response('Too Many Requests', { status: 429 })
+      }
     }
-    return resolve(event)
+  }
+  return resolve(event, {
+    transformPageChunk: ({ html }) => {
+      const count = getChunkCount();
+      return html.replace(
+        '</head>',
+        `<script>window.__CHUNK_COUNT=${count}</script></head>`
+      );
+    }
+  });
 });

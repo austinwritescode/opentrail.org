@@ -235,3 +235,11 @@ export const listSearchQuery = writable('');
 export const listScrollPosition = writable(0);
 
 export const swWaitingRegistration = writable(null);
+
+export const loadStatus = writable({
+  phase: 'idle',
+  message: '',
+  progress: 0,
+  indeterminate: false,
+  error: false
+});

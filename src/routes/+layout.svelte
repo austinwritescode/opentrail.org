@@ -38,35 +38,50 @@ window.addEventListener('error', (e) => errorModal(e.error || new Error(e.messag
 			isInstalled.set(true);
 		});
 
-		if ('serviceWorker' in navigator) {
-			navigator.serviceWorker.ready.then((reg) => {
-				function showUpdateModal() {
-					swWaitingRegistration.set(reg);
-					openModal({
-						type: 'updateAvailable',
-						submit: () => {
-							reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-						},
-						cancel: () => {}
-					});
-				}
+ if ('serviceWorker' in navigator && window.isSecureContext) {
+ navigator.serviceWorker.ready.then((reg) => {
+ function showUpdateModal() {
+ swWaitingRegistration.set(reg);
+ openModal({
+ type: 'updateAvailable',
+ submit: () => {
+ reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+ },
+ cancel: () => {}
+ });
+ }
 
-				if (reg.waiting) showUpdateModal();
+ if (reg.waiting) showUpdateModal();
 
-				reg.addEventListener('updatefound', () => {
-					const newWorker = reg.installing;
-					newWorker.addEventListener('statechange', () => {
-						if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-							showUpdateModal();
-						}
-					});
-				});
-			});
+ reg.addEventListener('updatefound', () => {
+ const newWorker = reg.installing;
+ newWorker.addEventListener('statechange', () => {
+ if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+ showUpdateModal();
+ }
+ });
+ });
+ }).catch(() => {});
 
-			navigator.serviceWorker.addEventListener('controllerchange', () => {
-				window.location.reload();
-			});
-		}
+ navigator.serviceWorker.addEventListener('controllerchange', () => {
+ window.location.reload();
+ });
+
+ function maybeUpdateSW() {
+ const last = localStorage.getItem('sw-last-check');
+ if (!last || Date.now() - Number(last) > 86_400_000) {
+ navigator.serviceWorker?.getRegistration()?.then(r => {
+ r?.update();
+ localStorage.setItem('sw-last-check', String(Date.now()));
+ });
+ }
+ }
+
+ maybeUpdateSW();
+ document.addEventListener('visibilitychange', () => {
+ if (document.visibilityState === 'visible') maybeUpdateSW();
+ });
+ }
 
 		resumeDownload();
 	});
@@ -143,11 +158,6 @@ window.addEventListener('error', (e) => errorModal(e.error || new Error(e.messag
 				<p>
 					<a href="https://github.com/austinwritescode/opentrail.org/issues" class="link">
 						Bug reports
-					</a>
-				</p>
-				<p>
-					<a href="https://github.com/austinwritescode/opentrail.org/discussions" class="link">
-						Discussion board
 					</a>
 				</p>
 <p><a href="https://cdn.opentrail.org/terms.html" class="link">Terms of Service</a></p>

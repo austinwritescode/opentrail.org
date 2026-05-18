@@ -64,17 +64,22 @@ export async function resumeDownload() {
 				onSuccess,
 				onDelete
 			);
-		} else {
-			const cache = await caches.open('image-cache');
-			const res = await fetch(`/api/getImageList?trail=${persist.trail}`);
-			const list = await res.json();
-			/** @type {string[]} */
-			const URLlist = list.map((/** @type {number} */ num) => `https://cdn.opentrail.org/img/${num}.jpg`);
-			const remaining = [];
-			for (const url of URLlist) {
-				const cached = await cache.match(url);
-				if (!cached) remaining.push(url);
-			}
+  } else {
+    const hasCaches = typeof caches !== 'undefined';
+    if (!hasCaches) {
+      onDelete();
+      throw new Error('Caches API not available. Ensure you are using HTTPS.');
+    }
+    const cache = await caches.open('image-cache');
+    const res = await fetch(`/api/getImageList?trail=${persist.trail}`);
+    const list = await res.json();
+    /** @type {string[]} */
+    const URLlist = list.map((/** @type {number} */ num) => `https://cdn.opentrail.org/img/${num}.jpg`);
+    const remaining = [];
+    for (const url of URLlist) {
+      const cached = await cache.match(url);
+      if (!cached) remaining.push(url);
+    }
 			if (remaining.length === 0) {
 				downloadPersist.update((p) => { p.status = 'complete'; return p; });
 				downloadState.update((d) => { d.active = false; return d; });
@@ -255,26 +260,21 @@ export async function streamPmtiles(trail, startBytes, totalBytes, displayName, 
 }
 
 export async function deleteOffline() {
-	const trail = get(settings).trail;
-	try {
-		await db.pending.clear();
-	} catch {}
-	await deleteOPFSFile(trail);
-	await caches.delete('offline-cache');
-	await caches.delete('image-cache');
-	settings.update((s) => { s.offline = false; s.offlineimages = false; return s; });
-	downloadState.update((d) => { d.active = false; return d; });
-	downloadPersist.update((p) => {
-		p.status = '';
-		p.bytesReceived = 0;
-		p.totalBytes = 0;
-		return p;
-	});
+  const trail = get(settings).trail;
+  try { await db.pending.clear(); } catch {}
+  await deleteOPFSFile(trail);
+  if (typeof caches !== 'undefined') {
+    await caches.delete('offline-cache');
+    await caches.delete('image-cache');
+  }
+  settings.update((s) => { s.offline = false; s.offlineimages = false; return s; });
+  downloadState.update((d) => { d.active = false; return d; });
+  downloadPersist.update((p) => { p.status = ''; p.bytesReceived = 0; p.totalBytes = 0; return p; });
 }
 
 export async function deleteImages() {
-	await caches.delete('image-cache');
-	settings.update((s) => { s.offlineimages = false; return s; });
-	downloadState.update((d) => { d.active = false; return d; });
-	downloadPersist.update((p) => { p.status = ''; return p; });
+  if (typeof caches !== 'undefined') await caches.delete('image-cache');
+  settings.update((s) => { s.offlineimages = false; return s; });
+  downloadState.update((d) => { d.active = false; return d; });
+  downloadPersist.update((p) => { p.status = ''; return p; });
 }

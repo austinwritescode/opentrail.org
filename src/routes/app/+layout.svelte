@@ -188,24 +188,11 @@ import { getOPFSFileSize } from '$lib/download.js';
 		});
 	}
 
-	async function getDataWithProgress() {
-		setLoadPhase('data', 0);
-		const trail = get(settings).trail;
-		const res = await fetchWithProgress(
-			'/api/getData?' + new URLSearchParams({ trail }),
-			(p) => setLoadPhase('data', p)
-		);
-		if (res.status === 200) {
-			const resClone = res.clone();
-			const json = await res.json();
-			data.set(json);
-			const cache = await caches.open('offline-cache');
-			await cache.put('/api/getData?trail=' + get(settings).trail, resClone);
-			setLoadPhase('data', 1);
-		} else {
-			throw new Error('Failed to retrieve data: ' + res.status);
-		}
-	}
+function isLastsyncStale() {
+  const last = get(settings).lastsync;
+  if (!last || !last.isValid?.()) return true;
+  return Date.now() - last.valueOf() > 3600000;
+}
 
 	onMount(async () => {
 	const preBar = document.getElementById('pre-hydrate-bar');
@@ -229,31 +216,37 @@ import { getOPFSFileSize } from '$lib/download.js';
 			$settings.trail = deepTrail;
 		}
 		if (!Object.keys(TRAILS).includes($settings.trail)) goto('/');
-		try {
-			if ($settings.autosync) {
-				await syncData();
-				setLoadPhase('data', 1);
-			} else if ($data.features.length === 0) {
-				await getDataWithProgress();
-			}
-			await initializeMap();
-		} catch (err) {
-			setLoadError(err.message || 'Load failed');
-			errorModal(err);
-		}
+try {
+  if ($settings.autosync && navigator.onLine && isLastsyncStale()) {
+    await syncData();
+    setLoadPhase('data', 1);
+  } else {
+    await getData();
+    setLoadPhase('data', 1);
+  }
+  await initializeMap();
+} catch (err) {
+  setLoadError(err.message || 'Load failed');
+  errorModal(err);
+}
 	if ($settings.offline) {
 		const size = await getOPFSFileSize($settings.trail);
 		if (!size) $settings.offline = false;
 	}
-		if (deepMarkerDbid) {
-			const idx = $data.features.findIndex(f => f.properties.dbid == deepMarkerDbid);
-			if (idx !== -1) {
-				updateSelectedMarker(idx, true);
-				$detailId = idx;
-			}
-			replaceState('/app', {});
-		}
-	});
+if (deepMarkerDbid) {
+  const idx = $data.features.findIndex(f => f.properties.dbid == deepMarkerDbid);
+  if (idx !== -1) {
+    updateSelectedMarker(idx, true);
+    $detailId = idx;
+  }
+  replaceState('/app', {});
+}
+if ($settings.autosync) {
+  window.addEventListener('online', () => {
+    if (get(settings).autosync && isLastsyncStale()) syncData();
+  });
+}
+});
 
 	let filteredIdx;
 	$: updateFilteredIdx($activeIcons, $data);
@@ -915,9 +908,9 @@ $: if (mapInitialized) {
 				style="width: {$loadStatus.progress}%;"
 			></div>
 		</div>
-	<div class="load-bar-text" style="color: #666;">
-      {$loadStatus.message}
-    </div>
+		<div class="load-bar-text" style="color: #666;">
+			{$loadStatus.message}{#if $loadStatus.error} <button onclick={() => window.location.reload()} class="retry-btn">Retry</button>{/if}
+		</div>
   </div>
 {/if}
 	<!-- main area full height minus navbar, use grid to overlap divs + css "visibility" to cache map for fast navigation -->
@@ -1135,5 +1128,15 @@ $: if (mapInitialized) {
 	.filter-bar-inner .btn:last-child {
 		border-bottom-left-radius: 6px;
 		border-bottom-right-radius: 6px;
+	}
+	.retry-btn {
+		font-size: 11px;
+		color: #d7230e;
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0;
+		text-decoration: underline;
+		font-weight: 500;
 	}
 </style>

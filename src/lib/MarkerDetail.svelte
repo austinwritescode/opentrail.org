@@ -34,8 +34,10 @@
 	$: elevDiffFt = userElevFt != null && prop.elev != null ? Math.round(Math.abs(userElevFt - Number(prop.elev))) : null;
 	$: elevSign = userElevFt != null && prop.elev != null ? (Number(prop.elev) >= userElevFt ? '+' : '-') : '';
 	$: userRecent = new Date() - $userMiles.date < 1000000;
-	let newComment = '';
-	let commentSpinner = false;
+let newComment = '';
+let commentSpinner = false;
+let scrollContainer;
+$: if ($detailId >= 0) scrollContainer?.scrollTo(0, 0);
 
 	async function submitComment() {
 		commentSpinner = true;
@@ -164,26 +166,28 @@ return errorModal(
 </script>
 
 <div class="modal" class:modal-open={true} onclick={(e) => e.target === e.currentTarget && ($detailId = -1)}>
-	<div class="modal-box rounded-lg p-4 h-4/5 select-text relative overflow-visible">
-		{#if onPrev}
-			<button
-				class="btn btn-circle btn-sm bg-base-100/80 hover:bg-base-100/80 border border-base-300 shadow-md absolute z-10"
-				style="top: calc(50% - 16px); left: -16px;"
-				onclick={onPrev}
-			>
-				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 18l-6-6 6-6"/></svg>
-			</button>
-		{/if}
-		{#if onNext}
-			<button
-				class="btn btn-circle btn-sm bg-base-100/80 hover:bg-base-100/80 border border-base-300 shadow-md absolute z-10"
-				style="top: calc(50% - 16px); right: -16px;"
-				onclick={onNext}
-			>
-				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 18l6-6-6-6"/></svg>
-			</button>
-		{/if}
-		<div class="flex justify-between items-center mb-2">
+  <div class="relative max-w-[32rem] w-[91.666667%] mx-auto">
+    {#if onPrev}
+      <button
+        class="btn btn-circle btn-sm bg-base-100/80 hover:bg-base-100/80 border border-base-300 shadow-md absolute z-10"
+        style="top: calc(50% - 16px); left: -16px;"
+        onclick={onPrev}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 18l-6-6 6-6"/></svg>
+      </button>
+    {/if}
+    {#if onNext}
+      <button
+        class="btn btn-circle btn-sm bg-base-100/80 hover:bg-base-100/80 border border-base-300 shadow-md absolute z-10"
+        style="top: calc(50% - 16px); right: -16px;"
+        onclick={onNext}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 18l6-6-6-6"/></svg>
+      </button>
+    {/if}
+    <div class="modal-box rounded-lg p-4 h-4/5 select-text overflow-x-hidden overflow-y-hidden flex flex-col w-full max-w-none">
+    <div class="flex-1 overflow-y-auto overflow-x-hidden" bind:this={scrollContainer}>
+    <div class="flex justify-between items-center mb-2">
 			<p class="text-md font-bold break-words">
 				{prop.title}
 				{#if prop.icons}
@@ -337,10 +341,12 @@ return errorModal(
 			</button>
 				</div>
 			</div>
-		{/each}
+{/each}
 
-		<div class="modal-action m-2">
-			<button class="btn" onclick={() => ($detailId = -1)}>Close</button>
-		</div>
-	</div>
-</div>
+  </div>
+  <div class="modal-action m-2">
+    <button class="btn" onclick={() => ($detailId = -1)}>Close</button>
+  </div>
+  </div>
+  </div>
+  </div>

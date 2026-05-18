@@ -4,28 +4,27 @@ import * as Sentry from '@sentry/sveltekit';
 
 if (!dev) {
 Sentry.init({
-  dsn: 'https://ce5b7f4bfa0d91de3163c9daa500b484@o4511352687951872.ingest.us.sentry.io/4511352688279552',
+    dsn: 'https://ce5b7f4bfa0d91de3163c9daa500b484@o4511352687951872.ingest.us.sentry.io/4511352688279552',
 
-  tracesSampleRate: 1.0,
+    tracesSampleRate: 1.0,
 
-  // Enable logs to be sent to Sentry
-  enableLogs: true,
+    enableLogs: true,
 
-  // This sets the sample rate to be 10%. You may want this to be 100% while
-  // in development and sample at a lower rate in production
-  replaysSessionSampleRate: 0.1,
+    replaysSessionSampleRate: 0.1,
 
-  // If the entire session is not sampled, use the below sample rate to sample
-  // sessions when an error occurs.
-  replaysOnErrorSampleRate: 1.0,
+    replaysOnErrorSampleRate: 1.0,
 
-  // If you don't want to use Session Replay, just remove the line below:
-  integrations: [replayIntegration()],
+    integrations: [replayIntegration()],
 
-  // Enable sending user PII (Personally Identifiable Information)
-  // https://docs.sentry.io/platforms/javascript/guides/sveltekit/configuration/options/#sendDefaultPii
-  sendDefaultPii: false,
-});
+    sendDefaultPii: false,
+
+  beforeSend(event) {
+    const err = event.exception?.values?.[0];
+    const isNetworkError = /failed to fetch|networkerror|network request failed|load failed/i.test(err?.value || '');
+    if (isNetworkError && !navigator.onLine) return null;
+    return event;
+  },
+  });
 }
 
 export const handleError = handleErrorWithSentry();

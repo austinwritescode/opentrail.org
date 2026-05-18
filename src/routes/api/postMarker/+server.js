@@ -6,6 +6,7 @@ import { geoJSON, initGeoJSON } from '$lib/geojson-cache.js'
 import * as Sentry from '@sentry/sveltekit';
 import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private'
+import { purgeGetDataCache } from '$lib/server/cloudflare-purge.js';
 
 export async function POST({ request, url, getClientAddress }) {
     await initGeoJSON()
@@ -92,22 +93,28 @@ export async function POST({ request, url, getClientAddress }) {
                     }
                 })
             }
-            if (type === 'newMarker') {
-                const elev = await getElev(req.lat, req.lng)
-                const trailRelations = createTrailRelations(req.lat, req.lng, req.trail)
-                await prisma.marker.create({
-                    data: {
-                        lat: req.lat,
-                        lng: req.lng,
-                        title: req.title,
-                        desc: req.desc,
-                        icons: req.icons,
-                        elev: elev,
-                        trails: trailRelations
-                    }
-                })
-            }
-            return new Response();
+      if (type === 'newMarker') {
+        const elev = await getElev(req.lat, req.lng)
+        const trailRelations = createTrailRelations(req.lat, req.lng, req.trail)
+        await prisma.marker.create({
+          data: {
+            lat: req.lat,
+            lng: req.lng,
+            title: req.title,
+            desc: req.desc,
+            icons: req.icons,
+            elev: elev,
+            trails: trailRelations
+          }
+        })
+      }
+      const trailsToPurge = type === 'editLoc' || type === 'editIcons' || type === 'editTitle' || type === 'editDesc'
+        ? await getMarkerTrails(req.dbid)
+        : type === 'newMarker'
+          ? [req.trail]
+          : [];
+      if (trailsToPurge.length > 0) purgeGetDataCache(trailsToPurge);
+      return new Response();
         }
 } catch (e) {
     if (!dev) Sentry.captureException(e);
@@ -140,11 +147,19 @@ function createTrailRelations(lat, lng, trail) {
 
 // Checks all trails for nearest tenth of a mile point but only if it's within 50 miles
 function nearestPointPerTrail(lat, lng) {
-    let toReturn = {}
-    for (const trail in TRAILS) {
-        const min = searchTrailRoute(lng, lat, geoJSON[trail], 50)
-        // console.log(`trail: ${trail} min: ${min.dist} index: ${min.index}`)
-        if (min.index > -1) toReturn[trail] = min
-    }
-    return toReturn
+  let toReturn = {}
+  for (const trail in TRAILS) {
+    const min = searchTrailRoute(lng, lat, geoJSON[trail], 50)
+    // console.log(`trail: ${trail} min: ${min.dist} index: ${min.index}`)
+    if (min.index > -1) toReturn[trail] = min
+  }
+  return toReturn
+}
+
+async function getMarkerTrails(markerId) {
+  const marker = await prisma.marker.findUnique({
+    where: { id: markerId },
+    select: { trails: { select: { trail: { select: { name: true } } } } }
+  });
+  return marker ? marker.trails.map(t => t.trail.name) : [];
 }

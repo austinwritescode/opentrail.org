@@ -175,8 +175,10 @@
 		}
 	}
 
-async function getMissingAssets() {
-  const reg = await navigator.serviceWorker.ready;
+  async function getMissingAssets() {
+    if (!window.isSecureContext || typeof caches === 'undefined')
+      return [];
+    const reg = await navigator.serviceWorker.ready;
   return new Promise((resolve, reject) => {
     const channel = new MessageChannel();
     const timeout = setTimeout(() => reject(new Error('Cache verification timed out')), 5000);
@@ -186,24 +188,29 @@ async function getMissingAssets() {
   });
 }
 
-async function fetchOffline() {
-	if (!navigator.serviceWorker)
+  async function fetchOffline() {
+    if (typeof caches === 'undefined')
+      return errorModal(new Error('Caches API not available. Ensure you are using HTTPS.'));
+    if (!navigator.serviceWorker)
 		return errorModal(new Error('No service worker found. Refresh the page and try again.'));
 	if (!navigator.serviceWorker.controller && !dev)
 		return errorModal(new Error('Service worker not ready. Refresh the page and try again.'));
-	if (!$isInstalled)
-		return errorModal(
-			new Error(
-				'Install this app to your home screen to enable offline mode. This ensures your cached data will not be evicted by the browser.'
-			)
-		);
-	const persisted = await navigator.storage.persist();
-	if (!persisted)
-		return errorModal(
-			new Error(
-				'Could not secure persistent storage. Make sure the app is installed to your home screen and try again.'
-			)
-		);
+const isLocalhost = window.location.hostname === 'localhost';
+  if (!$isInstalled && !isLocalhost)
+    return errorModal(
+      new Error(
+        'Install this app to your home screen to enable offline mode. This ensures your cached data will not be evicted by the browser.'
+      )
+    );
+  if (!isLocalhost) {
+    const persisted = await navigator.storage.persist();
+    if (!persisted)
+      return errorModal(
+        new Error(
+          'Could not secure persistent storage. Make sure the app is installed to your home screen and try again.'
+        )
+      );
+  }
 
   let missing;
   try {
@@ -262,8 +269,10 @@ async function fetchOffline() {
   }
 }
 
-	async function fetchImages() {
-		await caches.delete('image-cache');
+  async function fetchImages() {
+    if (typeof caches === 'undefined')
+      return errorModal(new Error('Caches API not available. Ensure you are using HTTPS.'));
+    await caches.delete('image-cache');
 		try {
 			$downloadPersist = {
 				type: 'image-cache',
@@ -301,8 +310,10 @@ async function fetchOffline() {
 		}
 	}
 
-	async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
-		if (URLlist.length === 0) {
+  async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
+    if (typeof caches === 'undefined')
+      return errorModal(new Error('Caches API not available. Ensure you are using HTTPS.'));
+    if (URLlist.length === 0) {
 			$downloadState.active = false;
 			$downloadPersist.status = 'complete';
 			unhold();

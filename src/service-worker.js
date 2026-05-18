@@ -91,24 +91,14 @@ self.addEventListener('message', (event) => {
 })
 
 self.addEventListener('fetch', (event) => {
-	const requestURL = new URL(event.request.url)
-	if (requestURL.pathname.endsWith('.pmtiles')) return;
-	//getData API uses network-first strategy to avoid stale data while online
-	if (requestURL.pathname === '/api/getData') {
-		event.respondWith(fetch(event.request).catch((error) => {
-			return caches.open('offline-cache').then((cache) => {
-				return cache.match(event.request)
-			})
-		}))
-	}
-	//everything else is static so use cache-first:
-	else {
-		event.respondWith(caches.match(event.request).then((res) => {
-			if (res) return res;
-			if (requestURL.origin !== self.location.origin) {
-				return fetch(new Request(event.request, { mode: 'cors' }));
-			}
-			return fetch(event.request);
-		}))
-	}
+  const requestURL = new URL(event.request.url)
+  if (requestURL.pathname.endsWith('.pmtiles')) return;
+  const offlineResponse = () => new Response('', { status: 503, statusText: 'Offline' });
+  event.respondWith(caches.match(event.request).then((res) => {
+    if (res) return res;
+    if (requestURL.origin !== self.location.origin) {
+      return fetch(new Request(event.request, { mode: 'cors' })).catch(offlineResponse);
+    }
+    return fetch(event.request).catch(offlineResponse);
+  }))
 })

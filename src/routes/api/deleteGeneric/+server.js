@@ -3,6 +3,7 @@ import { env } from '$env/dynamic/private'
 import * as Sentry from '@sentry/sveltekit';
 import { dev } from '$app/environment';
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { purgeGetDataCache } from '$lib/server/cloudflare-purge.js';
 const s3 = new S3Client({
     region: 'auto',
     endpoint: env.S3_ENDPOINT,
@@ -27,84 +28,102 @@ export async function DELETE({ request, url, getClientAddress }) {
 
         console.log(`received moderation deletion from ip [${ip}]`)
 
-        if (ignore) clearFlag(id, type)
-        else if (type === 'marker') {
-            const flag = await prisma.flaggedMarker.findUnique({
-                where: { id: id },
-                select: {
-                    markerId: true,
-                    marker: {
-                        select: {
-                            images: true
-                        }
-                    }
-                }
-            })
-            if (!flag) return new Response(null, { status: 200 })
-            for (const image of flag.marker.images) {
-                await deleteImage(image)
+  if (ignore) clearFlag(id, type)
+  else if (type === 'marker') {
+    const flag = await prisma.flaggedMarker.findUnique({
+      where: { id: id },
+      select: {
+        markerId: true,
+        marker: {
+          select: {
+            images: true,
+            trails: { select: { trail: { select: { name: true } } } }
+          }
+        }
+      }
+    })
+    if (!flag) return new Response(null, { status: 200 })
+    const trailNames = flag.marker.trails.map(t => t.trail.name);
+    for (const image of flag.marker.images) {
+      await deleteImage(image)
+    }
+    await prisma.flaggedMarker.delete({ where: { id: id } })
+    await prisma.marker.delete({ where: { id: parseInt(flag.markerId) } })
+    if (trailNames.length > 0) purgeGetDataCache(trailNames);
+  }
+  else if (type === 'image') {
+    const flag = await prisma.flaggedImage.findUnique({
+      where: { id: id },
+      select: {
+        image: true,
+        markerId: true,
+        marker: { select: { images: true, trails: { select: { trail: { select: { name: true } } } } } }
+      }
+    })
+    if (!flag) return new Response(null, { status: 200 })
+    const trailNames = flag.marker.trails.map(t => t.trail.name);
+    await deleteImage(flag.image)
+    const newImages = flag.marker.images.filter((image) => image !== flag.image)
+    await prisma.marker.update({
+      where: { id: parseInt(flag.markerId) },
+      data: { images: newImages }
+    })
+    await prisma.flaggedImage.deleteMany({ where: { image: flag.image } })
+    if (trailNames.length > 0) purgeGetDataCache(trailNames);
+  }
+  else if (type === 'comment') {
+    const flag = await prisma.flaggedComment.findUnique({
+      where: { id: id },
+      select: {
+        commentId: true,
+        comment: {
+          select: {
+            marker: { select: { trails: { select: { trail: { select: { name: true } } } } } }
+          }
+        }
+      }
+    })
+    if (!flag) return new Response(null, { status: 200 })
+    const trailNames = flag.comment.marker.trails.map(t => t.trail.name);
+    await prisma.flaggedComment.delete({ where: { id: id } })
+    await prisma.comment.delete({ where: { id: flag.commentId } })
+    if (trailNames.length > 0) purgeGetDataCache(trailNames);
+  }
+  else if (type === 'clearTestTrail') {
+    console.log('Clearing test trail')
+    const markers = await prisma.marker.findMany({
+      where: {
+        trails: {
+          every: {
+            trail: {
+              name: 'test'
             }
-            await prisma.flaggedMarker.delete({ where: { id: id } })
-            await prisma.marker.delete({ where: { id: parseInt(flag.markerId) } })
+          }
         }
-        else if (type === 'image') {
-            const flag = await prisma.flaggedImage.findUnique({
-                where: { id: id },
-                select: {
-                    image: true,
-                    markerId: true,
-                    marker: { select: { images: true } }
-                }
-            })
-            if (!flag) return new Response(null, { status: 200 })
-            await deleteImage(flag.image)
-            const newImages = flag.marker.images.filter((image) => image !== flag.image)
-            await prisma.marker.update({
-                where: { id: parseInt(flag.markerId) },
-                data: { images: newImages }
-            })
-            await prisma.flaggedImage.deleteMany({ where: { image: flag.image } })
-        }
-        else if (type === 'comment') {
-            const flag = await prisma.flaggedComment.findUnique({ where: { id: id }, select: { commentId: true } })
-            if (!flag) return new Response(null, { status: 200 })
-            await prisma.flaggedComment.delete({ where: { id: id } })
-            await prisma.comment.delete({ where: { id: flag.commentId } })
-        }
-        else if (type === 'clearTestTrail') {
-            console.log('Clearing test trail')
-            const markers = await prisma.marker.findMany({
-                where: {
-                    trails: {
-                        every: {
-                            trail: {
-                                name: 'test'
-                            }
-                        }
-                    }
-                },
-                select: {
-                    images: true
-                }
-            })
-            console.log(markers)
-            for (const marker of markers) {
-                for (const image of marker.images) {
-                    await deleteImage(image)
-                }
+      },
+      select: {
+        images: true
+      }
+    })
+    console.log(markers)
+    for (const marker of markers) {
+      for (const image of marker.images) {
+        await deleteImage(image)
+      }
+    }
+    await prisma.marker.deleteMany({
+      where: {
+        trails: {
+          every: {
+            trail: {
+              name: 'test'
             }
-            await prisma.marker.deleteMany({
-                where: {
-                    trails: {
-                        every: {
-                            trail: {
-                                name: 'test'
-                            }
-                        }
-                    }
-                }
-            })
+          }
         }
+      }
+    })
+    purgeGetDataCache(['test']);
+  }
         else throw new Error('Bad request...')
         return new Response();
 } catch (e) {

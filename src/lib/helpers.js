@@ -67,7 +67,12 @@ import relativeTime from 'dayjs/plugin/relativeTime'
 dayjs.extend(relativeTime)
 
 export function timeAgo(dateStr) {
-	return dayjs(dateStr).fromNow()
+  const then = dayjs(dateStr).startOf('day');
+  const today = dayjs().startOf('day');
+  const diffDays = today.diff(then, 'day');
+  if (diffDays === 0) return 'today';
+  if (diffDays === 1) return 'yesterday';
+  return then.from(today);
 }
 
 export async function fetchWithProgress(url, onProgress) {

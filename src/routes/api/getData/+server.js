@@ -52,7 +52,7 @@ export async function GET({ request, url }) {
     for (let i = 0; i < markers.length; i++) {
       const m = markers[i]
       for (let j = 0; j < m.comments.length; j++) {
-        m.comments[j].date = m.comments[j].date.toLocaleDateString("en-US", { timeZone: 'UTC' })
+        m.comments[j].date = m.comments[j].date.toLocaleDateString("en-US")
       }
       features[i] = {
         type: 'Feature',

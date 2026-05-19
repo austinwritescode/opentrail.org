@@ -185,7 +185,7 @@ return errorModal(
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 18l6-6-6-6"/></svg>
       </button>
     {/if}
-    <div class="modal-box rounded-lg p-4 h-4/5 select-text overflow-x-hidden overflow-y-hidden flex flex-col w-full max-w-none">
+    <div class="modal-box rounded-lg p-4 h-[90vh] select-text overflow-x-hidden overflow-y-hidden flex flex-col w-full max-w-none">
     <div class="flex-1 overflow-y-auto overflow-x-hidden" bind:this={scrollContainer}>
     <div class="flex justify-between items-center mb-2">
 			<p class="text-md font-bold break-words">
@@ -203,6 +203,14 @@ return errorModal(
 						tabindex="0"
 						class="menu dropdown-content p-2 shadow bg-base-300 rounded-box whitespace-nowrap"
 					>
+						<li onclick={() => {
+							const url = `${window.location.origin}/app?trail=${$settings.trail}&marker=${prop.dbid}`;
+							navigator.clipboard.writeText(url);
+						}}><a>Copy share link</a></li>
+						<li onclick={() => {
+							const c = $data.features[dataIdx].geometry.coordinates;
+							window.open(`https://www.google.com/maps/search/?api=1&query=${c[1]},${c[0]}`, '_blank');
+						}}><a>Open in Google Maps</a></li>
 						<li>
 							<a>
 								<label for="upload-photo">Upload image</label>
@@ -227,14 +235,6 @@ return errorModal(
 							<a>Edit location</a>
 						</li>
 						<li onclick={() => editIcons(prop)}><a>Edit icons</a></li>
-						<li onclick={() => {
-							const url = `${window.location.origin}/app?trail=${$settings.trail}&marker=${prop.dbid}`;
-							navigator.clipboard.writeText(url);
-						}}><a>Copy share link</a></li>
-						<li onclick={() => {
-							const c = $data.features[dataIdx].geometry.coordinates;
-							window.open(`https://www.google.com/maps/search/?api=1&query=${c[1]},${c[0]}`, '_blank');
-						}}><a>Open in Google Maps</a></li>
 						<li onclick={() => flagGeneric({}, 'flagMarker')}><a>Delete marker</a></li>
 					</ul>
 				</div>

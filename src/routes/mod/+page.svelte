@@ -1,19 +1,24 @@
 <script>
-	import { onMount } from 'svelte';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
-import { Protocol } from 'pmtiles';
-/** @type {import('pmtiles').Protocol | undefined} */
-let pmtilesProtocol;
-let key;
-	let mod;
-	let markers;
-	let flags;
-	let comments;
-	let isModalOpen = false;
-	let tab = 'queue';
-	let map;
-	let loading = true;
+ import { onMount } from 'svelte';
+ import maplibregl from 'maplibre-gl';
+ import 'maplibre-gl/dist/maplibre-gl.css';
+ import { Protocol } from 'pmtiles';
+ import { haversine } from '$lib/helpers.js';
+ /** @type {import('pmtiles').Protocol | undefined} */
+ let pmtilesProtocol;
+ let key;
+ let mod;
+ let markers;
+ let flags;
+ let comments;
+ /** @type {Record<string, GeoJSON.FeatureCollection>} */
+ let trailData = {};
+ /** @type {Record<number, { title: string, icon: string, icons: string, dist: number } | null>} */
+ let nearest = {};
+ let isModalOpen = false;
+ let tab = 'queue';
+ let map;
+ let loading = true;
 	function authHeaders(extra = {}) {
 		return { ...extra, headers: { Authorization: `Bearer ${key}` } };
 	}
@@ -25,18 +30,56 @@ let key;
 		} else loading = false;
 	});
 
-	async function fetchModQueue() {
-		const res = await fetch('/api/mod', authHeaders());
-		if (res.status === 200) {
-			const json = await res.json();
-			console.log(json);
-			mod = json.mod;
-			markers = json.markers;
-			flags = json.flags;
-			localStorage.setItem('mod_key', key);
-		}
-		loading = false;
-	}
+ async function fetchModQueue() {
+ const res = await fetch('/api/mod', authHeaders());
+ if (res.status === 200) {
+ const json = await res.json();
+ console.log(json);
+ mod = json.mod;
+ markers = json.markers;
+ flags = json.flags;
+ localStorage.setItem('mod_key', key);
+ await fetchNearestMarkers();
+ }
+ loading = false;
+ }
+
+ async function fetchNearestMarkers() {
+ const newMarkerTrails = new Set();
+ for (const item of mod) {
+ if (item.route.includes('newMarker') && item.request.trail) {
+ newMarkerTrails.add(item.request.trail);
+ }
+ }
+ for (const trail of newMarkerTrails) {
+ if (trail in trailData) continue;
+ const r = await fetch(`/api/getData?trail=${trail}`);
+ if (r.status === 200) trailData[trail] = await r.json();
+ }
+ nearest = {};
+ for (const item of mod) {
+ if (!item.route.includes('newMarker')) continue;
+ const trail = item.request.trail;
+ const fc = trailData[trail];
+ if (!fc || !fc.features) continue;
+ let best = null;
+ let bestDist = Infinity;
+ for (const feature of fc.features) {
+ const [flng, flat] = feature.geometry.coordinates;
+ const dist = haversine(item.request.lat, item.request.lng, flat, flng);
+ if (dist < bestDist) {
+ bestDist = dist;
+ best = {
+ title: feature.properties.title,
+ icon: feature.properties.icon,
+ icons: feature.properties.icons,
+ dist
+ };
+ }
+ }
+ nearest[item.id] = best;
+ }
+ }
 
 	async function approve(id) {
 		const item = mod.find((el) => el.id === id);
@@ -311,8 +354,20 @@ let key;
 										{/each}</span
 									>
 								</div>
-							{:else if item.route.includes('newMarker')}
-								{JSON.stringify(item.request)}
+{:else if item.route.includes('newMarker')}
+ <div class="flex flex-col">
+ <span>{item.request.title}</span>
+<span>{item.request.desc}</span>
+<span>{item.request.lat}, {item.request.lng}</span>
+ {#if nearest[item.id]}
+ <span class="text-yellow-500">
+ Nearest:
+ <img src={`https://cdn.opentrail.org/icons/${nearest[item.id].icon}.png`} height="16" width="16" class="inline" />
+ {nearest[item.id].title}
+ ({nearest[item.id].dist.toFixed(2)} mi)
+ </span>
+ {/if}
+ </div>
 							{/if}
 						</td>
 						<td>{JSON.stringify(markers[item.request.dbid])}</td>

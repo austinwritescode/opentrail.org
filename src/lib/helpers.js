@@ -37,7 +37,7 @@ export function searchTrailRoute(lng, lat, geoJSON, maxDist) {
     return min
 }
 
-function haversine(lat1, lon1, lat2, lon2) {
+export function haversine(lat1, lon1, lat2, lon2) {
     var R = 3958.8; // Radius of the earth in miles
     var dLat = deg2rad(lat2 - lat1);  // deg2rad below
     var dLon = deg2rad(lon2 - lon1);

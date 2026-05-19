@@ -93,12 +93,11 @@ self.addEventListener('message', (event) => {
 self.addEventListener('fetch', (event) => {
   const requestURL = new URL(event.request.url)
   if (requestURL.pathname.endsWith('.pmtiles')) return;
-  const offlineResponse = () => new Response('', { status: 503, statusText: 'Offline' });
   event.respondWith(caches.match(event.request).then((res) => {
     if (res) return res;
     if (requestURL.origin !== self.location.origin) {
-      return fetch(new Request(event.request, { mode: 'cors' })).catch(offlineResponse);
+      return fetch(new Request(event.request, { mode: 'cors' }));
     }
-    return fetch(event.request).catch(offlineResponse);
+    return fetch(event.request);
   }))
 })

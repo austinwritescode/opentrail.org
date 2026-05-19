@@ -20,19 +20,7 @@ export async function getData(forceNetwork = false) {
 
   const fetchUrl = forceNetwork ? url + '&_nocache=1' : url;
   const res = await fetch(fetchUrl);
-	if (res.status === 503) {
-		if (get(settings).offline) {
-			if(pendingAdd) await db.pending.add(item);
-			openModal({ type: 'success', data: 'No connection. Submission queued for the next sync.' });
-		}
-		else {
-			const e = new Error('Service unavailable and not in offline mode to save to pending queue.')
-			errorModal(e)
-			throw e
-		}
-		return
-	}
-	if (res.status === 200) {
+  if (res.status === 200) {
     const clone = res.clone();
     data.set(await res.json());
     if (hasCaches) {

@@ -33,7 +33,7 @@ const latestComment = commentCount > 0
 		<div class="bg-base-100 rounded-lg pt-2 pb-2 p-4 w-full h-full select-text relative overflow-visible flex flex-col">
 			{#if onPrev}
 				<button
-					class="btn btn-circle btn-sm bg-base-100/80 hover:bg-base-100/80 border border-base-300 shadow-md absolute z-10"
+					class="btn btn-circle btn-sm bg-base-100 border border-base-300 shadow-md text-base-content absolute z-10"
 					style="top: calc(50% - 16px); left: -16px;"
 					onclick={(e) => { e.stopPropagation(); onPrev(); }}
 				>
@@ -42,7 +42,7 @@ const latestComment = commentCount > 0
 			{/if}
 			{#if onNext}
 				<button
-					class="btn btn-circle btn-sm bg-base-100/80 hover:bg-base-100/80 border border-base-300 shadow-md absolute z-10"
+					class="btn btn-circle btn-sm bg-base-100 border border-base-300 shadow-md text-base-content absolute z-10"
 					style="top: calc(50% - 16px); right: -16px;"
 					onclick={(e) => { e.stopPropagation(); onNext(); }}
 				>

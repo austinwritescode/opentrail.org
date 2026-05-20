@@ -977,8 +977,8 @@ $: if (mapInitialized) {
 			</div>
 			<!-- profile toggle button -->
 			<button
-				class="profile-toggle-btn"
-				style="bottom: {$elevationProfileVisible ? 'calc(25% - 14px)' : '8px'}; background: {$settings.dark ? '#2a2a2a' : 'white'}; border-color: {$settings.dark ? '#555' : 'rgba(0,0,0,0.2)'}; color: {$settings.dark ? '#999' : '#666'};"
+class="profile-toggle-btn text-base-content bg-base-100 border border-base-300"
+	style="bottom: {$elevationProfileVisible ? 'calc(25% - 14px)' : '8px'};"
 				onclick={toggleProfile}
 				title={$elevationProfileVisible ? 'Hide elevation profile' : 'Show elevation profile'}
 			>
@@ -1118,9 +1118,7 @@ $: if (mapInitialized) {
 		width: 28px;
 		height: 28px;
 		border-radius: 50%;
-		background: white;
-		border: 1px solid rgba(0, 0, 0, 0.2);
-		color: #666;
+
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 		cursor: pointer;
 		padding: 0;

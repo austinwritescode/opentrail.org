@@ -169,7 +169,7 @@ return errorModal(
   <div class="relative max-w-[32rem] w-[91.666667%] mx-auto">
     {#if onPrev}
       <button
-        class="btn btn-circle btn-sm bg-base-100/80 hover:bg-base-100/80 border border-base-300 shadow-md absolute z-10"
+        class="btn btn-circle btn-sm bg-base-100 border border-base-300 shadow-md text-base-content absolute z-10"
         style="top: calc(50% - 16px); left: -16px;"
         onclick={onPrev}
       >
@@ -178,12 +178,12 @@ return errorModal(
     {/if}
     {#if onNext}
       <button
-        class="btn btn-circle btn-sm bg-base-100/80 hover:bg-base-100/80 border border-base-300 shadow-md absolute z-10"
+        class="btn btn-circle btn-sm bg-base-100 border border-base-300 shadow-md text-base-content absolute z-10"
         style="top: calc(50% - 16px); right: -16px;"
         onclick={onNext}
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 18l6-6-6-6"/></svg>
-      </button>
+      </button>	
     {/if}
     <div class="modal-box rounded-lg p-4 h-[90vh] select-text overflow-x-hidden overflow-y-hidden flex flex-col w-full max-w-none">
     <div class="flex-1 overflow-y-auto overflow-x-hidden" bind:this={scrollContainer}>

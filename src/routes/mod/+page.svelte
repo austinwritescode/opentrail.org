@@ -221,7 +221,7 @@
 							<td>
 								<button class="btn bg-red-800 btn-sm" onclick={() => deleteComment(comment.id)}>Del</button>
 							</td>
-							<td>{new Date(comment.date).toLocaleDateString()}</td>
+							<td>{new Date(comment.date).toISOString().slice(0, 10)}</td>
 							<td>{comment.user}</td>
 							<td>{comment.marker.trails[0]?.trail.name ?? ''}</td>
 							<td>{comment.marker.title}</td>
@@ -270,7 +270,7 @@
 							{:else if item.type === 'comment'}
 								<div class="chat chat-start">
 									<div class="chat-header">
-										<span class="text-xs">{new Date(item.comment.date).toLocaleDateString()}</span>
+										<span class="text-xs">{new Date(item.comment.date).toISOString().slice(0, 10)}</span>
 										<span class="opacity-60">{item.comment.user}</span>
 									</div>
 									<div

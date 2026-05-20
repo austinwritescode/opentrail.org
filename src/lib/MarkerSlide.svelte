@@ -23,9 +23,9 @@
 	const elevSign = userElevFt != null && prop.elev != null ? (Number(prop.elev) >= userElevFt ? '+' : '-') : '';
 	const userRecent = new Date() - $userMiles.date < 1000000;
 	const commentCount = prop.comments?.length ?? 0;
-	const latestComment = commentCount > 0
-		? prop.comments.reduce((a, b) => new Date(a.date) > new Date(b.date) ? a : b)
-		: null;
+const latestComment = commentCount > 0
+    ? prop.comments[0]
+    : null;
 </script>
 
 <swiper-slide virtualIndex={index} style={`left: ${offset}px`}>

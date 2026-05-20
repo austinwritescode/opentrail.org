@@ -121,7 +121,7 @@
 	});
 
 	$: sortedComments = $listCommentSort === 'recent'
-		? [...filteredComments].sort((a, b) => new Date(b.date) - new Date(a.date))
+		? [...filteredComments].sort((a, b) => b.date.localeCompare(a.date))
 		: [...filteredComments].sort((a, b) => displayMile(a.mile) - displayMile(b.mile));
 
 	$: gpsDisplayMile = gpsMile >= 0 ? displayMile(gpsMile) : -1;

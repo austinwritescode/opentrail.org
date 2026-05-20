@@ -44,7 +44,7 @@ $: if ($detailId >= 0) scrollContainer?.scrollTo(0, 0);
 		const comment = {
 			text: newComment,
 			user: $settings.username,
-			date: new Date(),
+      date: new Date().toLocaleDateString("en-CA"),
 			markerId: prop.dbid
 		};
 		const item = { route: 'postComment', data: comment };
@@ -54,9 +54,8 @@ $: if ($detailId >= 0) scrollContainer?.scrollTo(0, 0);
 		} catch (e) {
 			return (commentSpinner = false); //otherwise do nothing
 		}
-		// whether we posted or pended, do this local data processing:
-		comment.date = comment.date.toLocaleDateString();
-		$data.features[dataIdx].properties.comments.unshift({ ...comment, pending: !success });
+    // whether we posted or pended, do this local data processing:
+    $data.features[dataIdx].properties.comments.unshift({ ...comment, pending: !success });
 		prop = $data.features[dataIdx].properties;
 		newComment = '';
 		commentSpinner = false;

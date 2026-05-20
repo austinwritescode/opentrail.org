@@ -93,21 +93,39 @@ export async function POST({ request, url, getClientAddress }) {
                     }
                 })
             }
-      if (type === 'newMarker') {
-        const elev = await getElev(req.lat, req.lng)
-        const trailRelations = createTrailRelations(req.lat, req.lng, req.trail)
-        await prisma.marker.create({
-          data: {
-            lat: req.lat,
-            lng: req.lng,
-            title: req.title,
-            desc: req.desc,
-            icons: req.icons,
-            elev: elev,
-            trails: trailRelations
-          }
-        })
-      }
+		if (type === 'newMarker') {
+			const elev = await getElev(req.lat, req.lng)
+			const trailRelations = createTrailRelations(req.lat, req.lng, req.trail)
+			const marker = await prisma.marker.create({
+				data: {
+					lat: req.lat,
+					lng: req.lng,
+					title: req.title,
+					desc: req.desc,
+					icons: req.icons,
+					elev: elev,
+					trails: trailRelations
+				}
+			})
+			if (req.comment && req.comment.trim()) {
+				const ip = getClientAddress()
+				const today = new Date().toISOString().slice(0, 10)
+				await prisma.comment.create({
+					data: {
+						text: req.comment.trim(),
+						user: req.user,
+						markerId: marker.id,
+						date: new Date(today + "T00:00:00Z"),
+						ip: {
+							create: {
+								date: new Date(),
+								ip: ip
+							}
+						}
+					}
+				})
+			}
+		}
       const trailsToPurge = type === 'editLoc' || type === 'editIcons' || type === 'editTitle' || type === 'editDesc'
         ? await getMarkerTrails(req.dbid)
         : type === 'newMarker'

@@ -275,11 +275,20 @@ window.addEventListener('error', (e) => errorModal(e.error || new Error(e.messag
 					type="text"
 					bind:value={$modal.data[1]}
 				/>
-			{:else if $modal.type === 'textArea'}
-				<p class="font-bold text-2xl">{$modal.data[0]}</p>
-				<textarea class="textarea textarea-accent w-full my-4" bind:value={$modal.data[1]}
-				></textarea>
-			{:else if $modal.type === 'editIcons'}
+{:else if $modal.type === 'textArea'}
+<p class="font-bold text-2xl">{$modal.data[0]}</p>
+<textarea class="textarea textarea-accent w-full my-4" bind:value={$modal.data[1]}
+></textarea>
+{:else if $modal.type === 'textAreaWithComment'}
+<p class="font-bold text-2xl">{$modal.data[0]}</p>
+<textarea class="textarea textarea-accent w-full my-2" bind:value={$modal.data[1]}
+></textarea>
+<p class="text-sm opacity-50 mb-2">For permanent features of the marker</p>
+<p class="font-bold text-lg mt-2">First comment <span class="font-normal text-sm opacity-50">(optional)</span></p>
+<textarea class="textarea textarea-accent w-full my-2" bind:value={$modal.data[2]}
+></textarea>
+<p class="text-sm opacity-50 mb-4">For aspects you want date-associated</p>
+{:else if $modal.type === 'editIcons'}
 				<p class="font-bold text-2xl">Marker icons</p>
 				<div class="btn-group">
 					{#each ICONS as icon}

@@ -265,9 +265,13 @@ if ($settings.autosync) {
 });
 
 	let filteredIdx;
+	let prevActiveIcons;
 	$: updateFilteredIdx($activeIcons, $data);
 	function updateFilteredIdx() {
-		updateSelectedMarker(-1);
+		if (prevActiveIcons !== undefined && $activeIcons.some((v, i) => v !== prevActiveIcons[i])) {
+			updateSelectedMarker(-1);
+		}
+		prevActiveIcons = [...$activeIcons];
 		filteredIdx = $data.features.reduce((acc, curr, idx) => {
 			for (const char of curr.properties.icons) {
 				if ($activeIcons[ICONS.indexOf(char)]) {
@@ -725,12 +729,13 @@ $: if (mapInitialized) {
 			data: ['Marker title', ''],
 			submit: (title) => {
 				prop.title = title[1];
+		openModal({
+			type: 'textAreaWithComment',
+			data: ['Marker description', '', ''],
+			submit: (desc) => {
+				prop.desc = desc[1];
+				prop.comment = desc[2];
 				openModal({
-					type: 'textArea',
-					data: ['Marker description', ''],
-					submit: (desc) => {
-						prop.desc = desc[1];
-						openModal({
 							type: 'editIcons',
 							submit: (icons) => {
 								prop.icon = icons[0];
@@ -825,17 +830,18 @@ $: if (mapInitialized) {
 					updateSelectedMarker(-1);
 					$data.features.pop();
 					$data = $data;
-					await postGeneric({
-						route: 'postMarker?type=newMarker',
-						data: {
-							lat: editCoords[1],
-							lng: editCoords[0],
-							title: feature.properties.title,
-							desc: feature.properties.desc,
-							icons: feature.properties.icons,
-							trail: $settings.trail
-						}
-					});
+			await postGeneric({
+				route: 'postMarker?type=newMarker',
+				data: {
+					lat: editCoords[1],
+					lng: editCoords[0],
+					title: feature.properties.title,
+					desc: feature.properties.desc,
+					comment: feature.properties.comment,
+					icons: feature.properties.icons,
+					trail: $settings.trail
+				}
+			});
 				} else {
 					$data = $data;
 					await postGeneric({

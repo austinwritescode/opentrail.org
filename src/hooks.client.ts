@@ -16,15 +16,8 @@ Sentry.init({
 
     integrations: [replayIntegration()],
 
-    sendDefaultPii: false,
-
-  beforeSend(event) {
-    const err = event.exception?.values?.[0];
-    const isNetworkError = /failed to fetch|networkerror|network request failed|load failed/i.test(err?.value || '');
-    if (isNetworkError && !navigator.onLine) return null;
-    return event;
-  },
-  });
+	sendDefaultPii: false,
+	});
 }
 
 export const handleError = handleErrorWithSentry();

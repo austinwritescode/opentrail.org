@@ -134,11 +134,19 @@ export function openModal({
 }
 
 export function errorModal(err) {
-  const errObj = err instanceof Error ? err : new Error(err);
-if (browser && !dev) {
-    import('@sentry/sveltekit').then(Sentry => Sentry.captureException(errObj)).catch(() => {});
-  }
-  openModal({ type: 'error', data: errObj.message });
+	const errObj = err instanceof Error ? err : new Error(err);
+	const isTransientNetworkError = /failed to fetch|networkerror|network request failed|load failed/i.test(errObj.message);
+	const isAbortError = errObj.name === 'AbortError';
+	if (isTransientNetworkError || isAbortError) {
+		if (browser && !dev) {
+			import('@sentry/sveltekit').then(Sentry => Sentry.captureException(errObj, { tags: { transient: true } })).catch(() => {});
+		}
+		return;
+	}
+	if (browser && !dev) {
+		import('@sentry/sveltekit').then(Sentry => Sentry.captureException(errObj)).catch(() => {});
+	}
+	openModal({ type: 'error', data: errObj.message });
 }
 
 export const downloadState = writable({

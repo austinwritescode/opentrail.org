@@ -70,10 +70,11 @@ window.addEventListener('error', (e) => errorModal(e.error || new Error(e.messag
  function maybeUpdateSW() {
  const last = localStorage.getItem('sw-last-check');
  if (!last || Date.now() - Number(last) > 86_400_000) {
- navigator.serviceWorker?.getRegistration()?.then(r => {
- r?.update();
- localStorage.setItem('sw-last-check', String(Date.now()));
- });
+			navigator.serviceWorker?.getRegistration()?.then(r => {
+				r?.update()
+					.then(() => localStorage.setItem('sw-last-check', String(Date.now())))
+					.catch((e) => console.warn('SW update check failed:', e?.message));
+			}).catch(() => {});
  }
  }
 

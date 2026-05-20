@@ -478,9 +478,14 @@ async function updatePmtilesSource() {
 		});
 
 	map.on('error', (e) => {
-			errorModal(e.error || new Error(`Map: ${JSON.stringify(e.error)}`));
+		const err = e.error || new Error(`Map: ${JSON.stringify(e.error)}`);
+		const msg = err instanceof Error ? err.message : String(err);
+		const isTransient = /failed to fetch|networkerror|network request failed|load failed/i.test(msg) || (err instanceof Error && err.name === 'AbortError');
+		if (!isTransient) {
+			errorModal(err);
 			setLoadError('Map load error');
-		});
+		}
+	});
 		setLoadPhase('canvas', 0);
 		await new Promise(resolve => map.once('load', resolve));
 		setLoadPhase('canvas', 1);

@@ -194,13 +194,10 @@ import dayjs from 'dayjs';
 				>All</button>
 			</div>
 			{#if $listMode === 'comments'}
-				<div class="dropdown">
-					<label tabindex="0" class="btn btn-sm">Sort: {$listCommentSort === 'recent' ? 'Recent' : 'Mile'} ▼</label>
-					<ul tabindex="0" class="menu dropdown-content p-2 shadow bg-base-300 rounded-box whitespace-nowrap">
-						<li class="{$listCommentSort === 'recent' ? 'active' : ''}" onclick={() => { $listCommentSort = 'recent'; expandedComment = -1; }}><a>Recent</a></li>
-						<li class="{$listCommentSort === 'mile' ? 'active' : ''}" onclick={() => { $listCommentSort = 'mile'; expandedComment = -1; }}><a>Mile</a></li>
-					</ul>
-				</div>
+	<button
+			class="btn btn-sm"
+			onclick={() => { $listCommentSort = $listCommentSort === 'recent' ? 'mile' : 'recent'; expandedComment = -1; }}
+		>Sort: {$listCommentSort === 'recent' ? 'Recent' : 'Mile'}</button>
 			{/if}
 			{#if $listCommentSort === 'mile' || $listMode === 'markers'}
 				<button

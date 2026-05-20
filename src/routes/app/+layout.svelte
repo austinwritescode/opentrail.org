@@ -50,7 +50,16 @@ import { getOPFSFileSize } from '$lib/download.js';
 		tiles:    { start: 90, end: 100, msg: 'Loading map tiles' }
 	};
 
-	let bootStartTime = 0;
+	let fromBack = false;
+let prevOC = 0;
+$: oc = ($modal.isOpen ? 1 : 0) + ($detailId !== -1 ? 1 : 0) + ($selectedMarkerId !== -1 ? 1 : 0);
+$: {
+	if (oc > prevOC) history.pushState(null, '');
+	else if (oc < prevOC && !fromBack) history.back();
+	prevOC = oc;
+}
+
+let bootStartTime = 0;
 	let tileBarActive = false;
 	let tileLoadingTimer = null;
 	let tileBarStartTime = 0;
@@ -195,6 +204,13 @@ function isLastsyncStale() {
 }
 
 	onMount(async () => {
+	window.addEventListener('popstate', () => {
+		fromBack = true;
+		if ($detailId !== -1) $detailId = -1;
+		else if ($selectedMarkerId !== -1) updateSelectedMarker(-1);
+		else if ($modal.isOpen) { $modal.isOpen = false; $modal.cancel(); }
+		fromBack = false;
+	});
 	const preBar = document.getElementById('pre-hydrate-bar');
 	if (preBar) preBar.remove();
 	bootStartTime = Date.now();

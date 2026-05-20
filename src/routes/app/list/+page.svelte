@@ -6,6 +6,7 @@
 	} from '$lib/store.js';
 	import MarkerDetail from '$lib/MarkerDetail.svelte';
 	import { searchTrailRoute, miToKm } from '$lib/helpers.js';
+import dayjs from 'dayjs';
 	import { onMount, onDestroy, tick } from 'svelte';
 
 	let scrollContainer;
@@ -264,7 +265,7 @@
 					<div class="flex items-center gap-1.5 mt-1 text-xs opacity-60 flex-wrap">
 						<span class="font-medium">{c.user || 'Anonymous'}</span>
 						<span>&middot;</span>
-						<span>{c.date}</span>
+						<span>{dayjs(c.date).format($settings.dateFormat)}</span>
 						<span>&middot;</span>
 						<span class="font-mono">{formatMile(c.mile)}</span>
 						<button

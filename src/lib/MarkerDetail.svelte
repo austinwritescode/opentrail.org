@@ -13,6 +13,7 @@
 	import { register } from 'swiper/element/bundle';
 	import { postGeneric } from '$lib/api.js';
 	import { parseDescURL, isSafeURL, mToFt, ftToM, formatDist, formatElev } from '$lib/helpers.js';
+import dayjs from 'dayjs';
 	register();
 
 	export let onPrev;
@@ -324,7 +325,7 @@ return errorModal(
 		{#each prop.comments as comment}
 			<div class="chat chat-start mr-2">
 				<div class="chat-header">
-					<span class="text-xs">{comment.date}</span>
+					<span class="text-xs">{dayjs(comment.date).format($settings.dateFormat)}</span>
 					<span class="opacity-60">{comment.user}</span>
 				</div>
 				<div class="chat-bubble whitespace-pre-wrap break-words w-full max-w-full text-sm">

@@ -61,12 +61,13 @@ let initSettings = {
 	enablesat: false,
 	username: '',
 	dark: false,
-	units: 'imperial'
+  units: 'imperial',
+  dateFormat: 'M/D/YYYY'
 };
 if (browser) {
 	const storedSettings = localStorage.getItem('settings');
 	if (storedSettings) {
-		initSettings = JSON.parse(storedSettings);
+    initSettings = { ...initSettings, ...JSON.parse(storedSettings) };
 		initSettings.lastsync = new dayjs(initSettings.lastsync); //since its stored as a string
 	}
 	if (window.location.hostname.split('.')[0] === 'test') initSettings.trail = 'test';

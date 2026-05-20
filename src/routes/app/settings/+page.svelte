@@ -40,9 +40,12 @@
 	function toggle(key) {
 		$settings[key] = !$settings[key];
 	}
-	function toggleUnits() {
-		$settings.units = $settings.units === 'imperial' ? 'metric' : 'imperial';
-	}
+  function toggleUnits() {
+    $settings.units = $settings.units === 'imperial' ? 'metric' : 'imperial';
+  }
+  function toggleDateFormat() {
+    $settings.dateFormat = $settings.dateFormat === 'M/D/YYYY' ? 'D/M/YYYY' : 'M/D/YYYY';
+  }
 	async function changeTrail(newTrail) {
 		await deleteOffline();
 		$settings.trail = newTrail;
@@ -91,7 +94,8 @@
 		...offlineSublabels,
 		['Username', $settings.username, openUsernameModal, false],
 		['Dark mode', $settings.dark, () => toggle('dark'), false],
-		['Units', $settings.units === 'imperial' ? 'mi/ft' : 'km/m', toggleUnits, false],
+    ['Units', $settings.units === 'imperial' ? 'mi/ft' : 'km/m', toggleUnits, false],
+    ['Date format', $settings.dateFormat.replace('YYYY', 'Y'), toggleDateFormat, false],
 		['Community guidelines', '', () => openModal({ type: 'community' }), false],
 		['About', '', () => openModal({ type: 'about' }), false]
 	];

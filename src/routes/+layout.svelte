@@ -97,10 +97,12 @@ window.addEventListener('error', (e) => errorModal(e.error || new Error(e.messag
 			if ($modal.spinner) spinner = true;
 			$modal.isOpen = false;
 			await $modal.submit($modal.data);
-} catch (e) {
+  } catch (e) {
     errorModal(e);
+  } finally {
+    spinner = false;
   }
-	}
+}
 	$: open = $modal.isOpen || spinner;
 	$: noConfirm =
 		$modal.type === 'about' ||

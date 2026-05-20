@@ -37,7 +37,7 @@ const latestComment = commentCount > 0
 					style="top: calc(50% - 16px); left: -16px;"
 					onclick={(e) => { e.stopPropagation(); onPrev(); }}
 				>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 18l-6-6 6-6"/></svg>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 18l-6-6 6-6"/></svg>
 				</button>
 			{/if}
 			{#if onNext}
@@ -46,7 +46,7 @@ const latestComment = commentCount > 0
 					style="top: calc(50% - 16px); right: -16px;"
 					onclick={(e) => { e.stopPropagation(); onNext(); }}
 				>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 18l6-6-6-6"/></svg>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 18l6-6-6-6"/></svg>
 				</button>
 			{/if}
 			<div class="flex-1 min-h-0 overflow-hidden">

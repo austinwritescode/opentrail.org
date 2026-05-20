@@ -140,15 +140,12 @@
 				{#each Object.keys(TRAILS) as trail}
 					{#if trail !== 'test'}
 						{#if !$settings.offline || $settings.trail === trail}
-		<a
-			class="flex flex-col items-center gap-1"
-			href="/app"
-			onclick={() => {
-				$settings.trail = trail;
-				fetch(`https://cdn.opentrail.org/${trail}.json`);
-			}}
-		>
-			<img src={`https://cdn.opentrail.org/${trail}_logo.png`} width="100" height="100" />
+							<a
+								class="flex flex-col items-center gap-1"
+								href="/app?trail={trail}"
+								onclick={() => fetch(`https://cdn.opentrail.org/${trail}.json`)}
+							>
+								<img src={`https://cdn.opentrail.org/${trail}_logo.png`} width="100" height="100" />
 								<button class="btn btn-accent btn-lg">{trail}</button>
 							</a>
 						{/if}
@@ -157,17 +154,15 @@
 			</div>
 		</div>
 
-<p class="text-md mt-6 opacity-50 text-center">
-        Data contributions are open for public use under the
-        <a class="link" href="https://opendatacommons.org/licenses/odbl/summary/">
-          Open Database License
-        </a>
-        ·
-        <a class="link" href="https://cdn.opentrail.org/terms.html">Terms</a>
-        ·
-        <a class="link" href="https://cdn.opentrail.org/privacy.html">Privacy</a>
-      </p>
+		<p class="text-md mt-6 opacity-50 text-center">
+			Data contributions are open for public use under the
+			<a class="link" href="https://opendatacommons.org/licenses/odbl/summary/">
+				Open Database License
+			</a>
+			·
+			<a class="link" href="https://cdn.opentrail.org/terms.html">Terms</a>
+			·
+			<a class="link" href="https://cdn.opentrail.org/privacy.html">Privacy</a>
+		</p>
 	{/if}
 </div>
-
-

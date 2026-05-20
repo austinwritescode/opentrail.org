@@ -1,14 +1,14 @@
 {
     "name": "OpenTrail.org",
     "short_name": "OpenTrail",
-    "version": "0.2",
-    "desc": "A free offline trail map with recent hiker comments and waypoints.",
+    "version": "1.0",
+    "desc": "A free thru-hiker community",
     "icons": [
         {
             "src": "/android-192x192.png",
             "sizes": "192x192",
             "type": "image/png",
-            "purpose": "maskable"
+            "purpose": "maskable any"
         },
         {
             "src": "/android-512x512.png",

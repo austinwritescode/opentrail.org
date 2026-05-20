@@ -15,8 +15,8 @@ self.onmessage = async (e) => {
 			root = await navigator.storage.getDirectory();
 			const fileHandle = await root.getFileHandle(`${trail}.pmtiles`, { create: true });
 			handle = await /** @type {any} */ (fileHandle).createSyncAccessHandle();
-			if (startBytes === 0) handle.truncate(0);
-			self.postMessage({ type: 'open', size: handle.getSize() });
+		if (startBytes === 0) await handle.truncate(0);
+		self.postMessage({ type: 'open', size: await handle.getSize() });
 		} catch (/** @type {any} */ err) {
 			self.postMessage({ type: 'error', error: err.message });
 		}
@@ -30,25 +30,25 @@ self.onmessage = async (e) => {
 		}
 	} else if (type === 'flush') {
 		try {
-			handle.flush();
+			await handle.flush();
 			self.postMessage({ type: 'flush' });
 		} catch (/** @type {any} */ err) {
 			self.postMessage({ type: 'error', error: err.message });
 		}
 	} else if (type === 'close') {
 		try {
-			handle.close();
-			handle = null;
-			self.postMessage({ type: 'close' });
+		await handle.close();
+		handle = null;
+		self.postMessage({ type: 'close' });
 		} catch (/** @type {any} */ err) {
 			self.postMessage({ type: 'error', error: err.message });
 		}
 	} else if (type === 'abort') {
 		try {
-			if (handle) {
-				handle.close();
-				handle = null;
-			}
+		if (handle) {
+			await handle.close();
+			handle = null;
+		}
 			const { startBytes } = e.data;
 			if (startBytes === 0 && root && currentTrail) {
 				await root.removeEntry(`${currentTrail}.pmtiles`);

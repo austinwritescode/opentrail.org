@@ -96,8 +96,9 @@
 		['Dark mode', $settings.dark, () => toggle('dark'), false],
     ['Units', $settings.units === 'imperial' ? 'mi/ft' : 'km/m', toggleUnits, false],
     ['Date format', $settings.dateFormat.replace('YYYY', 'Y'), toggleDateFormat, false],
-		['Community guidelines', '', () => openModal({ type: 'community' }), false],
-		['About', '', () => openModal({ type: 'about' }), false]
+    ['Send crash reports', $settings.sendCrashReports, () => toggle('sendCrashReports'), false],
+    ['Community guidelines', '', () => openModal({ type: 'community' }), false],
+    ['About', '', () => openModal({ type: 'about' }), false]
 	];
 	function openUsernameModal() {
 		openModal({

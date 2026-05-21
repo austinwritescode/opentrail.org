@@ -52,17 +52,18 @@ export const ICON_COLORS = {
 };
 
 let initSettings = {
-	trail: '',
-	reverseMiles: false,
-	offline: false,
-	autosync: true,
-	lastsync: {},
-	offlineimages: false,
-	enablesat: false,
-	username: '',
-	dark: false,
+  trail: '',
+  reverseMiles: false,
+  offline: false,
+  autosync: true,
+  lastsync: {},
+  offlineimages: false,
+  enablesat: false,
+  username: '',
+  dark: false,
   units: 'imperial',
-  dateFormat: 'M/D/YYYY'
+  dateFormat: 'M/D/YYYY',
+  sendCrashReports: true
 };
 if (browser) {
 	const storedSettings = localStorage.getItem('settings');
@@ -134,20 +135,20 @@ export function openModal({
 }
 
 export function errorModal(err) {
-	const errObj = err instanceof Error ? err : new Error(err);
-	const isTransientNetworkError = /failed to fetch|networkerror|network request failed|load failed|cache operation not supported/i.test(errObj.message);
-	const isAbortError = errObj.name === 'AbortError';
-	if (isTransientNetworkError || isAbortError) {
-		if (browser && !dev) {
-			import('@sentry/sveltekit').then(Sentry => Sentry.captureException(errObj, { tags: { transient: true } })).catch(() => {});
-		}
-		return false;
-	}
-	if (browser && !dev) {
-		import('@sentry/sveltekit').then(Sentry => Sentry.captureException(errObj)).catch(() => {});
-	}
-	openModal({ type: 'error', data: errObj.message });
-	return true;
+  const errObj = err instanceof Error ? err : new Error(err);
+  const isTransientNetworkError = /failed to fetch|networkerror|network request failed|load failed|cache operation not supported/i.test(errObj.message);
+  const isAbortError = errObj.name === 'AbortError';
+  if (isTransientNetworkError || isAbortError) {
+    if (browser && !dev && get(settings).sendCrashReports !== false) {
+      import('@sentry/sveltekit').then(Sentry => Sentry.captureException(errObj, { tags: { transient: true } })).catch(() => {});
+    }
+    return false;
+  }
+  if (browser && !dev && get(settings).sendCrashReports !== false) {
+    import('@sentry/sveltekit').then(Sentry => Sentry.captureException(errObj)).catch(() => {});
+  }
+  openModal({ type: 'error', data: errObj.message });
+  return true;
 }
 
 export const downloadState = writable({

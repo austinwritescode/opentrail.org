@@ -91,13 +91,14 @@ self.addEventListener('message', (event) => {
 })
 
 self.addEventListener('fetch', (event) => {
-  const requestURL = new URL(event.request.url)
-  if (requestURL.pathname.endsWith('.pmtiles')) return;
-  event.respondWith(caches.match(event.request).then((res) => {
-    if (res) return res;
-    if (requestURL.origin !== self.location.origin) {
-      return fetch(new Request(event.request, { mode: 'cors' }));
-    }
-    return fetch(event.request);
-  }))
+	const requestURL = new URL(event.request.url)
+	if (requestURL.pathname.endsWith('.pmtiles')) return;
+	if (requestURL.pathname.startsWith('/api/')) return;
+	event.respondWith(caches.match(event.request).then((res) => {
+		if (res) return res;
+		if (requestURL.origin !== self.location.origin) {
+			return fetch(new Request(event.request, { mode: 'cors' }));
+		}
+		return fetch(event.request);
+	}))
 })

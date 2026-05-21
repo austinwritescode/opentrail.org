@@ -196,10 +196,8 @@
   async function fetchOffline() {
     if (typeof caches === 'undefined')
       return errorModal(new Error('Caches API not available. Ensure you are using HTTPS.'));
-    if (!navigator.serviceWorker)
-		return errorModal(new Error('No service worker found. Refresh the page and try again.'));
-	if (!navigator.serviceWorker.controller && !dev)
-		return errorModal(new Error('Service worker not ready. Refresh the page and try again.'));
+	if (!navigator.serviceWorker.controller)
+		return errorModal(new Error('Offline mode isn\'t available. This can happen when device storage is low or the page wasn\'t loaded securely. Try freeing up storage, ensure you\'re on HTTPS, and reload the page.'));
 const isLocalhost = window.location.hostname === 'localhost';
   if (!$isInstalled && !isLocalhost)
     return errorModal(

@@ -136,9 +136,10 @@ export function openModal({
 
 export function errorModal(err) {
   const errObj = err instanceof Error ? err : new Error(err);
-  const isTransientNetworkError = /failed to fetch|networkerror|network request failed|load failed|cache operation not supported/i.test(errObj.message);
-  const isAbortError = errObj.name === 'AbortError';
-  if (isTransientNetworkError || isAbortError) {
+	const isTransientNetworkError = /failed to fetch|networkerror|network request failed|load failed|cache operation not supported/i.test(errObj.message);
+	const isAbortError = errObj.name === 'AbortError';
+	const isSwRejection = errObj.message === 'Rejected';
+	if (isTransientNetworkError || isAbortError || isSwRejection) {
     if (browser && !dev && get(settings).sendCrashReports !== false) {
       import('@sentry/sveltekit').then(Sentry => Sentry.captureException(errObj, { tags: { transient: true } })).catch(() => {});
     }

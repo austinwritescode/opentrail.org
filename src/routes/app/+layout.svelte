@@ -360,10 +360,10 @@ async function updatePmtilesSource() {
 			(p) => setLoadPhase('style', p)
 		);
 		const style = await styleRes.json();
-		style.sources.composite = {
-			type: 'vector',
-			url: `pmtiles://https://cdn.opentrail.org/${$settings.trail}.pmtiles`
-		};
+style.sources.composite = {
+      type: 'vector',
+      url: `pmtiles://https://cdn.opentrail.org/${$settings.trail}.pmtiles`
+    };
 		compositeLayerIds = style.layers.map((l) => l.id);
 
 		map = new maplibregl.Map({
@@ -371,11 +371,11 @@ async function updatePmtilesSource() {
 			style: style,
 			bounds: TRAILS[$settings.trail].bounds,
 			minZoom: 2,
-			attributionControl: false
-		});
-		map.dragRotate.disable();
-		map.touchZoomRotate.disableRotation();
-		map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
+attributionControl: false
+    });
+    map.dragRotate.disable();
+    map.touchZoomRotate.disableRotation();
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
 		const geolocate = new maplibregl.GeolocateControl({
 			positionOptions: {
 				enableHighAccuracy: true
@@ -944,10 +944,12 @@ $: if (mapInitialized) {
 			style="visibility: {$page.url.pathname === '/app' ? 'visible' : 'hidden'};"
 			class="row-start-1 col-start-1 relative flex flex-col"
 		>
-			<div id="map" class="flex-1 w-full min-h-0"></div>
+			<div id="map" class="flex-1 w-full min-h-0">
+          <div class="map-attribution">&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a></div>
+        </div>
 			<!-- elevation profile overlay -->
-			{#if $elevationProfileVisible}
-				<div class="elevation-profile-overlay" style="background: {$settings.dark ? '#1e1e1e' : 'white'}; border-top: 1px solid {$settings.dark ? '#444' : '#ddd'};">
+{#if $elevationProfileVisible}
+  <div class="elevation-profile-overlay" style="background: {$settings.dark ? '#1e1e1e' : 'white'}; border-top: 1px solid {$settings.dark ? '#444' : '#ddd'};">
 					<ElevationProfile oncursorupdate={onCursorUpdate} />
 				</div>
 			{/if}
@@ -984,18 +986,18 @@ $: if (mapInitialized) {
 				{/if}
 			</div>
 			<!-- profile toggle button -->
-			<button
-class="profile-toggle-btn text-base-content bg-base-100 border border-base-300"
-	style="bottom: {$elevationProfileVisible ? 'calc(25% - 14px)' : '8px'};"
-				onclick={toggleProfile}
-				title={$elevationProfileVisible ? 'Hide elevation profile' : 'Show elevation profile'}
-			>
-				{#if $elevationProfileVisible}
-					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
-				{:else}
-					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20L8 10L14 14L22 4" /></svg>
-				{/if}
-			</button>
+<button
+      class="absolute left-[calc(50%-16px)] btn btn-circle btn-sm bg-base-100 focus:bg-base-100 active:bg-base-100 border-opacity-50 text-base-content"
+      style="bottom: {$elevationProfileVisible ? 'calc(25% - 14px)' : '8px'}; z-index: 1;"
+      onclick={toggleProfile}
+      title={$elevationProfileVisible ? 'Hide elevation profile' : 'Show elevation profile'}
+    >
+      {#if $elevationProfileVisible}
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+      {:else}
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20L8 10L14 14L22 4" /></svg>
+      {/if}
+    </button>
 			<!-- detail modal -->
 			{#if $detailId !== -1}
 				<MarkerDetail {...getDetailNavProps()} />
@@ -1004,7 +1006,7 @@ class="profile-toggle-btn text-base-content bg-base-100 border border-base-300"
 			{#if $selectedMarkerId !== -1}
 				<swiper-container
 					class="absolute w-full h-40"
-					style="bottom: {$elevationProfileVisible ? 'calc(25% + 8px)' : '8px'}; visibility: {$detailId === -1 && showSwiper
+					style="bottom: {$elevationProfileVisible ? 'calc(25% + 8px)' : '8px'}; z-index: 2; visibility: {$detailId === -1 && showSwiper
 						? 'inherit'
 						: 'hidden'};"
 					slides-per-view={1.15}
@@ -1016,17 +1018,17 @@ class="profile-toggle-btn text-base-content bg-base-100 border border-base-300"
 					init={false}
 				></swiper-container>
 			{:else}
-				<button
-					class="absolute new-marker-button right-2 btn btn-circle btn-sm btn-primary"
-					style="bottom: {$elevationProfileVisible ? 'calc(25% + 8px)' : '8px'};"
-					onclick={newMarker}
-				>
-					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-				</button>
-			{/if}
-		</div>
+<button
+      class="absolute left-2 btn btn-circle btn-sm bg-base-100 focus:bg-base-100 active:bg-base-100 border-opacity-50 text-base-content"
+      style="bottom: {$elevationProfileVisible ? 'calc(25% + 8px)' : '8px'};"
+      onclick={newMarker}
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><line x1="12" y1="6" x2="12" y2="11"/><line x1="9.5" y1="8.5" x2="14.5" y2="8.5"/></svg>
+    </button>
+{/if}
+      </div>
 
-		<div class="row-start-1 col-start-1 min-h-0 overflow-y-auto" bind:this={slotWrapper}>
+      <div class="row-start-1 col-start-1 min-h-0 overflow-y-auto" bind:this={slotWrapper}>
 			<slot />
 		</div>
 	</div>
@@ -1115,23 +1117,7 @@ class="profile-toggle-btn text-base-content bg-base-100 border border-base-300"
 		z-index: 1;
 		overflow: hidden;
 	}
-	.profile-toggle-btn {
-		position: absolute;
-		left: 50%;
-		transform: translateX(-50%);
-		z-index: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		border-radius: 50%;
-
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-		cursor: pointer;
-		padding: 0;
-	}
-	.filter-funnel-btn {
+.filter-funnel-btn {
 		z-index: 2;
 		border-radius: 6px;
 	}
@@ -1161,4 +1147,19 @@ class="profile-toggle-btn text-base-content bg-base-100 border border-base-300"
 		text-decoration: underline;
 		font-weight: 500;
 	}
+  .map-attribution {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    font-size: 9px;
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 1;
+    padding: 2px 4px;
+  }
+  .map-attribution a {
+    pointer-events: none;
+    color: inherit;
+    text-decoration: none;
+  }
 </style>

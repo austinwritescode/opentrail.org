@@ -479,10 +479,7 @@ async function updatePmtilesSource() {
 
 	map.on('error', (e) => {
 		const err = e.error || new Error(`Map: ${JSON.stringify(e.error)}`);
-		const msg = err instanceof Error ? err.message : String(err);
-		const isTransient = /failed to fetch|networkerror|network request failed|load failed/i.test(msg) || (err instanceof Error && err.name === 'AbortError');
-		if (!isTransient) {
-			errorModal(err);
+		if (errorModal(err)) {
 			setLoadError('Map load error');
 		}
 	});

@@ -4,20 +4,22 @@ var sentinel = null;
 var active = false;
 
 async function onVisibilityChange() {
-	if (document.visibilityState === 'visible' && active) {
-		await request();
-	}
+  if (document.visibilityState === 'visible' && active) {
+    await request();
+  }
 }
 
 export async function request() {
-	try {
-		if ('wakeLock' in navigator) {
-			sentinel = await navigator.wakeLock.request('screen');
-			sentinel.addEventListener('release', () => {
-				sentinel = null;
-			});
-		}
-	} catch {}
+  try {
+    if ('wakeLock' in navigator) {
+      sentinel = await navigator.wakeLock.request('screen');
+      sentinel.addEventListener('release', () => {
+        sentinel = null;
+      });
+    }
+  } catch (e) {
+    import('@sentry/sveltekit').then((S) => S.metrics.count('client.wakelock.error', 1)).catch(() => {});
+  }
 }
 
 export function release() {

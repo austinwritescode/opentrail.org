@@ -2,6 +2,7 @@ import { get } from 'svelte/store';
 import { downloadState, downloadPersist, settings, handleError } from './store.js';
 import { db } from './db';
 import { hold, unhold } from './wakeLock.js';
+import * as Sentry from '@sentry/sveltekit';
 
 /** @param {string} trail */
 function getPmtilesUrl(trail) {
@@ -177,17 +178,20 @@ export async function streamPmtiles(
 	onDelete
 ) {
 	const url = getPmtilesUrl(trail);
-	downloadAbortController = new AbortController();
+  downloadAbortController = new AbortController();
 
-	downloadState.set({
+  Sentry.metrics.count('client.download.started', 1, { tags: { trail, type: 'offline-cache' } });
+
+  downloadState.set({
 		active: true,
 		type: 'offline-cache',
 		displayName: displayName,
 		downloaded: startBytes,
 		total: totalBytes,
 		trail: trail,
-		onCancel: () => {
-			downloadAbortController?.abort();
+    onCancel: () => {
+      Sentry.metrics.count('client.download.cancelled', 1, { tags: { trail } });
+      downloadAbortController?.abort();
 			if (opfsWorker) {
 				opfsWorker.postMessage({ type: 'abort', startBytes });
 				opfsWorker.terminate();
@@ -301,13 +305,14 @@ export async function streamPmtiles(
 		throw e;
 	}
 
-	downloadPersist.update((p) => {
-		p.status = 'complete';
-		p.bytesReceived = 0;
-		p.totalBytes = 0;
-		return p;
-	});
-	downloadState.update((d) => {
+  downloadPersist.update((p) => {
+    p.status = 'complete';
+    p.bytesReceived = 0;
+    p.totalBytes = 0;
+    return p;
+  });
+  Sentry.metrics.distribution('client.download.completed_bytes', writeOffset, { tags: { trail } });
+  downloadState.update((d) => {
 		d.active = false;
 		return d;
 	});
@@ -316,8 +321,9 @@ export async function streamPmtiles(
 }
 
 export async function deleteOffline() {
-	const trail = get(settings).trail;
-	try {
+  const trail = get(settings).trail;
+  Sentry.metrics.count('client.offline_cache.deleted', 1, { tags: { trail } });
+  try {
 		await db.pending.clear();
 	} catch {}
 	await deleteOPFSFile(trail);
@@ -343,7 +349,8 @@ export async function deleteOffline() {
 }
 
 export async function deleteImages() {
-	if (typeof caches !== 'undefined') await caches.delete('image-cache');
+  Sentry.metrics.count('client.offline_images.deleted', 1, { tags: { trail: get(settings).trail } });
+  if (typeof caches !== 'undefined') await caches.delete('image-cache');
 	settings.update((s) => {
 		s.offlineimages = false;
 		return s;

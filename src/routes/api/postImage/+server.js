@@ -39,7 +39,10 @@ export async function POST({ request, url, getClientAddress }) {
             if (!key) {
             console.log(`received image from ip [${ip}]`)
             const blob = await request.blob()
-            if (blob.size > 100000) throw new Error('Image too large. Try cropping the height to 400px or 500px first.')
+            if (blob.size > 100000) {
+      Sentry.metrics.count('server.post_image.rejected_size', 1)
+      throw new Error('Image too large. Try cropping the height to 400px or 500px first.')
+    }
             const buff = await blob.arrayBuffer()
             const dbid = url.searchParams.get('id')
             await prisma.moderation.create({

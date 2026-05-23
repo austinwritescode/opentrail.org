@@ -49,6 +49,7 @@ export async function GET({ request, url }) {
     markers.sort((a, b) => { return a.trails[0].milex10 - b.trails[0].milex10 })
 
     const features = new Array(markers.length)
+  Sentry.metrics.gauge('server.get_data.marker_count', markers.length, { tags: { trail } })
     for (let i = 0; i < markers.length; i++) {
       const m = markers[i]
       for (let j = 0; j < m.comments.length; j++) {
@@ -83,8 +84,9 @@ export async function GET({ request, url }) {
 
     const etag = '"' + createHash('sha256').update(body).digest('hex').slice(0, 16) + '"'
 
-	if (ifNoneMatch === etag) {
-		return new Response(null, {
+  if (ifNoneMatch === etag) {
+    Sentry.metrics.count('server.get_data.etag_hit', 1, { tags: { trail } })
+    return new Response(null, {
 			status: 304,
 			headers: {
 				'ETag': etag
@@ -92,7 +94,8 @@ export async function GET({ request, url }) {
 		})
 	}
 
-	return new Response(body, {
+  Sentry.metrics.count('server.get_data.etag_miss', 1, { tags: { trail } })
+  return new Response(body, {
 		headers: {
 			'Content-Type': 'application/json',
 			'ETag': etag

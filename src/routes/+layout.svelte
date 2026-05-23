@@ -16,10 +16,11 @@
 		downloadState,
 		downloadPersist
 	} from '$lib/store.js';
-	import DownloadOverlay from '$lib/DownloadOverlay.svelte';
-	import { resumeDownload } from '$lib/download.js';
-	import { onMount } from 'svelte';
-	import WarnIcon from '$lib/warnIcon.svelte';
+import DownloadOverlay from '$lib/DownloadOverlay.svelte';
+  import { resumeDownload } from '$lib/download.js';
+  import { onMount } from 'svelte';
+  import * as Sentry from '@sentry/sveltekit';
+  import WarnIcon from '$lib/warnIcon.svelte';
 	import ErrorIcon from '$lib/errorIcon.svelte';
 	import SuccessIcon from '$lib/successIcon.svelte';
 	let spinner = false;
@@ -37,24 +38,28 @@
 			}
 		});
 
-		window.addEventListener('beforeinstallprompt', (e) => {
-			e.preventDefault();
+  window.addEventListener('beforeinstallprompt', (e) => {
+    Sentry.metrics.count('client.install_prompted', 1);
+    e.preventDefault();
 			deferredPrompt.set(e);
 		});
-		window.addEventListener('appinstalled', () => {
-			deferredPrompt.set(null);
+  window.addEventListener('appinstalled', () => {
+    Sentry.metrics.count('client.app_installed', 1);
+    deferredPrompt.set(null);
 			isInstalled.set(true);
 		});
 
 		if ('serviceWorker' in navigator && window.isSecureContext) {
 			navigator.serviceWorker.ready
 				.then((reg) => {
-					function showUpdateModal() {
-						swWaitingRegistration.set(reg);
+      function showUpdateModal() {
+        Sentry.metrics.count('client.sw.update_available', 1);
+        swWaitingRegistration.set(reg);
 						openModal({
 							type: 'updateAvailable',
-							submit: () => {
-								reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        submit: () => {
+          Sentry.metrics.count('client.sw.update_installed', 1);
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
 							},
 							cancel: () => {}
 						});
@@ -79,8 +84,9 @@
 
 			function maybeUpdateSW() {
 				const last = localStorage.getItem('sw-last-check');
-				if (!last || Date.now() - Number(last) > 86_400_000) {
-					navigator.serviceWorker
+    if (!last || Date.now() - Number(last) > 86_400_000) {
+      Sentry.metrics.count('client.sw.check_attempted', 1);
+      navigator.serviceWorker
 						?.getRegistration()
 						?.then((r) => {
 							r?.update()

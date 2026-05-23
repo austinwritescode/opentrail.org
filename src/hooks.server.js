@@ -1,6 +1,7 @@
 import { sequence } from '@sveltejs/kit/hooks';
 import * as Sentry from '@sentry/sveltekit';
 import { consoleLoggingIntegration } from '@sentry/sveltekit';
+import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { env } from '$env/dynamic/private';
 import { dev } from '$app/environment';
 import { initGeoJSON } from '$lib/geojson-cache.js';
@@ -8,13 +9,23 @@ import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 
 if (!dev) {
-	Sentry.init({
-		dsn: 'https://ce5b7f4bfa0d91de3163c9daa500b484@o4511352687951872.ingest.us.sentry.io/4511352688279552',
-		tracesSampleRate: 1,
-		enableLogs: true,
-		integrations: [consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] })],
-		sendDefaultPii: false
-	});
+  Sentry.init({
+  dsn: 'https://ce5b7f4bfa0d91de3163c9daa500b484@o4511352687951872.ingest.us.sentry.io/4511352688279552',
+  tracesSampleRate: 1,
+  profilesSampleRate: 1,
+  enableLogs: true,
+  integrations: [
+    consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
+    nodeProfilingIntegration()
+  ],
+  sendDefaultPii: false,
+  beforeSendLog(log) {
+    return log;
+  },
+  beforeSendMetric(metric) {
+    return metric;
+  }
+  });
 }
 
 initGeoJSON();
@@ -96,15 +107,21 @@ export const handle = sequence(Sentry.sentryHandle(), async function _handle({ e
 		if (key === env.MOD_KEY) return resolve(event);
 		if (key !== null || event.request.method === 'POST') {
 			const ip = event.getClientAddress();
-			if (!rateLimit(ip, 100, 3_600_000)) {
-				return new Response('Too Many Requests', { status: 429 });
+      if (!rateLimit(ip, 100, 3_600_000)) {
+        Sentry.metrics.count('server.rate_limit.hit', 1);
+        return new Response('Too Many Requests', { status: 429 });
 			}
 		}
 	}
-	return resolve(event, {
-		transformPageChunk: ({ html }) => {
-			const count = getChunkCount();
-			return html.replace('</head>', `<script>window.__CHUNK_COUNT=${count}</script></head>`);
-		}
-	});
+  return resolve(event, {
+    transformPageChunk: ({ html }) => {
+      const count = getChunkCount();
+      return html.replace('</head>', `<script>window.__CHUNK_COUNT=${count}</script></head>`);
+    }
+  }).then((response) => {
+    if (response.headers.get('content-type')?.startsWith('text/html')) {
+      response.headers.set('Document-Policy', 'js-profiling');
+    }
+    return response;
+  });
 });

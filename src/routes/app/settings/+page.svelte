@@ -19,10 +19,11 @@
 	} from '$lib/store.js';
 	import pLimit from 'p-limit';
 	const limit = pLimit(5);
-	import { onMount } from 'svelte';
-	import dayjs from 'dayjs';
-	import relativeTime from 'dayjs/plugin/relativeTime';
-	dayjs.extend(relativeTime);
+import { onMount } from 'svelte';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import * as Sentry from '@sentry/sveltekit';
+dayjs.extend(relativeTime);
 	import prettyBytes from 'pretty-bytes';
 	import { hold, unhold } from '$lib/wakeLock.js';
 	import { streamPmtiles, deleteOffline, deleteImages, getOPFSFileSize } from '$lib/download.js';
@@ -221,17 +222,20 @@
 				{ modal: true, sentry: true, tags: { transient: true } }
 			);
 		if (!isLocalhost) {
-			const persisted = await navigator.storage.persist();
-			if (!persisted)
-				return handleError(
-					new Error(
-						'Could not secure persistent storage. Make sure the app is installed to your home screen and try again.'
-					),
-					{ modal: true, sentry: true, tags: { transient: true } }
-				);
-		}
+    const persisted = await navigator.storage.persist();
+    Sentry.metrics.count('client.storage.persist_requested', 1);
+    if (!persisted) {
+      Sentry.metrics.count('client.storage.persist_failed', 1);
+      return handleError(
+        new Error(
+          'Could not secure persistent storage. Make sure the app is installed to your home screen and try again.'
+        ),
+        { modal: true, sentry: true, tags: { transient: true } }
+      );
+    }
+  }
 
-		let missing;
+  let missing;
 		try {
 			missing = await getMissingAssets();
 		} catch (e) {

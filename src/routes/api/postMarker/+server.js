@@ -37,8 +37,8 @@ export async function POST({ request, url, getClientAddress }) {
             return new Response(null, { status: 403 })
         }
         else {
-            if (type === 'editTitle') {
-                await prisma.marker.update({
+      if (type === 'editTitle') {
+        await prisma.marker.update({
                     where: {
                         id: req.dbid
                     },
@@ -47,8 +47,8 @@ export async function POST({ request, url, getClientAddress }) {
                     }
                 })
             }
-            if (type === 'editDesc') {
-                await prisma.marker.update({
+      if (type === 'editDesc') {
+        await prisma.marker.update({
                     where: {
                         id: req.dbid
                     },
@@ -57,7 +57,7 @@ export async function POST({ request, url, getClientAddress }) {
                     }
                 })
             }
-            if (type === 'editLoc') {
+      if (type === 'editLoc') {
                 const elev = await getElev(req.lat, req.lng)
                 const trailRelations = createTrailRelations(req.lat, req.lng, req.trail)
                 //strategy: delete trail relations before recreating w new mileage
@@ -83,7 +83,7 @@ export async function POST({ request, url, getClientAddress }) {
                     })
                 ])
             }
-            if (type === 'editIcons') {
+      if (type === 'editIcons') {
                 await prisma.marker.update({
                     where: {
                         id: req.dbid
@@ -93,8 +93,8 @@ export async function POST({ request, url, getClientAddress }) {
                     }
                 })
             }
-		if (type === 'newMarker') {
-			const elev = await getElev(req.lat, req.lng)
+      if (type === 'newMarker') {
+        const elev = await getElev(req.lat, req.lng)
 			const trailRelations = createTrailRelations(req.lat, req.lng, req.trail)
 			const marker = await prisma.marker.create({
 				data: {
@@ -144,8 +144,8 @@ export async function POST({ request, url, getClientAddress }) {
 async function getElev(lat, lng) {
     const res = await fetch(`https://maps.googleapis.com/maps/api/elevation/json?locations=${lat}%2C${lng}&key=${env.GOOGLE_MAPS_API_KEY}`);
     const data = await res.json();
-    if (data.status === 'OK') return Math.round(data.results[0].elevation * 3.28084) // meter to feet conversion
-    else { console.log('Error fetching elevation:'); console.log(data); return 0 }
+  if (data.status === 'OK') return Math.round(data.results[0].elevation * 3.28084) // meter to feet conversion
+  else { console.log('Error fetching elevation:'); console.log(data); Sentry.metrics.count('server.post_marker.elev_lookup_failed', 1); return 0 }
 }
 
 // Generate the createMany for a prisma query to populate the join table

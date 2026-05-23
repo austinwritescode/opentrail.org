@@ -1,11 +1,11 @@
 <script>
-  import { page } from '$app/stores';
-  import { onMount, mount, unmount } from 'svelte';
-  import { slide } from 'svelte/transition';
-  import maplibregl from 'maplibre-gl';
-  import 'maplibre-gl/dist/maplibre-gl.css';
-  import { Protocol, PMTiles } from 'pmtiles';
-import { OPFSSource } from '$lib/OPFSSource.js';
+	import { page } from '$app/stores';
+	import { onMount, mount, unmount } from 'svelte';
+	import { slide } from 'svelte/transition';
+	import maplibregl from 'maplibre-gl';
+	import 'maplibre-gl/dist/maplibre-gl.css';
+	import { Protocol, PMTiles } from 'pmtiles';
+	import { OPFSSource } from '$lib/OPFSSource.js';
 	import {
 		settings,
 		data,
@@ -17,7 +17,7 @@ import { OPFSSource } from '$lib/OPFSSource.js';
 		editLocNewMarker,
 		openModal,
 		modal,
-		errorModal,
+		handleError,
 		trailRoute,
 		userMiles,
 		elevationProfileVisible,
@@ -33,7 +33,7 @@ import { OPFSSource } from '$lib/OPFSSource.js';
 	import { goto, replaceState } from '$app/navigation';
 	import { syncData, postGeneric, getData } from '$lib/api';
 	import { get } from 'svelte/store';
-import { getOPFSFileSize } from '$lib/download.js';
+	import { getOPFSFileSize } from '$lib/download.js';
 	import { searchTrailRoute } from '$lib/helpers.js';
 	import { decodeTrail } from '$lib/decode-trail.js';
 	import { register } from 'swiper/element/bundle';
@@ -42,24 +42,24 @@ import { getOPFSFileSize } from '$lib/download.js';
 	SwiperCore.use([Virtual]);
 
 	const PHASES = {
-		data:     { start: 0,  end: 20,  msg: 'Loading trail data' },
-		style:    { start: 20, end: 35,  msg: 'Loading map style' },
-		canvas:   { start: 35, end: 55,  msg: 'Reticulating splines' },
-		icons:    { start: 55, end: 75,  msg: 'Loading marker icons' },
-		populate: { start: 75, end: 90,  msg: 'Loading markers' },
-		tiles:    { start: 90, end: 100, msg: 'Loading map tiles' }
+		data: { start: 0, end: 20, msg: 'Loading trail data' },
+		style: { start: 20, end: 35, msg: 'Loading map style' },
+		canvas: { start: 35, end: 55, msg: 'Reticulating splines' },
+		icons: { start: 55, end: 75, msg: 'Loading marker icons' },
+		populate: { start: 75, end: 90, msg: 'Loading markers' },
+		tiles: { start: 90, end: 100, msg: 'Loading map tiles' }
 	};
 
 	let fromBack = false;
-let prevOC = 0;
-$: oc = ($modal.isOpen ? 1 : 0) + ($detailId !== -1 ? 1 : 0) + ($selectedMarkerId !== -1 ? 1 : 0);
-$: {
-	if (oc > prevOC) history.pushState(null, '');
-	else if (oc < prevOC && !fromBack) history.back();
-	prevOC = oc;
-}
+	let prevOC = 0;
+	$: oc = ($modal.isOpen ? 1 : 0) + ($detailId !== -1 ? 1 : 0) + ($selectedMarkerId !== -1 ? 1 : 0);
+	$: {
+		if (oc > prevOC) history.pushState(null, '');
+		else if (oc < prevOC && !fromBack) history.back();
+		prevOC = oc;
+	}
 
-let bootStartTime = 0;
+	let bootStartTime = 0;
 	let tileBarActive = false;
 	let tileLoadingTimer = null;
 	let tileBarStartTime = 0;
@@ -78,7 +78,13 @@ let bootStartTime = 0;
 	}
 
 	function setLoadError(message) {
-		$loadStatus = { phase: 'error', message, progress: $loadStatus.progress, indeterminate: false, error: true };
+		$loadStatus = {
+			phase: 'error',
+			message,
+			progress: $loadStatus.progress,
+			indeterminate: false,
+			error: true
+		};
 	}
 
 	let slotWrapper;
@@ -138,7 +144,7 @@ let bootStartTime = 0;
 		for (let i = startIdx; i <= endIdx; i += dsStep) {
 			points.push({ elev: coords[i][2] || 0, mile: i / 10 });
 		}
-		if (points.length === 0 || points[points.length - 1].mile !== (endIdx / 10)) {
+		if (points.length === 0 || points[points.length - 1].mile !== endIdx / 10) {
 			points.push({ elev: coords[endIdx][2] || 0, mile: endIdx / 10 });
 		}
 		$profileData = { points, startIdx, endIdx };
@@ -174,7 +180,7 @@ let bootStartTime = 0;
 			el.style.backgroundColor = '#d22';
 			el.style.border = '2px solid white';
 			el.style.boxShadow = '0 1px 3px rgba(0,0,0,0.4)';
-			cursorMapMarker = new maplibregl.Marker({element: el}).setLngLat(lngLat).addTo(map);
+			cursorMapMarker = new maplibregl.Marker({ element: el }).setLngLat(lngLat).addTo(map);
 		}
 	}
 
@@ -197,24 +203,33 @@ let bootStartTime = 0;
 		});
 	}
 
-function isLastsyncStale() {
-  const last = get(settings).lastsync;
-  if (!last || !last.isValid?.()) return true;
-  return Date.now() - last.valueOf() > 3600000;
-}
+	function isLastsyncStale() {
+		const last = get(settings).lastsync;
+		if (!last || !last.isValid?.()) return true;
+		return Date.now() - last.valueOf() > 3600000;
+	}
 
 	onMount(async () => {
-	window.addEventListener('popstate', () => {
-		fromBack = true;
-		if ($detailId !== -1) $detailId = -1;
-		else if ($selectedMarkerId !== -1) updateSelectedMarker(-1);
-		else if ($modal.isOpen) { $modal.isOpen = false; $modal.cancel(); }
-		fromBack = false;
-	});
-	const preBar = document.getElementById('pre-hydrate-bar');
-	if (preBar) preBar.remove();
-	bootStartTime = Date.now();
-		$loadStatus = { phase: 'data', message: PHASES.data.msg, progress: 0, indeterminate: false, error: false };
+		window.addEventListener('popstate', () => {
+			fromBack = true;
+			if ($detailId !== -1) $detailId = -1;
+			else if ($selectedMarkerId !== -1) updateSelectedMarker(-1);
+			else if ($modal.isOpen) {
+				$modal.isOpen = false;
+				$modal.cancel();
+			}
+			fromBack = false;
+		});
+		const preBar = document.getElementById('pre-hydrate-bar');
+		if (preBar) preBar.remove();
+		bootStartTime = Date.now();
+		$loadStatus = {
+			phase: 'data',
+			message: PHASES.data.msg,
+			progress: 0,
+			indeterminate: false,
+			error: false
+		};
 		const viewport = document.querySelector('meta[name="viewport"]');
 		function updateViewport() {
 			if (!viewport) return;
@@ -232,37 +247,37 @@ function isLastsyncStale() {
 			$settings.trail = deepTrail;
 		}
 		if (!Object.keys(TRAILS).includes($settings.trail)) goto('/');
-try {
-  if ($settings.autosync && navigator.onLine && isLastsyncStale()) {
-    await syncData();
-    setLoadPhase('data', 1);
-  } else {
-    await getData();
-    setLoadPhase('data', 1);
-  }
-  await initializeMap();
-} catch (err) {
-  setLoadError(err.message || 'Load failed');
-  errorModal(err);
-}
-	if ($settings.offline) {
-		const size = await getOPFSFileSize($settings.trail);
-		if (!size) $settings.offline = false;
-	}
-if (deepMarkerDbid) {
-  const idx = $data.features.findIndex(f => f.properties.dbid == deepMarkerDbid);
-  if (idx !== -1) {
-    updateSelectedMarker(idx, true);
-    $detailId = idx;
-  }
-  replaceState('/app', {});
-}
-if ($settings.autosync) {
-  window.addEventListener('online', () => {
-    if (get(settings).autosync && isLastsyncStale()) syncData();
-  });
-}
-});
+		try {
+			if ($settings.autosync && navigator.onLine && isLastsyncStale()) {
+				await syncData();
+				setLoadPhase('data', 1);
+			} else {
+				await getData();
+				setLoadPhase('data', 1);
+			}
+			await initializeMap();
+		} catch (err) {
+			setLoadError(err.message || 'Load failed');
+			handleError(err, { modal: true, sentry: true });
+		}
+		if ($settings.offline) {
+			const size = await getOPFSFileSize($settings.trail);
+			if (!size) $settings.offline = false;
+		}
+		if (deepMarkerDbid) {
+			const idx = $data.features.findIndex((f) => f.properties.dbid == deepMarkerDbid);
+			if (idx !== -1) {
+				updateSelectedMarker(idx, true);
+				$detailId = idx;
+			}
+			replaceState('/app', {});
+		}
+		if ($settings.autosync) {
+			window.addEventListener('online', () => {
+				if (get(settings).autosync && isLastsyncStale()) syncData();
+			});
+		}
+	});
 
 	let filteredIdx;
 	let prevActiveIcons;
@@ -319,51 +334,50 @@ if ($settings.autosync) {
 	let mapInitialized = false;
 	$: if (mapInitialized) map.getSource('markers')?.setData($data);
 
-/** @type {import('pmtiles').Protocol | undefined} */
-let pmtilesProtocol;
+	/** @type {import('pmtiles').Protocol | undefined} */
+	let pmtilesProtocol;
 
-let compositeLayerIds = [];
+	let compositeLayerIds = [];
 
-let pmtilesUpdateInProgress = false;
+	let pmtilesUpdateInProgress = false;
 
-async function updatePmtilesSource() {
-	if (!pmtilesProtocol || pmtilesUpdateInProgress) return;
-	pmtilesUpdateInProgress = true;
-	try {
-		const key = `https://cdn.opentrail.org/${$settings.trail}.pmtiles`;
-		for (const existingKey of [...pmtilesProtocol.tiles.keys()]) {
-			if (existingKey !== key) pmtilesProtocol.tiles.delete(existingKey);
+	async function updatePmtilesSource() {
+		if (!pmtilesProtocol || pmtilesUpdateInProgress) return;
+		pmtilesUpdateInProgress = true;
+		try {
+			const key = `https://cdn.opentrail.org/${$settings.trail}.pmtiles`;
+			for (const existingKey of [...pmtilesProtocol.tiles.keys()]) {
+				if (existingKey !== key) pmtilesProtocol.tiles.delete(existingKey);
+			}
+			if ($settings.offline && (await getOPFSFileSize($settings.trail))) {
+				pmtilesProtocol.add(new PMTiles(new OPFSSource($settings.trail)));
+			} else {
+				pmtilesProtocol.tiles.delete(key);
+				if ($settings.offline) $settings.offline = false;
+			}
+		} finally {
+			pmtilesUpdateInProgress = false;
 		}
-		if ($settings.offline && await getOPFSFileSize($settings.trail)) {
-			pmtilesProtocol.add(new PMTiles(new OPFSSource($settings.trail)));
-		} else {
-			pmtilesProtocol.tiles.delete(key);
-			if ($settings.offline) $settings.offline = false;
-		}
-	} finally {
-		pmtilesUpdateInProgress = false;
 	}
-}
 
 	async function initializeMap() {
 		if (!document.getElementById('map') || !slotWrapper) return setTimeout(initializeMap, 10);
 
-	if (!pmtilesProtocol) {
-		pmtilesProtocol = new Protocol();
-		maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile);
-	}
-	await updatePmtilesSource();
+		if (!pmtilesProtocol) {
+			pmtilesProtocol = new Protocol();
+			maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile);
+		}
+		await updatePmtilesSource();
 
 		setLoadPhase('style', 0);
-		const styleRes = await fetchWithProgress(
-			'https://cdn.opentrail.org/style-outdoors.json',
-			(p) => setLoadPhase('style', p)
+		const styleRes = await fetchWithProgress('https://cdn.opentrail.org/style-outdoors.json', (p) =>
+			setLoadPhase('style', p)
 		);
 		const style = await styleRes.json();
-style.sources.composite = {
-      type: 'vector',
-      url: `pmtiles://https://cdn.opentrail.org/${$settings.trail}.pmtiles`
-    };
+		style.sources.composite = {
+			type: 'vector',
+			url: `pmtiles://https://cdn.opentrail.org/${$settings.trail}.pmtiles`
+		};
 		compositeLayerIds = style.layers.map((l) => l.id);
 
 		map = new maplibregl.Map({
@@ -371,11 +385,11 @@ style.sources.composite = {
 			style: style,
 			bounds: TRAILS[$settings.trail].bounds,
 			minZoom: 2,
-attributionControl: false
-    });
-    map.dragRotate.disable();
-    map.touchZoomRotate.disableRotation();
-map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
+			attributionControl: false
+		});
+		map.dragRotate.disable();
+		map.touchZoomRotate.disableRotation();
+		map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
 		const geolocate = new maplibregl.GeolocateControl({
 			positionOptions: {
 				enableHighAccuracy: true
@@ -385,77 +399,81 @@ map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
 
 		//maplibre doesn't supply a heading indicator... :/
 		const el = document.createElement('div');
-	el.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="#1CA1F3" style="display:block;margin:0 auto"><path d="M12 2l8 16H4z"/></svg>';
-	el.style.width = '46px';
-	el.style.height = '46px';
-	el.style.display = 'flex';
-	el.style.alignItems = 'flex-start';
-	el.style.justifyContent = 'center';
-		const headingMarker = new maplibregl.Marker({element: el});
-    let compassEnabled = false;
-    let compassDisabled = false;
-    let lastHeading;
-    let orientationEvent;
-    let disableTimeout;
-    const disableCompass = () => {
-        compassEnabled = false;
-        headingMarker.remove();
-        window.removeEventListener(orientationEvent, compassListener, true);
-    };
-    const compassListener = (e) => {
-        if (!compassEnabled) {
-            headingMarker.addTo(map);
-            compassEnabled = true;
-        }
-        let heading = e.webkitCompassHeading || 360 - e.alpha;
-        heading = Math.round(heading / 3) * 3;
-        if (lastHeading === heading) return;
-        else lastHeading = heading;
-        headingMarker.setRotation(heading);
-    };
-    geolocate.on('trackuserlocationstart', () => { clearTimeout(disableTimeout); });
-    geolocate.on('trackuserlocationend', () => { disableTimeout = setTimeout(disableCompass, 300); });
-    function attachCompassListener() {
-        if (compassDisabled || !window.DeviceOrientationEvent) return;
-        const isIOS =
-            navigator.userAgent.match(/(iPod|iPhone|iPad)/) &&
-            navigator.userAgent.match(/AppleWebKit/);
-        if (isIOS) {
-            console.log('Starting iOS compass marker');
-            orientationEvent = 'deviceorientation';
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                DeviceOrientationEvent.requestPermission()
-                    .then((response) => {
-                        if (response === 'granted')
-                            window.addEventListener(orientationEvent, compassListener, true);
-                    })
-.catch(() => {
-    openModal({
-                            type: 'iOSCompass',
-                            submit: () => {
-                                $modal.isOpen = false;
-                                DeviceOrientationEvent.requestPermission().then((response) => {
-                                    if (response === 'granted')
-                                        window.addEventListener(orientationEvent, compassListener, true);
-                                    else compassDisabled = true;
-                                });
-                            },
-                            cancel: () => {
-                                $modal.isOpen = false;
-                                compassDisabled = true;
-                            }
-                        });
-                    });
-            } else {
-                window.addEventListener(orientationEvent, compassListener, true);
-            }
-        } else {
-            console.log('Starting Android compass marker');
-            orientationEvent = 'deviceorientationabsolute';
-            window.addEventListener(orientationEvent, compassListener, true);
-        }
-    }
-    geolocate.on('geolocate', function (geo) {
+		el.innerHTML =
+			'<svg width="16" height="16" viewBox="0 0 24 24" fill="#1CA1F3" style="display:block;margin:0 auto"><path d="M12 2l8 16H4z"/></svg>';
+		el.style.width = '46px';
+		el.style.height = '46px';
+		el.style.display = 'flex';
+		el.style.alignItems = 'flex-start';
+		el.style.justifyContent = 'center';
+		const headingMarker = new maplibregl.Marker({ element: el });
+		let compassEnabled = false;
+		let compassDisabled = false;
+		let lastHeading;
+		let orientationEvent;
+		let disableTimeout;
+		const disableCompass = () => {
+			compassEnabled = false;
+			headingMarker.remove();
+			window.removeEventListener(orientationEvent, compassListener, true);
+		};
+		const compassListener = (e) => {
+			if (!compassEnabled) {
+				headingMarker.addTo(map);
+				compassEnabled = true;
+			}
+			let heading = e.webkitCompassHeading || 360 - e.alpha;
+			heading = Math.round(heading / 3) * 3;
+			if (lastHeading === heading) return;
+			else lastHeading = heading;
+			headingMarker.setRotation(heading);
+		};
+		geolocate.on('trackuserlocationstart', () => {
+			clearTimeout(disableTimeout);
+		});
+		geolocate.on('trackuserlocationend', () => {
+			disableTimeout = setTimeout(disableCompass, 300);
+		});
+		function attachCompassListener() {
+			if (compassDisabled || !window.DeviceOrientationEvent) return;
+			const isIOS =
+				navigator.userAgent.match(/(iPod|iPhone|iPad)/) && navigator.userAgent.match(/AppleWebKit/);
+			if (isIOS) {
+				console.log('Starting iOS compass marker');
+				orientationEvent = 'deviceorientation';
+				if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+					DeviceOrientationEvent.requestPermission()
+						.then((response) => {
+							if (response === 'granted')
+								window.addEventListener(orientationEvent, compassListener, true);
+						})
+						.catch(() => {
+							openModal({
+								type: 'iOSCompass',
+								submit: () => {
+									$modal.isOpen = false;
+									DeviceOrientationEvent.requestPermission().then((response) => {
+										if (response === 'granted')
+											window.addEventListener(orientationEvent, compassListener, true);
+										else compassDisabled = true;
+									});
+								},
+								cancel: () => {
+									$modal.isOpen = false;
+									compassDisabled = true;
+								}
+							});
+						});
+				} else {
+					window.addEventListener(orientationEvent, compassListener, true);
+				}
+			} else {
+				console.log('Starting Android compass marker');
+				orientationEvent = 'deviceorientationabsolute';
+				window.addEventListener(orientationEvent, compassListener, true);
+			}
+		}
+		geolocate.on('geolocate', function (geo) {
 			if (new Date() - $userMiles.date > 60000) {
 				//limit the mile search algo to once per minute
 				$userMiles.date = new Date();
@@ -463,9 +481,9 @@ map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
 				$userMiles.miles = min.index / 10;
 				console.log($userMiles.miles);
 			}
-        headingMarker.setLngLat([geo.coords.longitude, geo.coords.latitude]);
-        if (!compassEnabled && !compassDisabled) attachCompassListener();
-    });
+			headingMarker.setLngLat([geo.coords.longitude, geo.coords.latitude]);
+			if (!compassEnabled && !compassDisabled) attachCompassListener();
+		});
 		map.addControl(geolocate);
 
 		map.on('click', (e) => {
@@ -477,14 +495,13 @@ map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
 			}
 		});
 
-	map.on('error', (e) => {
-		const err = e.error || new Error(`Map: ${JSON.stringify(e.error)}`);
-		if (errorModal(err)) {
+		map.on('error', (e) => {
+			const err = e.error || new Error(`Map: ${JSON.stringify(e.error)}`);
+			handleError(err, { modal: false, sentry: true });
 			setLoadError('Map load error');
-		}
-	});
+		});
 		setLoadPhase('canvas', 0);
-		await new Promise(resolve => map.once('load', resolve));
+		await new Promise((resolve) => map.once('load', resolve));
 		setLoadPhase('canvas', 1);
 
 		setLoadPhase('icons', 0);
@@ -498,36 +515,49 @@ map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
 			iconsLoaded++;
 			setLoadPhase('icons', iconsLoaded / totalIcons);
 		}
-await populateMap();
-setLoadPhase('tiles', 0);
+		await populateMap();
+		setLoadPhase('tiles', 0);
 
-const canvases = document.getElementsByTagName('canvas');
-if (canvases.length > 1) errorModal(new Error('Multiple map canvases detected'));
+		const canvases = document.getElementsByTagName('canvas');
+		if (canvases.length > 1)
+			handleError(new Error('Multiple map canvases detected'), { modal: false, sentry: true });
 
-	map.on('dataloading', () => {
-		if (!tileLoadingTimer && !tileBarActive) {
-			tileLoadingTimer = setTimeout(() => {
-				tileLoadingTimer = null;
-				tileBarActive = true;
-				tileBarStartTime = Date.now();
-				setLoadPhase('tiles', 0);
-			}, 500);
-		}
-	});
-	map.on('idle', () => {
-		clearTimeout(tileLoadingTimer);
-		tileLoadingTimer = null;
-		if (tileBarActive) {
-			tileBarActive = false;
-			const elapsed = Date.now() - tileBarStartTime;
-			const hideDelay = Math.max(0, 500 - elapsed);
-			setTimeout(() => {
-				$loadStatus = { phase: 'idle', message: '', progress: 100, indeterminate: false, error: false };
-			}, hideDelay);
-		} else if ($loadStatus.phase !== 'idle') {
-			$loadStatus = { phase: 'idle', message: '', progress: 100, indeterminate: false, error: false };
-		}
-	});
+		map.on('dataloading', () => {
+			if (!tileLoadingTimer && !tileBarActive) {
+				tileLoadingTimer = setTimeout(() => {
+					tileLoadingTimer = null;
+					tileBarActive = true;
+					tileBarStartTime = Date.now();
+					setLoadPhase('tiles', 0);
+				}, 500);
+			}
+		});
+		map.on('idle', () => {
+			clearTimeout(tileLoadingTimer);
+			tileLoadingTimer = null;
+			if (tileBarActive) {
+				tileBarActive = false;
+				const elapsed = Date.now() - tileBarStartTime;
+				const hideDelay = Math.max(0, 500 - elapsed);
+				setTimeout(() => {
+					$loadStatus = {
+						phase: 'idle',
+						message: '',
+						progress: 100,
+						indeterminate: false,
+						error: false
+					};
+				}, hideDelay);
+			} else if ($loadStatus.phase !== 'idle') {
+				$loadStatus = {
+					phase: 'idle',
+					message: '',
+					progress: 100,
+					indeterminate: false,
+					error: false
+				};
+			}
+		});
 	}
 
 	function onMarkerClick(e) {
@@ -600,7 +630,7 @@ if (canvases.length > 1) errorModal(new Error('Multiple map canvases detected'))
 			});
 			map.on('click', `markers-${icon}`, onMarkerClick);
 		}
-	mapInitialized = true;
+		mapInitialized = true;
 		map.off('move', onMapMove);
 		map.on('move', onMapMove);
 		updateProfileData();
@@ -610,7 +640,7 @@ if (canvases.length > 1) errorModal(new Error('Multiple map canvases detected'))
 		});
 	}
 
-async function changeTrailOnMap() {
+	async function changeTrailOnMap() {
 		if (!map || !mapInitialized) return;
 		bootStartTime = Date.now();
 		mapInitialized = false;
@@ -638,12 +668,14 @@ async function changeTrailOnMap() {
 			url: `pmtiles://https://cdn.opentrail.org/${$settings.trail}.pmtiles`
 		});
 		if (!wasOffline && !navigator.onLine) {
-			errorModal(new Error('No offline data for this trail. Connect to the internet to load map tiles.'));
+			handleError(
+				new Error('No offline data for this trail. Connect to the internet to load map tiles.'),
+				{ modal: true, sentry: true, tags: { transient: true } }
+			);
 		}
 		setLoadPhase('style', 0);
-		const styleRes = await fetchWithProgress(
-			'https://cdn.opentrail.org/style-outdoors.json',
-			(p) => setLoadPhase('style', p)
+		const styleRes = await fetchWithProgress('https://cdn.opentrail.org/style-outdoors.json', (p) =>
+			setLoadPhase('style', p)
 		);
 		const style = await styleRes.json();
 		const compositeLayers = style.layers.filter((l) => l.source === 'composite');
@@ -652,25 +684,25 @@ async function changeTrailOnMap() {
 		}
 		compositeLayerIds = compositeLayers.map((l) => l.id);
 
-map.fitBounds(TRAILS[$settings.trail].bounds);
-await populateMap();
-	setLoadPhase('tiles', 0);
-	tileBarActive = false;
-	clearTimeout(tileLoadingTimer);
-	tileLoadingTimer = null;
+		map.fitBounds(TRAILS[$settings.trail].bounds);
+		await populateMap();
+		setLoadPhase('tiles', 0);
+		tileBarActive = false;
+		clearTimeout(tileLoadingTimer);
+		tileLoadingTimer = null;
 	}
 
-let currentTrail = $settings.trail;
-$: if (mapInitialized) {
-	$settings.offline;
-	$settings.trail;
-	if ($settings.trail !== currentTrail) {
-		currentTrail = $settings.trail;
-		changeTrailOnMap();
-	} else {
-		updatePmtilesSource();
+	let currentTrail = $settings.trail;
+	$: if (mapInitialized) {
+		$settings.offline;
+		$settings.trail;
+		if ($settings.trail !== currentTrail) {
+			currentTrail = $settings.trail;
+			changeTrailOnMap();
+		} else {
+			updatePmtilesSource();
+		}
 	}
-}
 
 	function updateSelectedMarker(id, slide = true) {
 		if (!mapInitialized) return;
@@ -704,7 +736,10 @@ $: if (mapInitialized) {
 									index: filteredIdx[i],
 									offset: d.offset,
 									onPrev: i === activeIdx && i > 0 ? () => swiperEl.swiper.slidePrev() : undefined,
-									onNext: i === activeIdx && i < filteredIdx.length - 1 ? () => swiperEl.swiper.slideNext() : undefined
+									onNext:
+										i === activeIdx && i < filteredIdx.length - 1
+											? () => swiperEl.swiper.slideNext()
+											: undefined
 								}
 							})
 						);
@@ -731,13 +766,13 @@ $: if (mapInitialized) {
 			data: ['Marker title', ''],
 			submit: (title) => {
 				prop.title = title[1];
-		openModal({
-			type: 'textAreaWithComment',
-			data: ['Marker description', '', ''],
-			submit: (desc) => {
-				prop.desc = desc[1];
-				prop.comment = desc[2];
 				openModal({
+					type: 'textAreaWithComment',
+					data: ['Marker description', '', ''],
+					submit: (desc) => {
+						prop.desc = desc[1];
+						prop.comment = desc[2];
+						openModal({
 							type: 'editIcons',
 							submit: (icons) => {
 								prop.icon = icons[0];
@@ -786,26 +821,32 @@ $: if (mapInitialized) {
 			properties: { ...feature.properties },
 			id: 'edit'
 		};
-		map.addSource('editMarker', { type: 'geojson', data: { type: 'FeatureCollection', features: [editFeature] } });
+		map.addSource('editMarker', {
+			type: 'geojson',
+			data: { type: 'FeatureCollection', features: [editFeature] }
+		});
 		const icons = feature.properties.icons || [feature.properties.icon];
 		editLayerId = `markers-${icons[0]}-selected`;
-		map.addLayer({
-			id: 'editMarker',
-			type: 'symbol',
-			source: 'editMarker',
-			layout: {
-				'icon-image': ['concat', ['get', 'icon'], '-selected'],
-				'icon-size': 0.5,
-				'icon-allow-overlap': true,
-				'text-field': ['get', 'title'],
-				'text-size': 12,
-				'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
-				'text-optional': true,
-				'text-ignore-placement': true,
-				'text-offset': [0, 0.85],
-				'text-anchor': 'top'
-			}
-		}, editLayerId);
+		map.addLayer(
+			{
+				id: 'editMarker',
+				type: 'symbol',
+				source: 'editMarker',
+				layout: {
+					'icon-image': ['concat', ['get', 'icon'], '-selected'],
+					'icon-size': 0.5,
+					'icon-allow-overlap': true,
+					'text-field': ['get', 'title'],
+					'text-size': 12,
+					'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
+					'text-optional': true,
+					'text-ignore-placement': true,
+					'text-offset': [0, 0.85],
+					'text-anchor': 'top'
+				}
+			},
+			editLayerId
+		);
 		map.setFeatureState({ source: 'markers', id: feature.id }, { selected: false });
 		openModal({
 			type: 'editLoc',
@@ -832,18 +873,18 @@ $: if (mapInitialized) {
 					updateSelectedMarker(-1);
 					$data.features.pop();
 					$data = $data;
-			await postGeneric({
-				route: 'postMarker?type=newMarker',
-				data: {
-					lat: editCoords[1],
-					lng: editCoords[0],
-					title: feature.properties.title,
-					desc: feature.properties.desc,
-					comment: feature.properties.comment,
-					icons: feature.properties.icons,
-					trail: $settings.trail
-				}
-			});
+					await postGeneric({
+						route: 'postMarker?type=newMarker',
+						data: {
+							lat: editCoords[1],
+							lng: editCoords[0],
+							title: feature.properties.title,
+							desc: feature.properties.desc,
+							comment: feature.properties.comment,
+							icons: feature.properties.icons,
+							trail: $settings.trail
+						}
+					});
 				} else {
 					$data = $data;
 					await postGeneric({
@@ -870,12 +911,14 @@ $: if (mapInitialized) {
 		editCoords = [c.lng, c.lat];
 		map.getSource('editMarker').setData({
 			type: 'FeatureCollection',
-			features: [{
-				type: 'Feature',
-				geometry: { type: 'Point', coordinates: editCoords },
-				properties: editFeatureProps,
-				id: 'edit'
-			}]
+			features: [
+				{
+					type: 'Feature',
+					geometry: { type: 'Point', coordinates: editCoords },
+					properties: editFeatureProps,
+					id: 'edit'
+				}
+			]
 		});
 	}
 
@@ -886,7 +929,10 @@ $: if (mapInitialized) {
 		const mapEl = map.getContainer();
 		const swiperTop = swiperEl.getBoundingClientRect().top - mapEl.getBoundingClientRect().top;
 		const isCurrentlyRendered = map.queryRenderedFeatures(
-			[[0, 0], [mapEl.clientWidth, swiperTop]],
+			[
+				[0, 0],
+				[mapEl.clientWidth, swiperTop]
+			],
 			{ layers: iconLayers, filter: ['==', ['id'], id] }
 		);
 		if (isCurrentlyRendered.length === 0)
@@ -919,24 +965,25 @@ $: if (mapInitialized) {
 
 <div class="flex flex-col h-full">
 	<!-- loading indicator -->
-{#if $loadStatus.phase !== 'idle'}
-  <div
-    class="load-indicator"
-    class:load-indicator-error={$loadStatus.error}
-		style="--bar-color: #333; --bar-error: #d7230e;"
-  >
-		<div class="load-bar-track">
-			<div
-				class="load-bar-fill"
-				class:load-bar-indeterminate={$loadStatus.indeterminate}
-				style="width: {$loadStatus.progress}%;"
-			></div>
+	{#if $loadStatus.phase !== 'idle'}
+		<div
+			class="load-indicator"
+			class:load-indicator-error={$loadStatus.error}
+			style="--bar-color: #333; --bar-error: #d7230e;"
+		>
+			<div class="load-bar-track">
+				<div
+					class="load-bar-fill"
+					class:load-bar-indeterminate={$loadStatus.indeterminate}
+					style="width: {$loadStatus.progress}%;"
+				></div>
+			</div>
+			<div class="load-bar-text" style="color: #666;">
+				{$loadStatus.message}{#if $loadStatus.error}
+					<button onclick={() => window.location.reload()} class="retry-btn">Retry</button>{/if}
+			</div>
 		</div>
-		<div class="load-bar-text" style="color: #666;">
-			{$loadStatus.message}{#if $loadStatus.error} <button onclick={() => window.location.reload()} class="retry-btn">Retry</button>{/if}
-		</div>
-  </div>
-{/if}
+	{/if}
 	<!-- main area full height minus navbar, use grid to overlap divs + css "visibility" to cache map for fast navigation -->
 	<div style="height: calc(100dvh - 64px);" class="grid grid-cols-1 grid-rows-1">
 		<!-- hide the map when visiting other routes -->
@@ -945,11 +992,18 @@ $: if (mapInitialized) {
 			class="row-start-1 col-start-1 relative flex flex-col"
 		>
 			<div id="map" class="flex-1 w-full min-h-0">
-          <div class="map-attribution">&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a></div>
-        </div>
+				<div class="map-attribution">
+					&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>
+				</div>
+			</div>
 			<!-- elevation profile overlay -->
-{#if $elevationProfileVisible}
-  <div class="elevation-profile-overlay" style="background: {$settings.dark ? '#1e1e1e' : 'white'}; border-top: 1px solid {$settings.dark ? '#444' : '#ddd'};">
+			{#if $elevationProfileVisible}
+				<div
+					class="elevation-profile-overlay"
+					style="background: {$settings.dark
+						? '#1e1e1e'
+						: 'white'}; border-top: 1px solid {$settings.dark ? '#444' : '#ddd'};"
+				>
 					<ElevationProfile oncursorupdate={onCursorUpdate} />
 				</div>
 			{/if}
@@ -961,16 +1015,29 @@ $: if (mapInitialized) {
 					class:filter-funnel-active={filtersVisible}
 					onclick={toggleFilters}
 				>
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 8.5V18l-4 2v-7.5L3 4z"/></svg>
+					<svg
+						width="18"
+						height="18"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="#333333"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"><path d="M3 4h18l-7 8.5V18l-4 2v-7.5L3 4z" /></svg
+					>
 				</button>
 				{#if filtersVisible}
 					<div in:slide={{ duration: 200 }} out:slide={{ duration: 200 }}>
 						<div class="btn-group btn-group-vertical filter-bar-inner">
 							<button
 								class="btn btn-circle btn-sm bg-white focus:bg-white active:bg-white border-opacity-50"
-							onclick={toggleAllIcons}
+								onclick={toggleAllIcons}
 							>
-								<img src={'https://cdn.opentrail.org/icons/select-all.png'} height="20px" width="20px" />
+								<img
+									src={'https://cdn.opentrail.org/icons/select-all.png'}
+									height="20px"
+									width="20px"
+								/>
 							</button>
 							{#each ICONS as icon, i}
 								<button
@@ -978,26 +1045,44 @@ $: if (mapInitialized) {
 									class:opacity-40={!$activeIcons[i]}
 									onclick={() => toggleIconLayer(i)}
 								>
-	<img src={`https://cdn.opentrail.org/icons/${icon}.png`} />
-	</button>
-	{/each}
+									<img src={`https://cdn.opentrail.org/icons/${icon}.png`} />
+								</button>
+							{/each}
 						</div>
 					</div>
 				{/if}
 			</div>
 			<!-- profile toggle button -->
-<button
-      class="absolute left-[calc(50%-16px)] btn btn-circle btn-sm bg-base-100 focus:bg-base-100 active:bg-base-100 border-opacity-50 text-base-content"
-      style="bottom: {$elevationProfileVisible ? 'calc(25% - 14px)' : '8px'}; z-index: 1;"
-      onclick={toggleProfile}
-      title={$elevationProfileVisible ? 'Hide elevation profile' : 'Show elevation profile'}
-    >
-      {#if $elevationProfileVisible}
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
-      {:else}
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20L8 10L14 14L22 4" /></svg>
-      {/if}
-    </button>
+			<button
+				class="absolute left-[calc(50%-16px)] btn btn-circle btn-sm bg-base-100 focus:bg-base-100 active:bg-base-100 border-opacity-50 text-base-content"
+				style="bottom: {$elevationProfileVisible ? 'calc(25% - 14px)' : '8px'}; z-index: 1;"
+				onclick={toggleProfile}
+				title={$elevationProfileVisible ? 'Hide elevation profile' : 'Show elevation profile'}
+			>
+				{#if $elevationProfileVisible}
+					<svg
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg
+					>
+				{:else}
+					<svg
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"><path d="M2 20L8 10L14 14L22 4" /></svg
+					>
+				{/if}
+			</button>
 			<!-- detail modal -->
 			{#if $detailId !== -1}
 				<MarkerDetail {...getDetailNavProps()} />
@@ -1006,7 +1091,9 @@ $: if (mapInitialized) {
 			{#if $selectedMarkerId !== -1}
 				<swiper-container
 					class="absolute w-full h-40"
-					style="bottom: {$elevationProfileVisible ? 'calc(25% + 8px)' : '8px'}; z-index: 2; visibility: {$detailId === -1 && showSwiper
+					style="bottom: {$elevationProfileVisible
+						? 'calc(25% + 8px)'
+						: '8px'}; z-index: 2; visibility: {$detailId === -1 && showSwiper
 						? 'inherit'
 						: 'hidden'};"
 					slides-per-view={1.15}
@@ -1018,17 +1105,34 @@ $: if (mapInitialized) {
 					init={false}
 				></swiper-container>
 			{:else}
-<button
-      class="absolute left-2 btn btn-circle btn-sm bg-base-100 focus:bg-base-100 active:bg-base-100 border-opacity-50 text-base-content"
-      style="bottom: {$elevationProfileVisible ? 'calc(25% + 8px)' : '8px'};"
-      onclick={newMarker}
-    >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><line x1="12" y1="6" x2="12" y2="11"/><line x1="9.5" y1="8.5" x2="14.5" y2="8.5"/></svg>
-    </button>
-{/if}
-      </div>
+				<button
+					class="absolute left-2 btn btn-circle btn-sm bg-base-100 focus:bg-base-100 active:bg-base-100 border-opacity-50 text-base-content"
+					style="bottom: {$elevationProfileVisible ? 'calc(25% + 8px)' : '8px'};"
+					onclick={newMarker}
+				>
+					<svg
+						width="18"
+						height="18"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						><path
+							d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"
+						/><line x1="12" y1="6" x2="12" y2="11" /><line
+							x1="9.5"
+							y1="8.5"
+							x2="14.5"
+							y2="8.5"
+						/></svg
+					>
+				</button>
+			{/if}
+		</div>
 
-      <div class="row-start-1 col-start-1 min-h-0 overflow-y-auto" bind:this={slotWrapper}>
+		<div class="row-start-1 col-start-1 min-h-0 overflow-y-auto" bind:this={slotWrapper}>
 			<slot />
 		</div>
 	</div>
@@ -1092,13 +1196,13 @@ $: if (mapInitialized) {
 		);
 		animation: load-shimmer 1.5s infinite;
 	}
-.load-bar-text {
-  font-size: 11px;
-  padding: 2px 8px 4px;
-  line-height: 1;
-  letter-spacing: 0.01em;
-}
-.load-indicator-error .load-bar-fill {
+	.load-bar-text {
+		font-size: 11px;
+		padding: 2px 8px 4px;
+		line-height: 1;
+		letter-spacing: 0.01em;
+	}
+	.load-indicator-error .load-bar-fill {
 		background: var(--bar-error) !important;
 		animation: none;
 	}
@@ -1107,17 +1211,21 @@ $: if (mapInitialized) {
 		background: none;
 	}
 	@keyframes load-shimmer {
-		0% { transform: translateX(-100%); }
-		100% { transform: translateX(100%); }
+		0% {
+			transform: translateX(-100%);
+		}
+		100% {
+			transform: translateX(100%);
+		}
 	}
-.elevation-profile-overlay {
+	.elevation-profile-overlay {
 		flex: 0 0 25%;
 		background: white;
 		border-top: 1px solid #ddd;
 		z-index: 1;
 		overflow: hidden;
 	}
-.filter-funnel-btn {
+	.filter-funnel-btn {
 		z-index: 2;
 		border-radius: 6px;
 	}
@@ -1147,19 +1255,19 @@ $: if (mapInitialized) {
 		text-decoration: underline;
 		font-weight: 500;
 	}
-  .map-attribution {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    font-size: 9px;
-    opacity: 0.5;
-    pointer-events: none;
-    z-index: 1;
-    padding: 2px 4px;
-  }
-  .map-attribution a {
-    pointer-events: none;
-    color: inherit;
-    text-decoration: none;
-  }
+	.map-attribution {
+		position: absolute;
+		bottom: 0;
+		right: 0;
+		font-size: 9px;
+		opacity: 0.5;
+		pointer-events: none;
+		z-index: 1;
+		padding: 2px 4px;
+	}
+	.map-attribution a {
+		pointer-events: none;
+		color: inherit;
+		text-decoration: none;
+	}
 </style>

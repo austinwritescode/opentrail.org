@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import { downloadState, downloadPersist, settings, errorModal } from './store.js';
+import { downloadState, downloadPersist, settings, handleError } from './store.js';
 import { db } from './db';
 import { hold, unhold } from './wakeLock.js';
 
@@ -42,8 +42,16 @@ export async function resumeDownload() {
 	const isOfflineCache = cachename === 'offline-cache';
 	const displayName = isOfflineCache ? 'offline cache' : 'offline images';
 	const onSuccess = isOfflineCache
-		? () => settings.update((s) => { s.offline = true; return s; })
-		: () => settings.update((s) => { s.offlineimages = true; return s; });
+		? () =>
+				settings.update((s) => {
+					s.offline = true;
+					return s;
+				})
+		: () =>
+				settings.update((s) => {
+					s.offlineimages = true;
+					return s;
+				});
 	const onDelete = isOfflineCache ? deleteOffline : deleteImages;
 
 	try {
@@ -51,38 +59,52 @@ export async function resumeDownload() {
 			const fileSize = await getOPFSFileSize(persist.trail);
 			const total = persist.totalBytes || fileSize;
 			if (fileSize > 0 && fileSize >= total) {
-				downloadPersist.update((p) => { p.status = 'complete'; return p; });
-				downloadState.update((d) => { d.active = false; return d; });
+				downloadPersist.update((p) => {
+					p.status = 'complete';
+					return p;
+				});
+				downloadState.update((d) => {
+					d.active = false;
+					return d;
+				});
 				onSuccess();
 				return;
 			}
 			await streamPmtiles(
 				persist.trail,
-				fileSize > 0 ? fileSize : (persist.bytesReceived || 0),
+				fileSize > 0 ? fileSize : persist.bytesReceived || 0,
 				persist.totalBytes || 0,
 				'Resuming offline cache',
 				onSuccess,
 				onDelete
 			);
-  } else {
-    const hasCaches = typeof caches !== 'undefined';
-    if (!hasCaches) {
-      onDelete();
-      throw new Error('Caches API not available. Ensure you are using HTTPS.');
-    }
-    const cache = await caches.open('image-cache');
-    const res = await fetch(`/api/getImageList?trail=${persist.trail}`);
-    const list = await res.json();
-    /** @type {string[]} */
-    const URLlist = list.map((/** @type {number} */ num) => `https://cdn.opentrail.org/img/${num}.jpg`);
-    const remaining = [];
-    for (const url of URLlist) {
-      const cached = await cache.match(url);
-      if (!cached) remaining.push(url);
-    }
+		} else {
+			const hasCaches = typeof caches !== 'undefined';
+			if (!hasCaches) {
+				onDelete();
+				throw new Error('Caches API not available. Ensure you are using HTTPS.');
+			}
+			const cache = await caches.open('image-cache');
+			const res = await fetch(`/api/getImageList?trail=${persist.trail}`);
+			const list = await res.json();
+			/** @type {string[]} */
+			const URLlist = list.map(
+				(/** @type {number} */ num) => `https://cdn.opentrail.org/img/${num}.jpg`
+			);
+			const remaining = [];
+			for (const url of URLlist) {
+				const cached = await cache.match(url);
+				if (!cached) remaining.push(url);
+			}
 			if (remaining.length === 0) {
-				downloadPersist.update((p) => { p.status = 'complete'; return p; });
-				downloadState.update((d) => { d.active = false; return d; });
+				downloadPersist.update((p) => {
+					p.status = 'complete';
+					return p;
+				});
+				downloadState.update((d) => {
+					d.active = false;
+					return d;
+				});
 				onSuccess();
 				return;
 			}
@@ -107,11 +129,20 @@ export async function resumeDownload() {
 				remaining.map((url) =>
 					limit(async () => {
 						await cache.add(url);
-						downloadState.update((d) => { d.downloaded++; return d; });
+						downloadState.update((d) => {
+							d.downloaded++;
+							return d;
+						});
 						const state = get(downloadState);
 						if (state.downloaded === state.total) {
-							downloadState.update((d) => { d.active = false; return d; });
-							downloadPersist.update((p) => { p.status = 'complete'; return p; });
+							downloadState.update((d) => {
+								d.active = false;
+								return d;
+							});
+							downloadPersist.update((p) => {
+								p.status = 'complete';
+								return p;
+							});
 							unhold();
 							onSuccess();
 						}
@@ -122,7 +153,7 @@ export async function resumeDownload() {
 	} catch (/** @type {any} */ e) {
 		onDelete();
 		unhold();
-		errorModal(/** @type {Error} */ (e));
+		handleError(/** @type {Error} */ (e), { modal: true, sentry: true });
 	}
 }
 
@@ -137,7 +168,14 @@ let downloadAbortController = null;
  * @param {() => void} onSuccess
  * @param {() => void} onDelete
  */
-export async function streamPmtiles(trail, startBytes, totalBytes, displayName, onSuccess, onDelete) {
+export async function streamPmtiles(
+	trail,
+	startBytes,
+	totalBytes,
+	displayName,
+	onSuccess,
+	onDelete
+) {
 	const url = getPmtilesUrl(trail);
 	downloadAbortController = new AbortController();
 
@@ -148,16 +186,16 @@ export async function streamPmtiles(trail, startBytes, totalBytes, displayName, 
 		downloaded: startBytes,
 		total: totalBytes,
 		trail: trail,
-  onCancel: () => {
-      downloadAbortController?.abort();
-      if (opfsWorker) {
-        opfsWorker.postMessage({ type: 'abort', startBytes });
-        opfsWorker.terminate();
-        opfsWorker = null;
-      }
-      onDelete();
-      unhold();
-    }
+		onCancel: () => {
+			downloadAbortController?.abort();
+			if (opfsWorker) {
+				opfsWorker.postMessage({ type: 'abort', startBytes });
+				opfsWorker.terminate();
+				opfsWorker = null;
+			}
+			onDelete();
+			unhold();
+		}
 	});
 	hold();
 
@@ -175,7 +213,9 @@ export async function streamPmtiles(trail, startBytes, totalBytes, displayName, 
 		if (response.status === 206) {
 			const contentRange = response.headers.get('Content-Range');
 			const match = contentRange?.match(/\/(\d+)/);
-			totalBytes = match ? parseInt(match[1]) : parseInt(response.headers.get('Content-Length') || '0') + startBytes;
+			totalBytes = match
+				? parseInt(match[1])
+				: parseInt(response.headers.get('Content-Length') || '0') + startBytes;
 		} else {
 			totalBytes = parseInt(response.headers.get('Content-Length') || '0');
 		}
@@ -187,7 +227,10 @@ export async function streamPmtiles(trail, startBytes, totalBytes, displayName, 
 		p.totalBytes = totalBytes;
 		return p;
 	});
-	downloadState.update((d) => { d.total = totalBytes; return d; });
+	downloadState.update((d) => {
+		d.total = totalBytes;
+		return d;
+	});
 
 	/** @type {Worker | null} */
 	let opfsWorker = null;
@@ -223,30 +266,40 @@ export async function streamPmtiles(trail, startBytes, totalBytes, displayName, 
 		workerReject = null;
 	};
 
-  try {
-    await workerMessage('open', { trail, startBytes });
-    while (true) {
-		const { done, value } = await reader.read();
+	try {
+		await workerMessage('open', { trail, startBytes });
+		while (true) {
+			const { done, value } = await reader.read();
 			if (done) break;
 			const chunkLength = value.length;
-			await workerMessage('write', { data: value.buffer, offset: writeOffset, transferables: [value.buffer] });
+			await workerMessage('write', {
+				data: value.buffer,
+				offset: writeOffset,
+				transferables: [value.buffer]
+			});
 			writeOffset += chunkLength;
 
-      downloadState.update((d) => { d.downloaded = writeOffset; return d; });
-      downloadPersist.update((p) => { p.bytesReceived = writeOffset; return p; });
-    }
-    await workerMessage('flush');
-    await workerMessage('close');
-    opfsWorker.terminate();
-    opfsWorker = null;
-  } catch (e) {
-    if (opfsWorker) {
-      opfsWorker.postMessage({ type: 'abort', startBytes });
-      opfsWorker.terminate();
-      opfsWorker = null;
-    }
-    throw e;
-  }
+			downloadState.update((d) => {
+				d.downloaded = writeOffset;
+				return d;
+			});
+			downloadPersist.update((p) => {
+				p.bytesReceived = writeOffset;
+				return p;
+			});
+		}
+		await workerMessage('flush');
+		await workerMessage('close');
+		opfsWorker.terminate();
+		opfsWorker = null;
+	} catch (e) {
+		if (opfsWorker) {
+			opfsWorker.postMessage({ type: 'abort', startBytes });
+			opfsWorker.terminate();
+			opfsWorker = null;
+		}
+		throw e;
+	}
 
 	downloadPersist.update((p) => {
 		p.status = 'complete';
@@ -254,27 +307,53 @@ export async function streamPmtiles(trail, startBytes, totalBytes, displayName, 
 		p.totalBytes = 0;
 		return p;
 	});
-	downloadState.update((d) => { d.active = false; return d; });
+	downloadState.update((d) => {
+		d.active = false;
+		return d;
+	});
 	unhold();
 	onSuccess();
 }
 
 export async function deleteOffline() {
-  const trail = get(settings).trail;
-  try { await db.pending.clear(); } catch {}
-  await deleteOPFSFile(trail);
-  if (typeof caches !== 'undefined') {
-    await caches.delete('offline-cache');
-    await caches.delete('image-cache');
-  }
-  settings.update((s) => { s.offline = false; s.offlineimages = false; return s; });
-  downloadState.update((d) => { d.active = false; return d; });
-  downloadPersist.update((p) => { p.status = ''; p.bytesReceived = 0; p.totalBytes = 0; return p; });
+	const trail = get(settings).trail;
+	try {
+		await db.pending.clear();
+	} catch {}
+	await deleteOPFSFile(trail);
+	if (typeof caches !== 'undefined') {
+		await caches.delete('offline-cache');
+		await caches.delete('image-cache');
+	}
+	settings.update((s) => {
+		s.offline = false;
+		s.offlineimages = false;
+		return s;
+	});
+	downloadState.update((d) => {
+		d.active = false;
+		return d;
+	});
+	downloadPersist.update((p) => {
+		p.status = '';
+		p.bytesReceived = 0;
+		p.totalBytes = 0;
+		return p;
+	});
 }
 
 export async function deleteImages() {
-  if (typeof caches !== 'undefined') await caches.delete('image-cache');
-  settings.update((s) => { s.offlineimages = false; return s; });
-  downloadState.update((d) => { d.active = false; return d; });
-  downloadPersist.update((p) => { p.status = ''; return p; });
+	if (typeof caches !== 'undefined') await caches.delete('image-cache');
+	settings.update((s) => {
+		s.offlineimages = false;
+		return s;
+	});
+	downloadState.update((d) => {
+		d.active = false;
+		return d;
+	});
+	downloadPersist.update((p) => {
+		p.status = '';
+		return p;
+	});
 }

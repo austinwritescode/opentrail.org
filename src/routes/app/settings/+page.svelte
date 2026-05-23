@@ -7,7 +7,7 @@
 	import {
 		settings,
 		openModal,
-		errorModal,
+		handleError,
 		modal,
 		downloadState,
 		downloadPersist,
@@ -40,12 +40,12 @@
 	function toggle(key) {
 		$settings[key] = !$settings[key];
 	}
-  function toggleUnits() {
-    $settings.units = $settings.units === 'imperial' ? 'metric' : 'imperial';
-  }
-  function toggleDateFormat() {
-    $settings.dateFormat = $settings.dateFormat === 'M/D/YYYY' ? 'D/M/YYYY' : 'M/D/YYYY';
-  }
+	function toggleUnits() {
+		$settings.units = $settings.units === 'imperial' ? 'metric' : 'imperial';
+	}
+	function toggleDateFormat() {
+		$settings.dateFormat = $settings.dateFormat === 'M/D/YYYY' ? 'D/M/YYYY' : 'M/D/YYYY';
+	}
 	async function changeTrail(newTrail) {
 		await deleteOffline();
 		$settings.trail = newTrail;
@@ -94,11 +94,11 @@
 		...offlineSublabels,
 		['Username', $settings.username, openUsernameModal, false],
 		['Dark mode', $settings.dark, () => toggle('dark'), false],
-    ['Units', $settings.units === 'imperial' ? 'mi/ft' : 'km/m', toggleUnits, false],
-    ['Date format', $settings.dateFormat.replace('YYYY', 'Y'), toggleDateFormat, false],
-    ['Send crash reports', $settings.sendCrashReports, () => toggle('sendCrashReports'), false],
-    ['Community guidelines', '', () => openModal({ type: 'community' }), false],
-    ['About', '', () => openModal({ type: 'about' }), false]
+		['Units', $settings.units === 'imperial' ? 'mi/ft' : 'km/m', toggleUnits, false],
+		['Date format', $settings.dateFormat.replace('YYYY', 'Y'), toggleDateFormat, false],
+		['Send crash reports', $settings.sendCrashReports, () => toggle('sendCrashReports'), false],
+		['Community guidelines', '', () => openModal({ type: 'community' }), false],
+		['About', '', () => openModal({ type: 'about' }), false]
 	];
 	function openUsernameModal() {
 		openModal({
@@ -180,102 +180,136 @@
 		}
 	}
 
-  async function getMissingAssets() {
-    if (!window.isSecureContext || typeof caches === 'undefined')
-      return [];
-    const reg = await navigator.serviceWorker.ready;
-  return new Promise((resolve, reject) => {
-    const channel = new MessageChannel();
-    const timeout = setTimeout(() => reject(new Error('Cache verification timed out')), 5000);
-    channel.port1.onmessage = (e) => { clearTimeout(timeout); resolve(e.data.missing); };
-    channel.port1.onmessageerror = () => { clearTimeout(timeout); reject(new Error('Cache verification failed')); };
-    reg.active.postMessage({ type: 'VERIFY_CACHE' }, [channel.port2]);
-  });
-}
+	async function getMissingAssets() {
+		if (!window.isSecureContext || typeof caches === 'undefined') return [];
+		const reg = await navigator.serviceWorker.ready;
+		return new Promise((resolve, reject) => {
+			const channel = new MessageChannel();
+			const timeout = setTimeout(() => reject(new Error('Cache verification timed out')), 5000);
+			channel.port1.onmessage = (e) => {
+				clearTimeout(timeout);
+				resolve(e.data.missing);
+			};
+			channel.port1.onmessageerror = () => {
+				clearTimeout(timeout);
+				reject(new Error('Cache verification failed'));
+			};
+			reg.active.postMessage({ type: 'VERIFY_CACHE' }, [channel.port2]);
+		});
+	}
 
-  async function fetchOffline() {
-    if (typeof caches === 'undefined')
-      return errorModal(new Error('Caches API not available. Ensure you are using HTTPS.'));
-	if (!navigator.serviceWorker.controller)
-		return errorModal(new Error('Offline mode isn\'t available. This can happen when device storage is low or the page wasn\'t loaded securely. Try freeing up storage, ensure you\'re on HTTPS, and reload the page.'));
-const isLocalhost = window.location.hostname === 'localhost';
-  if (!$isInstalled && !isLocalhost)
-    return errorModal(
-      new Error(
-        'Install this app to your home screen to enable offline mode. This ensures your cached data will not be evicted by the browser.'
-      )
-    );
-  if (!isLocalhost) {
-    const persisted = await navigator.storage.persist();
-    if (!persisted)
-      return errorModal(
-        new Error(
-          'Could not secure persistent storage. Make sure the app is installed to your home screen and try again.'
-        )
-      );
-  }
+	async function fetchOffline() {
+		if (typeof caches === 'undefined')
+			return handleError(new Error('Caches API not available. Ensure you are using HTTPS.'), {
+				modal: true,
+				sentry: true,
+				tags: { transient: true }
+			});
+		if (!navigator.serviceWorker.controller)
+			return handleError(
+				new Error(
+					"Offline mode isn't available. This can happen when device storage is low or the page wasn't loaded securely. Try freeing up storage, ensure you're on HTTPS, and reload the page."
+				),
+				{ modal: true, sentry: true, tags: { transient: true } }
+			);
+		const isLocalhost = window.location.hostname === 'localhost';
+		if (!$isInstalled && !isLocalhost)
+			return handleError(
+				new Error(
+					'Install this app to your home screen to enable offline mode. This ensures your cached data will not be evicted by the browser.'
+				),
+				{ modal: true, sentry: true, tags: { transient: true } }
+			);
+		if (!isLocalhost) {
+			const persisted = await navigator.storage.persist();
+			if (!persisted)
+				return handleError(
+					new Error(
+						'Could not secure persistent storage. Make sure the app is installed to your home screen and try again.'
+					),
+					{ modal: true, sentry: true, tags: { transient: true } }
+				);
+		}
 
-  let missing;
-  try {
-    missing = await getMissingAssets();
-  } catch (e) {
-    return errorModal(new Error('Could not verify cached assets. Refresh the page and try again.'));
-  }
-  if (missing.length > 0) {
-    const cacheName = (await caches.keys()).find(k => k.startsWith('cache-'));
-    if (!cacheName)
-      return errorModal(new Error('No app cache found. Refresh the page and try again.'));
-    const cache = await caches.open(cacheName);
-    const results = await Promise.allSettled(
-      missing.map(url => fetch(url).then(res => {
-        if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
-        return cache.put(url, res);
-      }))
-    );
-    const failed = results.filter(r => r.status === 'rejected');
-    if (failed.length > 0) {
-      const stillMissing = await getMissingAssets();
-      if (stillMissing.length > 0)
-        return errorModal(new Error(`Could not cache ${stillMissing.length} essential asset(s). Check your connection and try again.`));
-    }
-  }
+		let missing;
+		try {
+			missing = await getMissingAssets();
+		} catch (e) {
+			return handleError(
+				new Error('Could not verify cached assets. Refresh the page and try again.'),
+				{ modal: true, sentry: true, tags: { transient: true } }
+			);
+		}
+		if (missing.length > 0) {
+			const cacheName = (await caches.keys()).find((k) => k.startsWith('cache-'));
+			if (!cacheName)
+				return handleError(new Error('No app cache found. Refresh the page and try again.'), {
+					modal: true,
+					sentry: true,
+					tags: { transient: true }
+				});
+			const cache = await caches.open(cacheName);
+			const results = await Promise.allSettled(
+				missing.map((url) =>
+					fetch(url).then((res) => {
+						if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
+						return cache.put(url, res);
+					})
+				)
+			);
+			const failed = results.filter((r) => r.status === 'rejected');
+			if (failed.length > 0) {
+				const stillMissing = await getMissingAssets();
+				if (stillMissing.length > 0)
+					return handleError(
+						new Error(
+							`Could not cache ${stillMissing.length} essential asset(s). Check your connection and try again.`
+						),
+						{ modal: true, sentry: true }
+					);
+			}
+		}
 
-  await caches.delete('offline-cache');
-  const cache = await caches.open('offline-cache');
-  try {
-    $downloadPersist = {
-      type: 'offline-cache',
-      trail: $settings.trail,
-      status: 'in_progress',
-      bytesReceived: 0,
-      totalBytes: 0
-    };
-    const trailData = [
-      `https://cdn.opentrail.org/${$settings.trail}.json`,
-      `/api/getData?trail=${$settings.trail}`
-    ];
-    await cache.addAll(trailData);
-    await streamPmtiles(
-      $settings.trail,
-      0,
-      0,
-      'Downloading offline cache',
-      () => {
-        $settings.offline = true;
-      },
-      deleteOffline
-    );
-  } catch (e) {
-    deleteOffline();
-    unhold();
-    return errorModal(/** @type {Error} */ (e));
-  }
-}
+		await caches.delete('offline-cache');
+		const cache = await caches.open('offline-cache');
+		try {
+			$downloadPersist = {
+				type: 'offline-cache',
+				trail: $settings.trail,
+				status: 'in_progress',
+				bytesReceived: 0,
+				totalBytes: 0
+			};
+			const trailData = [
+				`https://cdn.opentrail.org/${$settings.trail}.json`,
+				`/api/getData?trail=${$settings.trail}`
+			];
+			await cache.addAll(trailData);
+			await streamPmtiles(
+				$settings.trail,
+				0,
+				0,
+				'Downloading offline cache',
+				() => {
+					$settings.offline = true;
+				},
+				deleteOffline
+			);
+		} catch (e) {
+			deleteOffline();
+			unhold();
+			return handleError(/** @type {Error} */ (e), { modal: true, sentry: true });
+		}
+	}
 
-  async function fetchImages() {
-    if (typeof caches === 'undefined')
-      return errorModal(new Error('Caches API not available. Ensure you are using HTTPS.'));
-    await caches.delete('image-cache');
+	async function fetchImages() {
+		if (typeof caches === 'undefined')
+			return handleError(new Error('Caches API not available. Ensure you are using HTTPS.'), {
+				modal: true,
+				sentry: true,
+				tags: { transient: true }
+			});
+		await caches.delete('image-cache');
 		try {
 			$downloadPersist = {
 				type: 'image-cache',
@@ -309,14 +343,18 @@ const isLocalhost = window.location.hostname === 'localhost';
 		} catch (e) {
 			deleteImages();
 			unhold();
-			return errorModal(/** @type {Error} */ (e));
+			return handleError(/** @type {Error} */ (e), { modal: true, sentry: true });
 		}
 	}
 
-  async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
-    if (typeof caches === 'undefined')
-      return errorModal(new Error('Caches API not available. Ensure you are using HTTPS.'));
-    if (URLlist.length === 0) {
+	async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
+		if (typeof caches === 'undefined')
+			return handleError(new Error('Caches API not available. Ensure you are using HTTPS.'), {
+				modal: true,
+				sentry: true,
+				tags: { transient: true }
+			});
+		if (URLlist.length === 0) {
 			$downloadState.active = false;
 			$downloadPersist.status = 'complete';
 			unhold();
@@ -345,7 +383,7 @@ const isLocalhost = window.location.hostname === 'localhost';
 			if (cachename === 'offline-cache') deleteOffline();
 			if (cachename === 'image-cache') deleteImages();
 			unhold();
-			return errorModal(/** @type {Error} */ (e));
+			return handleError(/** @type {Error} */ (e), { modal: true, sentry: true });
 		}
 	}
 
@@ -356,7 +394,7 @@ const isLocalhost = window.location.hostname === 'localhost';
 		} catch (e) {
 			//cancel sync w error:
 			syncSpinner = false;
-			return errorModal(/** @type {Error} */ (e));
+			return handleError(/** @type {Error} */ (e), { modal: true, sentry: true });
 		}
 		updateStorageEstimate();
 		syncSpinner = false;

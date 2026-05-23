@@ -52,23 +52,23 @@ export const ICON_COLORS = {
 };
 
 let initSettings = {
-  trail: '',
-  reverseMiles: false,
-  offline: false,
-  autosync: true,
-  lastsync: {},
-  offlineimages: false,
-  enablesat: false,
-  username: '',
-  dark: false,
-  units: 'imperial',
-  dateFormat: 'M/D/YYYY',
-  sendCrashReports: true
+	trail: '',
+	reverseMiles: false,
+	offline: false,
+	autosync: true,
+	lastsync: {},
+	offlineimages: false,
+	enablesat: false,
+	username: '',
+	dark: false,
+	units: 'imperial',
+	dateFormat: 'M/D/YYYY',
+	sendCrashReports: true
 };
 if (browser) {
 	const storedSettings = localStorage.getItem('settings');
 	if (storedSettings) {
-    initSettings = { ...initSettings, ...JSON.parse(storedSettings) };
+		initSettings = { ...initSettings, ...JSON.parse(storedSettings) };
 		initSettings.lastsync = new dayjs(initSettings.lastsync); //since its stored as a string
 	}
 	if (window.location.hostname.split('.')[0] === 'test') initSettings.trail = 'test';
@@ -134,22 +134,27 @@ export function openModal({
 	});
 }
 
-export function errorModal(err) {
-  const errObj = err instanceof Error ? err : new Error(err);
-	const isTransientNetworkError = /failed to fetch|networkerror|network request failed|load failed|cache operation not supported/i.test(errObj.message);
-	const isAbortError = errObj.name === 'AbortError';
-	const isSwRejection = errObj.message === 'Rejected';
-	if (isTransientNetworkError || isAbortError || isSwRejection) {
-    if (browser && !dev && get(settings).sendCrashReports !== false) {
-      import('@sentry/sveltekit').then(Sentry => Sentry.captureException(errObj, { tags: { transient: true } })).catch(() => {});
-    }
-    return false;
-  }
-  if (browser && !dev && get(settings).sendCrashReports !== false) {
-    import('@sentry/sveltekit').then(Sentry => Sentry.captureException(errObj)).catch(() => {});
-  }
-  openModal({ type: 'error', data: errObj.message });
-  return true;
+function captureSentry(errObj, options = {}) {
+	if (!browser || dev || get(settings).sendCrashReports === false) return;
+	import('@sentry/sveltekit').then((S) => S.captureException(errObj, options)).catch(() => {});
+}
+
+export function isTransientError(err) {
+	if (!(err instanceof Error)) return false;
+	return (
+		/failed to fetch|networkerror|network request failed|load failed|cache operation not supported/i.test(
+			err.message
+		) ||
+		err.name === 'AbortError' ||
+		err.message === 'Rejected'
+	);
+}
+
+export function handleError(err, { modal = true, sentry = true, tags = {} } = {}) {
+	const errObj = err instanceof Error ? err : new Error(String(err));
+	if (sentry) captureSentry(errObj, { tags });
+	if (modal) openModal({ type: 'error', data: errObj.message });
+	return errObj;
 }
 
 export const downloadState = writable({
@@ -169,9 +174,7 @@ if (browser) {
 }
 export const downloadPersist = writable(initDownloadPersist);
 if (browser)
-	downloadPersist.subscribe((val) =>
-		localStorage.setItem('downloadPersist', JSON.stringify(val))
-	);
+	downloadPersist.subscribe((val) => localStorage.setItem('downloadPersist', JSON.stringify(val)));
 
 let initPlatform = 'other';
 if (browser) {
@@ -232,7 +235,8 @@ if (browser) {
 	if (stored !== null) initListBoundsFilter = stored === 'true';
 }
 export const listBoundsFilter = writable(initListBoundsFilter);
-if (browser) listBoundsFilter.subscribe((val) => localStorage.setItem('listBoundsFilter', String(val)));
+if (browser)
+	listBoundsFilter.subscribe((val) => localStorage.setItem('listBoundsFilter', String(val)));
 
 let initListCommentSort = 'recent';
 if (browser) {
@@ -249,9 +253,9 @@ export const listScrollPosition = writable(0);
 export const swWaitingRegistration = writable(null);
 
 export const loadStatus = writable({
-  phase: 'idle',
-  message: '',
-  progress: 0,
-  indeterminate: false,
-  error: false
+	phase: 'idle',
+	message: '',
+	progress: 0,
+	indeterminate: false,
+	error: false
 });

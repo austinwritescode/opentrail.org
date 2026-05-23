@@ -1,30 +1,41 @@
 import { dev } from '$app/environment';
-import { handleErrorWithSentry, replayIntegration } from "@sentry/sveltekit";
+import {
+	handleErrorWithSentry,
+	replayIntegration,
+	consoleLoggingIntegration
+} from '@sentry/sveltekit';
 import * as Sentry from '@sentry/sveltekit';
 import { get } from 'svelte/store';
 import { settings } from '$lib/store.js';
 
 if (!dev) {
-  Sentry.init({
-    dsn: 'https://ce5b7f4bfa0d91de3163c9daa500b484@o4511352687951872.ingest.us.sentry.io/4511352688279552',
+	Sentry.init({
+		dsn: 'https://ce5b7f4bfa0d91de3163c9daa500b484@o4511352687951872.ingest.us.sentry.io/4511352688279552',
 
-    tracesSampleRate: 1.0,
+		tracesSampleRate: 1.0,
 
-    enableLogs: true,
+		enableLogs: true,
 
-    replaysSessionSampleRate: 0.01,
+		replaysSessionSampleRate: 0.1,
 
-    replaysOnErrorSampleRate: 1.0,
+		replaysOnErrorSampleRate: 1.0,
 
-    integrations: [replayIntegration({ canvas: true })],
+		integrations: function (integrations) {
+			return integrations
+				.filter((i) => i.name !== 'GlobalHandlers')
+				.concat([
+					replayIntegration({ canvas: true }),
+					consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] })
+				]);
+		},
 
-    sendDefaultPii: false,
+		sendDefaultPii: false,
 
-    beforeSend(event) {
-      if (get(settings).sendCrashReports === false) return null;
-      return event;
-    },
-  });
+		beforeSend(event) {
+			if (get(settings).sendCrashReports === false) return null;
+			return event;
+		}
+	});
 }
 
 export const handleError = handleErrorWithSentry();

@@ -1,20 +1,21 @@
 <script>
-import 'normalize.css';
-import '../app.css'; //tailwind
-import {
-  modal,
-  openModal,
-  TRAILS,
-  ICONS,
-  ICON_EXPLANATIONS,
-  settings,
-  errorModal,
-  isInstalled,
-  deferredPrompt,
-  swWaitingRegistration,
-  downloadState,
-  downloadPersist
-} from '$lib/store.js';
+	import 'normalize.css';
+	import '../app.css'; //tailwind
+	import {
+		modal,
+		openModal,
+		TRAILS,
+		ICONS,
+		ICON_EXPLANATIONS,
+		settings,
+		handleError,
+		isTransientError,
+		isInstalled,
+		deferredPrompt,
+		swWaitingRegistration,
+		downloadState,
+		downloadPersist
+	} from '$lib/store.js';
 	import DownloadOverlay from '$lib/DownloadOverlay.svelte';
 	import { resumeDownload } from '$lib/download.js';
 	import { onMount } from 'svelte';
@@ -24,10 +25,17 @@ import {
 	let spinner = false;
 
 	onMount(() => {
-window.addEventListener('error', (e) => errorModal(e.error || new Error(e.message)));
-  window.addEventListener('unhandledrejection', (e) =>
-    errorModal(e.reason)
-  );
+		window.addEventListener('error', (e) => {
+			handleError(e.error || new Error(e.message), { modal: true, sentry: true });
+		});
+		window.addEventListener('unhandledrejection', (e) => {
+			const err = e.reason instanceof Error ? e.reason : new Error(String(e.reason));
+			if (isTransientError(err)) {
+				handleError(err, { modal: false, sentry: true, tags: { transient: true } });
+			} else {
+				handleError(err, { modal: true, sentry: true });
+			}
+		});
 
 		window.addEventListener('beforeinstallprompt', (e) => {
 			e.preventDefault();
@@ -38,51 +46,56 @@ window.addEventListener('error', (e) => errorModal(e.error || new Error(e.messag
 			isInstalled.set(true);
 		});
 
- if ('serviceWorker' in navigator && window.isSecureContext) {
- navigator.serviceWorker.ready.then((reg) => {
- function showUpdateModal() {
- swWaitingRegistration.set(reg);
- openModal({
- type: 'updateAvailable',
- submit: () => {
- reg.waiting.postMessage({ type: 'SKIP_WAITING' });
- },
- cancel: () => {}
- });
- }
+		if ('serviceWorker' in navigator && window.isSecureContext) {
+			navigator.serviceWorker.ready
+				.then((reg) => {
+					function showUpdateModal() {
+						swWaitingRegistration.set(reg);
+						openModal({
+							type: 'updateAvailable',
+							submit: () => {
+								reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+							},
+							cancel: () => {}
+						});
+					}
 
- if (reg.waiting) showUpdateModal();
+					if (reg.waiting) showUpdateModal();
 
- reg.addEventListener('updatefound', () => {
- const newWorker = reg.installing;
- newWorker.addEventListener('statechange', () => {
- if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
- showUpdateModal();
- }
- });
- });
- }).catch(() => {});
+					reg.addEventListener('updatefound', () => {
+						const newWorker = reg.installing;
+						newWorker.addEventListener('statechange', () => {
+							if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+								showUpdateModal();
+							}
+						});
+					});
+				})
+				.catch(() => {});
 
- navigator.serviceWorker.addEventListener('controllerchange', () => {
- window.location.reload();
- });
+			navigator.serviceWorker.addEventListener('controllerchange', () => {
+				window.location.reload();
+			});
 
- function maybeUpdateSW() {
- const last = localStorage.getItem('sw-last-check');
- if (!last || Date.now() - Number(last) > 86_400_000) {
-			navigator.serviceWorker?.getRegistration()?.then(r => {
-				r?.update()
-					.then(() => localStorage.setItem('sw-last-check', String(Date.now())))
-					.catch((e) => console.warn('SW update check failed:', e?.message));
-			}).catch(() => {});
- }
- }
+			function maybeUpdateSW() {
+				const last = localStorage.getItem('sw-last-check');
+				if (!last || Date.now() - Number(last) > 86_400_000) {
+					navigator.serviceWorker
+						?.getRegistration()
+						?.then((r) => {
+							r?.update()
+								.then(() => localStorage.setItem('sw-last-check', String(Date.now())))
+								.catch((e) => console.warn('SW update check failed:', e?.message));
+						})
+						.catch(() => {});
+				}
+			}
 
- maybeUpdateSW();
- document.addEventListener('visibilitychange', () => {
- if (document.visibilityState === 'visible') maybeUpdateSW();
- });
- }
+			maybeUpdateSW();
+			document.addEventListener('visibilitychange', () => {
+				if (document.visibilityState === 'visible') maybeUpdateSW();
+			});
+		}
 
 		resumeDownload();
 	});
@@ -98,12 +111,14 @@ window.addEventListener('error', (e) => errorModal(e.error || new Error(e.messag
 			if ($modal.spinner) spinner = true;
 			$modal.isOpen = false;
 			await $modal.submit($modal.data);
-  } catch (e) {
-    errorModal(e);
-  } finally {
-    spinner = false;
-  }
-}
+		} catch (e) {
+			const err = e instanceof Error ? e : new Error(String(e));
+			const transient = isTransientError(err);
+			handleError(err, { modal: true, sentry: true, tags: transient ? { transient: true } : {} });
+		} finally {
+			spinner = false;
+		}
+	}
 	$: open = $modal.isOpen || spinner;
 	$: noConfirm =
 		$modal.type === 'about' ||
@@ -163,8 +178,8 @@ window.addEventListener('error', (e) => errorModal(e.error || new Error(e.messag
 						Bug reports
 					</a>
 				</p>
-<p><a href="https://cdn.opentrail.org/terms.html" class="link">Terms of Service</a></p>
-<p><a href="https://cdn.opentrail.org/privacy.html" class="link">Privacy Policy</a></p>
+				<p><a href="https://cdn.opentrail.org/terms.html" class="link">Terms of Service</a></p>
+				<p><a href="https://cdn.opentrail.org/privacy.html" class="link">Privacy Policy</a></p>
 				<!-- svelte-ignore missing-declaration -->
 				<p>Version: {__VERSION__} {__LASTMOD__}</p>
 				<p>Contact: <a href="mailto:admin@opentrail.org">admin@opentrail.org</a></p>
@@ -261,7 +276,11 @@ window.addEventListener('error', (e) => errorModal(e.error || new Error(e.messag
 											bind:group={$modal.data}
 											value={trail}
 										/>
-										<img src={`https://cdn.opentrail.org/${trail}_logo.png`} width="50" height="50" />
+										<img
+											src={`https://cdn.opentrail.org/${trail}_logo.png`}
+											width="50"
+											height="50"
+										/>
 										<span class="text-xl">{trail}</span>
 									</div>
 								</label>
@@ -276,20 +295,22 @@ window.addEventListener('error', (e) => errorModal(e.error || new Error(e.messag
 					type="text"
 					bind:value={$modal.data[1]}
 				/>
-{:else if $modal.type === 'textArea'}
-<p class="font-bold text-2xl">{$modal.data[0]}</p>
-<textarea class="textarea textarea-accent w-full my-4" bind:value={$modal.data[1]}
-></textarea>
-{:else if $modal.type === 'textAreaWithComment'}
-<p class="font-bold text-2xl">{$modal.data[0]}</p>
-<textarea class="textarea textarea-accent w-full my-2" bind:value={$modal.data[1]}
-></textarea>
-<p class="text-sm opacity-50 mb-2">For permanent features of the marker</p>
-<p class="font-bold text-lg mt-2">First comment <span class="font-normal text-sm opacity-50">(optional)</span></p>
-<textarea class="textarea textarea-accent w-full my-2" bind:value={$modal.data[2]}
-></textarea>
-<p class="text-sm opacity-50 mb-4">For aspects you want date-associated</p>
-{:else if $modal.type === 'editIcons'}
+			{:else if $modal.type === 'textArea'}
+				<p class="font-bold text-2xl">{$modal.data[0]}</p>
+				<textarea class="textarea textarea-accent w-full my-4" bind:value={$modal.data[1]}
+				></textarea>
+			{:else if $modal.type === 'textAreaWithComment'}
+				<p class="font-bold text-2xl">{$modal.data[0]}</p>
+				<textarea class="textarea textarea-accent w-full my-2" bind:value={$modal.data[1]}
+				></textarea>
+				<p class="text-sm opacity-50 mb-2">For permanent features of the marker</p>
+				<p class="font-bold text-lg mt-2">
+					First comment <span class="font-normal text-sm opacity-50">(optional)</span>
+				</p>
+				<textarea class="textarea textarea-accent w-full my-2" bind:value={$modal.data[2]}
+				></textarea>
+				<p class="text-sm opacity-50 mb-4">For aspects you want date-associated</p>
+			{:else if $modal.type === 'editIcons'}
 				<p class="font-bold text-2xl">Marker icons</p>
 				<div class="btn-group">
 					{#each ICONS as icon}

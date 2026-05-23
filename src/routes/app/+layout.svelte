@@ -1,29 +1,43 @@
 <script>
-  import { page } from '$app/stores';
-  import { onMount, mount, unmount } from 'svelte';
-  import { slide } from 'svelte/transition';
-  import maplibregl from 'maplibre-gl';
-  import 'maplibre-gl/dist/maplibre-gl.css';
-  import { Protocol, PMTiles } from 'pmtiles';
-  import { OPFSSource } from '$lib/OPFSSource.js';
-  import {
-    settings, data, TRAILS, ICONS, renderedMarkers,
-    detailId, editLocId, editLocNewMarker, openModal, modal,
-    handleError, trailRoute, userMiles, elevationProfileVisible,
-    profileData, selectedMarkerId, activeIcons, loadStatus
-  } from '$lib/store.js';
-  import { fetchWithProgress } from '$lib/helpers.js';
-  import MarkerSlide from '$lib/MarkerSlide.svelte';
-  import MarkerDetail from '$lib/MarkerDetail.svelte';
-  import ElevationProfile from '$lib/ElevationProfile.svelte';
-  import { goto, replaceState } from '$app/navigation';
-  import { syncData, postGeneric, getData } from '$lib/api';
-  import { get } from 'svelte/store';
-  import { getOPFSFileSize } from '$lib/download.js';
-  import { searchTrailRoute } from '$lib/helpers.js';
-  import { decodeTrail } from '$lib/decode-trail.js';
-  import * as Sentry from '@sentry/sveltekit';
-  import { register } from 'swiper/element/bundle';
+	import { page } from '$app/stores';
+	import { onMount, mount, unmount } from 'svelte';
+	import { slide } from 'svelte/transition';
+	import maplibregl from 'maplibre-gl';
+	import 'maplibre-gl/dist/maplibre-gl.css';
+	import { Protocol, PMTiles } from 'pmtiles';
+	import { OPFSSource } from '$lib/OPFSSource.js';
+	import {
+		settings,
+		data,
+		TRAILS,
+		ICONS,
+		renderedMarkers,
+		detailId,
+		editLocId,
+		editLocNewMarker,
+		openModal,
+		modal,
+		handleError,
+		trailRoute,
+		userMiles,
+		elevationProfileVisible,
+		profileData,
+		selectedMarkerId,
+		activeIcons,
+		loadStatus
+	} from '$lib/store.js';
+	import { fetchWithProgress } from '$lib/helpers.js';
+	import MarkerSlide from '$lib/MarkerSlide.svelte';
+	import MarkerDetail from '$lib/MarkerDetail.svelte';
+	import ElevationProfile from '$lib/ElevationProfile.svelte';
+	import { goto, replaceState } from '$app/navigation';
+	import { syncData, postGeneric, getData } from '$lib/api';
+	import { get } from 'svelte/store';
+	import { getOPFSFileSize } from '$lib/download.js';
+	import { searchTrailRoute } from '$lib/helpers.js';
+	import { decodeTrail } from '$lib/decode-trail.js';
+	import * as Sentry from '@sentry/sveltekit';
+	import { register } from 'swiper/element/bundle';
 	register();
 	import SwiperCore, { Virtual } from 'swiper';
 	SwiperCore.use([Virtual]);
@@ -178,9 +192,9 @@
 		}
 	}
 
-  function toggleProfile() {
-    $elevationProfileVisible = !$elevationProfileVisible;
-    if ($elevationProfileVisible) {
+	function toggleProfile() {
+		$elevationProfileVisible = !$elevationProfileVisible;
+		if ($elevationProfileVisible) {
 			updateProfileData();
 		}
 		requestAnimationFrame(() => {
@@ -196,9 +210,9 @@
 		return Date.now() - last.valueOf() > 3600000;
 	}
 
-  onMount(async () => {
-    if (document.wasDiscarded) Sentry.metrics.count('client.page.was_discarded', 1);
-    window.addEventListener('popstate', () => {
+	onMount(async () => {
+		if (document.wasDiscarded) Sentry.metrics.count('client.page.was_discarded', 1);
+		window.addEventListener('popstate', () => {
 			fromBack = true;
 			if ($detailId !== -1) $detailId = -1;
 			else if ($selectedMarkerId !== -1) updateSelectedMarker(-1);
@@ -261,11 +275,14 @@
 			replaceState('/app', {});
 		}
 		if ($settings.autosync) {
-    window.addEventListener('online', () => {
-      Sentry.metrics.count('client.network.online', 1);
-      if (get(settings).autosync && isLastsyncStale()) syncData();
+			window.addEventListener('online', () => {
+				Sentry.metrics.count('client.network.online', 1);
+				if (get(settings).autosync && isLastsyncStale()) syncData();
 			});
 		}
+		document.addEventListener('visibilitychange', () => {
+			if (document.visibilityState === 'visible' && map) map.resize();
+		});
 	});
 
 	let filteredIdx;
@@ -417,9 +434,9 @@
 			else lastHeading = heading;
 			headingMarker.setRotation(heading);
 		};
-  geolocate.on('trackuserlocationstart', () => {
-    Sentry.metrics.count('client.geolocate.enabled', 1, { tags: { trail: $settings.trail } });
-    clearTimeout(disableTimeout);
+		geolocate.on('trackuserlocationstart', () => {
+			Sentry.metrics.count('client.geolocate.enabled', 1, { tags: { trail: $settings.trail } });
+			clearTimeout(disableTimeout);
 		});
 		geolocate.on('trackuserlocationend', () => {
 			disableTimeout = setTimeout(disableCompass, 300);
@@ -464,9 +481,11 @@
 			}
 		}
 		geolocate.on('geolocate', function (geo) {
-    if (new Date() - $userMiles.date > 60000) {
-      Sentry.metrics.count('client.geolocate.mile_search', 1, { tags: { trail: $settings.trail } });
-      //limit the mile search algo to once per minute
+			if (new Date() - $userMiles.date > 60000) {
+				Sentry.metrics.count('client.geolocate.mile_search', 1, {
+					tags: { trail: $settings.trail }
+				});
+				//limit the mile search algo to once per minute
 				$userMiles.date = new Date();
 				const min = searchTrailRoute(geo.coords.longitude, geo.coords.latitude, $trailRoute, 1);
 				$userMiles.miles = min.index / 10;
@@ -486,9 +505,9 @@
 			}
 		});
 
-  map.on('error', (e) => {
-    Sentry.metrics.count('client.map.error', 1);
-    const err = e.error || new Error(`Map: ${JSON.stringify(e.error)}`);
+		map.on('error', (e) => {
+			Sentry.metrics.count('client.map.error', 1);
+			const err = e.error || new Error(`Map: ${JSON.stringify(e.error)}`);
 			handleError(err, { modal: false, sentry: true });
 			setLoadError('Map load error');
 		});
@@ -510,13 +529,26 @@
 		await populateMap();
 		setLoadPhase('tiles', 0);
 
-  const canvases = document.getElementsByTagName('canvas');
-  if (canvases.length > 1)
-    handleError(new Error('Multiple map canvases detected'), { modal: false, sentry: true });
-  if (canvases[0]) {
-    canvases[0].addEventListener('webglcontextlost', () => Sentry.metrics.count('client.webgl.context_lost', 1));
-    canvases[0].addEventListener('webglcontextrestored', () => Sentry.metrics.count('client.webgl.context_restored', 1));
-  }
+		const canvases = document.getElementsByTagName('canvas');
+		if (canvases.length > 1)
+			handleError(new Error('Multiple map canvases detected'), { modal: false, sentry: true });
+
+		map.on('webglcontextlost', () => {
+			Sentry.metrics.count('client.webgl.context_lost', 1);
+			Sentry.addBreadcrumb({ category: 'webgl', message: 'WebGL context lost' });
+		});
+		map.on('webglcontextrestored', async () => {
+			Sentry.metrics.count('client.webgl.context_restored', 1);
+			Sentry.addBreadcrumb({
+				category: 'webgl',
+				message: 'WebGL context restored — rebuilding map sources'
+			});
+			try {
+				await rebuildMapSources();
+			} catch (err) {
+				handleError(err, { modal: true, sentry: true });
+			}
+		});
 
 		map.on('dataloading', () => {
 			if (!tileLoadingTimer && !tileBarActive) {
@@ -531,14 +563,16 @@
 		map.on('idle', () => {
 			clearTimeout(tileLoadingTimer);
 			tileLoadingTimer = null;
-      if (bootStartTime > 0) {
-        Sentry.metrics.distribution('client.boot.duration_ms', Date.now() - bootStartTime, { tags: { trail: $settings.trail } });
-        bootStartTime = 0;
-      }
-    if (tileBarActive) {
-      tileBarActive = false;
-      const elapsed = Date.now() - tileBarStartTime;
-      const hideDelay = Math.max(0, 500 - elapsed);
+			if (bootStartTime > 0) {
+				Sentry.metrics.distribution('client.boot.duration_ms', Date.now() - bootStartTime, {
+					tags: { trail: $settings.trail }
+				});
+				bootStartTime = 0;
+			}
+			if (tileBarActive) {
+				tileBarActive = false;
+				const elapsed = Date.now() - tileBarStartTime;
+				const hideDelay = Math.max(0, 500 - elapsed);
 				setTimeout(() => {
 					$loadStatus = {
 						phase: 'idle',
@@ -548,8 +582,8 @@
 						error: false
 					};
 				}, hideDelay);
-    } else if ($loadStatus.phase !== 'idle') {
-      $loadStatus = {
+			} else if ($loadStatus.phase !== 'idle') {
+				$loadStatus = {
 					phase: 'idle',
 					message: '',
 					progress: 100,
@@ -560,8 +594,8 @@
 		});
 	}
 
-  function onMarkerClick(e) {
-    updateSelectedMarker(e.features[0].id);
+	function onMarkerClick(e) {
+		updateSelectedMarker(e.features[0].id);
 	}
 
 	async function populateMap() {
@@ -640,12 +674,10 @@
 		});
 	}
 
-	async function changeTrailOnMap() {
-		if (!map || !mapInitialized) return;
-		bootStartTime = Date.now();
+	async function rebuildMapSources() {
+		if (!map) return;
 		mapInitialized = false;
-		$activeIcons = new Array(ICONS.length).fill(true);
-		lastToggleAllIcons = true;
+		bootStartTime = Date.now();
 
 		for (const icon of ICONS) {
 			map.removeLayer(`markers-${icon}`);
@@ -684,7 +716,6 @@
 		}
 		compositeLayerIds = compositeLayers.map((l) => l.id);
 
-		map.fitBounds(TRAILS[$settings.trail].bounds);
 		await populateMap();
 		setLoadPhase('tiles', 0);
 		tileBarActive = false;
@@ -692,13 +723,24 @@
 		tileLoadingTimer = null;
 	}
 
+	async function changeTrailOnMap() {
+		if (!map || !mapInitialized) return;
+		$activeIcons = new Array(ICONS.length).fill(true);
+		lastToggleAllIcons = true;
+
+		await rebuildMapSources();
+		map.fitBounds(TRAILS[$settings.trail].bounds);
+	}
+
 	let currentTrail = $settings.trail;
 	$: if (mapInitialized) {
 		$settings.offline;
 		$settings.trail;
-    if ($settings.trail !== currentTrail) {
-      Sentry.metrics.count('client.trail_changed', 1, { tags: { from: currentTrail, to: $settings.trail } });
-      currentTrail = $settings.trail;
+		if ($settings.trail !== currentTrail) {
+			Sentry.metrics.count('client.trail_changed', 1, {
+				tags: { from: currentTrail, to: $settings.trail }
+			});
+			currentTrail = $settings.trail;
 			changeTrailOnMap();
 		} else {
 			updatePmtilesSource();
@@ -760,9 +802,9 @@
 		map.addImage(name, image);
 	}
 
-  function newMarker() {
-    Sentry.metrics.count('client.new_marker.opened', 1);
-    let prop = { images: [] };
+	function newMarker() {
+		Sentry.metrics.count('client.new_marker.opened', 1);
+		let prop = { images: [] };
 		openModal({
 			type: 'text',
 			data: ['Marker title', ''],

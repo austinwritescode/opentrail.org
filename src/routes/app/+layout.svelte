@@ -281,7 +281,37 @@
 			});
 		}
 		document.addEventListener('visibilitychange', () => {
-			if (document.visibilityState === 'visible' && map) map.resize();
+			if (document.visibilityState !== 'visible' || !map) return;
+			const gl = map.painter?.context?.gl;
+			if (!gl || gl.isContextLost()) {
+				Sentry.metrics.count('client.webgl.context_lost_silent', 1);
+				Sentry.addBreadcrumb({
+					category: 'webgl',
+					message: 'Silent WebGL context loss detected on visibilitychange'
+				});
+				recreateMap();
+			} else {
+				map.resize();
+			}
+		});
+		document.addEventListener('freeze', () => {
+			Sentry.metrics.count('client.page.frozen', 1);
+			Sentry.addBreadcrumb({ category: 'lifecycle', message: 'Page frozen by browser' });
+		});
+		document.addEventListener('resume', () => {
+			Sentry.metrics.count('client.page.resumed', 1);
+			Sentry.addBreadcrumb({ category: 'lifecycle', message: 'Page resumed from freeze' });
+			if (map) {
+				const gl = map.painter?.context?.gl;
+				if (!gl || gl.isContextLost()) {
+					Sentry.metrics.count('client.webgl.context_lost_on_resume', 1);
+					Sentry.addBreadcrumb({
+						category: 'webgl',
+						message: 'WebGL context lost detected on resume'
+					});
+					recreateMap();
+				}
+			}
 		});
 	});
 
@@ -338,6 +368,7 @@
 
 	let map;
 	let mapInitialized = false;
+	let mapRecreating = false;
 	$: if (mapInitialized) map.getSource('markers')?.setData($data);
 
 	/** @type {import('pmtiles').Protocol | undefined} */
@@ -675,7 +706,7 @@
 	}
 
 	async function rebuildMapSources() {
-		if (!map) return;
+		if (!map || mapRecreating) return;
 		mapInitialized = false;
 		bootStartTime = Date.now();
 
@@ -723,8 +754,38 @@
 		tileLoadingTimer = null;
 	}
 
+	async function recreateMap() {
+		if (!map || mapRecreating) return;
+		mapRecreating = true;
+		Sentry.metrics.count('client.map.recreated', 1);
+		Sentry.addBreadcrumb({
+			category: 'lifecycle',
+			message: 'Recreating map due to dead WebGL context'
+		});
+		const center = map.getCenter();
+		const zoom = map.getZoom();
+		map.remove();
+		map = null;
+		mapInitialized = false;
+		compositeLayerIds = [];
+		cursorMapMarker = null;
+		clearTimeout(tileLoadingTimer);
+		tileLoadingTimer = null;
+		tileBarActive = false;
+		profileMoveTimer = null;
+		try {
+			await initializeMap();
+			map.setCenter(center);
+			map.setZoom(zoom);
+		} catch (err) {
+			handleError(err, { modal: true, sentry: true });
+		} finally {
+			mapRecreating = false;
+		}
+	}
+
 	async function changeTrailOnMap() {
-		if (!map || !mapInitialized) return;
+		if (!map || !mapInitialized || mapRecreating) return;
 		$activeIcons = new Array(ICONS.length).fill(true);
 		lastToggleAllIcons = true;
 

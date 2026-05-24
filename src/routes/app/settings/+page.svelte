@@ -97,7 +97,8 @@ dayjs.extend(relativeTime);
 		['Dark mode', $settings.dark, () => toggle('dark'), false],
 		['Units', $settings.units === 'imperial' ? 'mi/ft' : 'km/m', toggleUnits, false],
 		['Date format', $settings.dateFormat.replace('YYYY', 'Y'), toggleDateFormat, false],
-		['Send crash reports', $settings.sendCrashReports, () => toggle('sendCrashReports'), false],
+		['Send crash reports', $settings.sendCrashReports, () => toggle('sendCrashReports'), false],		
+		['Reset app', '', openResetModal, false],
 		['Community guidelines', '', () => openModal({ type: 'community' }), false],
 		['About', '', () => openModal({ type: 'about' }), false]
 	];
@@ -402,6 +403,20 @@ dayjs.extend(relativeTime);
 		}
 		updateStorageEstimate();
 		syncSpinner = false;
+	}
+
+	function openResetModal() {
+		openModal({
+			type: 'warning',
+			data: "This will reset the app to a clean state. Your settings, offline cache, and pending uploads will be preserved.",
+			submit: resetApp
+		});
+	}
+	function resetApp() {
+		Sentry.metrics.count('client.reset_app', 1);
+		localStorage.removeItem('downloadPersist');
+		localStorage.removeItem('sw-last-check');
+		setTimeout(() => window.location.reload(), 50);
 	}
 </script>
 

@@ -160,6 +160,7 @@ export async function resumeDownload() {
 
 /** @type {AbortController | null} */
 let downloadAbortController = null;
+let cancelledByUser = false;
 
 /**
  * @param {string} trail
@@ -177,7 +178,8 @@ export async function streamPmtiles(
 	onSuccess,
 	onDelete
 ) {
-	const url = getPmtilesUrl(trail);
+  const url = getPmtilesUrl(trail);
+  cancelledByUser = false;
   downloadAbortController = new AbortController();
 
   Sentry.metrics.count('client.download.started', 1, { tags: { trail, type: 'offline-cache' } });
@@ -191,6 +193,7 @@ export async function streamPmtiles(
 		trail: trail,
     onCancel: () => {
       Sentry.metrics.count('client.download.cancelled', 1, { tags: { trail } });
+      cancelledByUser = true;
       downloadAbortController?.abort();
 			if (opfsWorker) {
 				opfsWorker.postMessage({ type: 'abort', startBytes });
@@ -296,14 +299,18 @@ export async function streamPmtiles(
 		await workerMessage('close');
 		opfsWorker.terminate();
 		opfsWorker = null;
-	} catch (e) {
-		if (opfsWorker) {
-			opfsWorker.postMessage({ type: 'abort', startBytes });
-			opfsWorker.terminate();
-			opfsWorker = null;
-		}
-		throw e;
-	}
+  } catch (e) {
+    if (opfsWorker) {
+      opfsWorker.postMessage({ type: 'abort', startBytes });
+      opfsWorker.terminate();
+      opfsWorker = null;
+    }
+    if (cancelledByUser) {
+      cancelledByUser = false;
+      return;
+    }
+    throw e;
+  }
 
   downloadPersist.update((p) => {
     p.status = 'complete';

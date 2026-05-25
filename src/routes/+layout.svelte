@@ -1,21 +1,22 @@
 <script>
 	import 'normalize.css';
 	import '../app.css'; //tailwind
-	import {
-		modal,
-		openModal,
-		TRAILS,
-		ICONS,
-		ICON_EXPLANATIONS,
-		settings,
-		handleError,
-		isTransientError,
-		isInstalled,
-		deferredPrompt,
-		swWaitingRegistration,
-		downloadState,
-		downloadPersist
-	} from '$lib/store.js';
+import {
+	modal,
+	openModal,
+	TRAILS,
+	ICON_EXPLANATIONS,
+	settings,
+	handleError,
+	isTransientError,
+	isInstalled,
+	deferredPrompt,
+	platform,
+	promptInstall,
+	swWaitingRegistration,
+	downloadState,
+	downloadPersist
+} from '$lib/store.js';
 	import DownloadOverlay from '$lib/DownloadOverlay.svelte';
 	import { resumeDownload } from '$lib/download.js';
 	import { onMount } from 'svelte';
@@ -241,20 +242,65 @@
 				</ul>
 			{:else if $modal.type === 'editLoc'}
 				<p class="font-bold text-xl">Select marker location</p>
-			{:else if $modal.type === 'confirmFetch'}
-				<p class="font-bold text-xl">Download {$modal.data[0]} now?</p>
-				{#if !$isInstalled}
-					<div class="alert alert-warning shadow-lg mt-4">
-						<div>
-							<WarnIcon />
-							<p>
-								No installation detected. Installing this app to your home screen is recommended to
-								prevent data loss.
-							</p>
-						</div>
-					</div>
-				{/if}
-				<p class="text-md my-4">Size: {$modal.data[1]}</p>
+{:else if $modal.type === 'confirmFetch'}
+	{#if !$isInstalled && window.location.hostname !== 'localhost'}
+		<p class="font-bold text-xl">Install required</p>
+		<p class="mt-2">
+			Install this app to your home screen to enable {$modal.data[0]}. This protects your
+			downloaded data from being deleted by the browser.
+		</p>
+		{#if $deferredPrompt}
+			<p class="text-sm opacity-70 mt-2">Tap Install below, then confirm the download.</p>
+		{:else if $platform === 'ios-safari'}
+			<div class="bg-base-200 rounded-lg p-4 mt-4 space-y-3 select-none">
+				<div class="flex items-center gap-3">
+					<span
+						class="flex-none w-7 h-7 rounded-full bg-primary text-primary-content flex items-center justify-center font-bold"
+						>1</span
+					>
+					<p>
+						Tap the <strong>Share</strong> button
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5 inline"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M12 16V4m0 0L8 8m4-4l4 4M4 14v4a2 2 0 002 2h12a2 2 0 002-2v-4"
+							/>
+						</svg>
+					</p>
+				</div>
+				<div class="flex items-center gap-3">
+					<span
+						class="flex-none w-7 h-7 rounded-full bg-primary text-primary-content flex items-center justify-center font-bold"
+						>2</span
+					>
+					<p>Scroll down and tap <strong>Add to Home Screen</strong></p>
+				</div>
+				<div class="flex items-center gap-3">
+					<span
+						class="flex-none w-7 h-7 rounded-full bg-primary text-primary-content flex items-center justify-center font-bold"
+						>3</span
+					>
+					<p>Tap <strong>Add</strong>, then open the app from your home screen</p>
+				</div>
+			</div>
+		{:else}
+			<p class="text-sm opacity-70 mt-2">
+				Use <strong>Safari on iOS</strong> or <strong>Chrome on Android</strong> to install
+				this app.
+			</p>
+		{/if}
+	{:else}
+		<p class="font-bold text-xl">Download {$modal.data[0]} now?</p>
+		<p class="text-md my-4">Size: {$modal.data[1]}</p>
+	{/if}
 			{:else if $modal.type === 'trail'}
 				<p class="font-bold text-2xl">Trail Selection</p>
 				<div class="flex flex-col pl-4">

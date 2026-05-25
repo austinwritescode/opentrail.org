@@ -61,9 +61,10 @@
 	}
 
 	let bootStartTime = 0;
-	let tileBarActive = false;
-	let tileLoadingTimer = null;
-	let tileBarStartTime = 0;
+let tileBarActive = false;
+let tileLoadingTimer = null;
+let tileBarStartTime = 0;
+let tileLoadSucceeded = false;
 
 	function setLoadPhase(phase, progressWithinPhase) {
 		const p = PHASES[phase];
@@ -557,10 +558,9 @@
 			iconsLoaded++;
 			setLoadPhase('icons', iconsLoaded / totalIcons);
 		}
-		await populateMap();
-		setLoadPhase('tiles', 0);
+	await populateMap();
 
-		const canvases = document.getElementsByTagName('canvas');
+	const canvases = document.getElementsByTagName('canvas');
 		if (canvases.length > 1)
 			handleError(new Error('Multiple map canvases detected'), { modal: false, sentry: true });
 
@@ -579,28 +579,35 @@
 			} catch (err) {
 				handleError(err, { modal: true, sentry: true });
 			}
-		});
+});
 
-		map.on('dataloading', () => {
-			if (!tileLoadingTimer && !tileBarActive) {
-				tileLoadingTimer = setTimeout(() => {
-					tileLoadingTimer = null;
-					tileBarActive = true;
-					tileBarStartTime = Date.now();
-					setLoadPhase('tiles', 0);
-				}, 500);
-			}
-		});
-		map.on('idle', () => {
-			clearTimeout(tileLoadingTimer);
+map.on('sourcedata', (e) => {
+	if (e.sourceId === 'composite' && e.isSourceLoaded) tileLoadSucceeded = true;
+});
+
+map.on('dataloading', () => {
+	tileLoadSucceeded = false;
+	if (!tileLoadingTimer && !tileBarActive) {
+		tileLoadingTimer = setTimeout(() => {
 			tileLoadingTimer = null;
-			if (bootStartTime > 0) {
-				Sentry.metrics.distribution('client.boot.duration_ms', Date.now() - bootStartTime, {
-					tags: { trail: $settings.trail }
-				});
-				bootStartTime = 0;
-			}
-			if (tileBarActive) {
+			if ($loadStatus.error) return;
+			tileBarActive = true;
+			tileBarStartTime = Date.now();
+			setLoadPhase('tiles', 0);
+		}, 3000);
+	}
+});
+map.on('idle', () => {
+	clearTimeout(tileLoadingTimer);
+	tileLoadingTimer = null;
+	if (bootStartTime > 0) {
+		Sentry.metrics.distribution('client.boot.duration_ms', Date.now() - bootStartTime, {
+			tags: { trail: $settings.trail }
+		});
+		bootStartTime = 0;
+	}
+	if ($loadStatus.error && !tileLoadSucceeded) return;
+	if (tileBarActive) {
 				tileBarActive = false;
 				const elapsed = Date.now() - tileBarStartTime;
 				const hideDelay = Math.max(0, 500 - elapsed);
@@ -747,11 +754,11 @@
 		}
 		compositeLayerIds = compositeLayers.map((l) => l.id);
 
-		await populateMap();
-		setLoadPhase('tiles', 0);
-		tileBarActive = false;
-		clearTimeout(tileLoadingTimer);
-		tileLoadingTimer = null;
+	await populateMap();
+	tileBarActive = false;
+	tileLoadSucceeded = false;
+	clearTimeout(tileLoadingTimer);
+	tileLoadingTimer = null;
 	}
 
 	async function recreateMap() {
@@ -769,10 +776,11 @@
 		mapInitialized = false;
 		compositeLayerIds = [];
 		cursorMapMarker = null;
-		clearTimeout(tileLoadingTimer);
-		tileLoadingTimer = null;
-		tileBarActive = false;
-		profileMoveTimer = null;
+	clearTimeout(tileLoadingTimer);
+	tileLoadingTimer = null;
+	tileBarActive = false;
+	tileLoadSucceeded = false;
+	profileMoveTimer = null;
 		try {
 			await initializeMap();
 			map.setCenter(center);

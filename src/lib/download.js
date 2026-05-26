@@ -41,20 +41,8 @@ export async function resumeDownload() {
 
 	const cachename = persist.type;
 	const isOfflineCache = cachename === 'offline-cache';
-	const displayName = isOfflineCache ? 'offline cache' : 'offline images';
-	const onSuccess = isOfflineCache
-		? () =>
-				settings.update((s) => {
-					s.offline = true;
-					return s;
-				})
-		: () =>
-				settings.update((s) => {
-					s.offlineimages = true;
-					return s;
-				});
-	const onDelete = isOfflineCache ? deleteOffline : deleteImages;
 
+	hold();
 	try {
 		if (isOfflineCache) {
 			const fileSize = await getOPFSFileSize(persist.trail);
@@ -68,143 +56,139 @@ export async function resumeDownload() {
 					d.active = false;
 					return d;
 				});
-				onSuccess();
+				await resumeImageDownload(persist.trail);
+				settings.update((s) => {
+					s.offline = true;
+					return s;
+				});
 				return;
 			}
 			await streamPmtiles(
 				persist.trail,
 				fileSize > 0 ? fileSize : persist.bytesReceived || 0,
 				persist.totalBytes || 0,
-				'Resuming offline cache',
-				onSuccess,
-				onDelete
+				'Resuming offline cache'
 			);
-		} else {
-			const hasCaches = typeof caches !== 'undefined';
-			if (!hasCaches) {
-				onDelete();
-				throw new Error('Caches API not available. Ensure you are using HTTPS.');
-			}
-			const cache = await caches.open('image-cache');
-			const res = await fetch(`/api/getImageList?trail=${persist.trail}`);
-			const list = await res.json();
-			/** @type {string[]} */
-			const URLlist = list.map(
-				(/** @type {number} */ num) => `https://cdn.opentrail.org/img/${num}.jpg`
-			);
-			const remaining = [];
-			for (const url of URLlist) {
-				const cached = await cache.match(url);
-				if (!cached) remaining.push(url);
-			}
-			if (remaining.length === 0) {
-				downloadPersist.update((p) => {
-					p.status = 'complete';
-					return p;
-				});
-				downloadState.update((d) => {
-					d.active = false;
-					return d;
-				});
-				onSuccess();
-				return;
-			}
-			const pLimit = (await import('p-limit')).default;
-			const limit = pLimit(5);
-			const alreadyDownloaded = URLlist.length - remaining.length;
-			downloadState.set({
-				active: true,
-				type: cachename,
-				displayName: `Resuming ${displayName}`,
-				downloaded: alreadyDownloaded,
-				total: URLlist.length,
-				trail: persist.trail,
-				onCancel: () => {
-					limit.clearQueue();
-					onDelete();
-					unhold();
-				}
+			await resumeImageDownload(persist.trail);
+			settings.update((s) => {
+				s.offline = true;
+				return s;
 			});
-			hold();
-			await Promise.all(
-				remaining.map((url) =>
-					limit(async () => {
-						await cache.add(url);
-						downloadState.update((d) => {
-							d.downloaded++;
-							return d;
-						});
-						const state = get(downloadState);
-						if (state.downloaded === state.total) {
-							downloadState.update((d) => {
-								d.active = false;
-								return d;
-							});
-							downloadPersist.update((p) => {
-								p.status = 'complete';
-								return p;
-							});
-							unhold();
-							onSuccess();
-						}
-					})
-				)
-			);
+		} else {
+			await resumeImageDownload(persist.trail);
+			settings.update((s) => {
+				s.offline = true;
+				return s;
+			});
 		}
 	} catch (/** @type {any} */ e) {
-		onDelete();
+		deleteOffline();
+		if (e?.name !== 'AbortError') {
+			handleError(/** @type {Error} */ (e), { modal: true, sentry: true });
+		}
+	} finally {
 		unhold();
-		handleError(/** @type {Error} */ (e), { modal: true, sentry: true });
 	}
+}
+
+/** @param {string} trail */
+async function resumeImageDownload(trail) {
+	if (typeof caches === 'undefined') {
+		throw new Error('Caches API not available. Ensure you are using HTTPS.');
+	}
+	const cache = await caches.open('image-cache');
+	const res = await fetch(`/api/getImageList?trail=${trail}`);
+	const list = await res.json();
+	/** @type {string[]} */
+	const URLlist = list.map(
+		(/** @type {number} */ num) => `https://cdn.opentrail.org/img/${num}.jpg`
+	);
+	const remaining = [];
+	for (const url of URLlist) {
+		const cached = await cache.match(url);
+		if (!cached) remaining.push(url);
+	}
+	if (remaining.length === 0) {
+		downloadPersist.update((p) => {
+			p.status = 'complete';
+			return p;
+		});
+		downloadState.update((d) => {
+			d.active = false;
+			return d;
+		});
+		return;
+	}
+	const pLimit = (await import('p-limit')).default;
+	const limit = pLimit(5);
+	const alreadyDownloaded = URLlist.length - remaining.length;
+	downloadState.set({
+		active: true,
+		type: 'image-cache',
+		displayName: 'Resuming offline images',
+		downloaded: alreadyDownloaded,
+		total: URLlist.length,
+		trail: trail,
+		onCancel: () => {
+			limit.clearQueue();
+		}
+	});
+	await Promise.all(
+		remaining.map((url) =>
+			limit(async () => {
+				await cache.add(url);
+				downloadState.update((d) => {
+					d.downloaded++;
+					return d;
+				});
+				const state = get(downloadState);
+				if (state.downloaded === state.total) {
+					downloadState.update((d) => {
+						d.active = false;
+						return d;
+					});
+					downloadPersist.update((p) => {
+						p.status = 'complete';
+						return p;
+					});
+				}
+			})
+		)
+	);
 }
 
 /** @type {AbortController | null} */
 let downloadAbortController = null;
-let cancelledByUser = false;
 
 /**
  * @param {string} trail
  * @param {number} startBytes
  * @param {number} totalBytes
  * @param {string} displayName
- * @param {() => void} onSuccess
- * @param {() => void} onDelete
  */
-export async function streamPmtiles(
-	trail,
-	startBytes,
-	totalBytes,
-	displayName,
-	onSuccess,
-	onDelete
-) {
-  const url = getPmtilesUrl(trail);
-  cancelledByUser = false;
-  downloadAbortController = new AbortController();
+export async function streamPmtiles(trail, startBytes, totalBytes, displayName) {
+	const url = getPmtilesUrl(trail);
+	downloadAbortController = new AbortController();
 
-  Sentry.metrics.count('client.download.started', 1, { tags: { trail, type: 'offline-cache' } });
+	Sentry.metrics.count('client.download.started', 1, { tags: { trail, type: 'offline-cache' } });
 
-  downloadState.set({
+	downloadState.set({
 		active: true,
 		type: 'offline-cache',
 		displayName: displayName,
 		downloaded: startBytes,
 		total: totalBytes,
 		trail: trail,
-    onCancel: () => {
-      Sentry.metrics.count('client.download.cancelled', 1, { tags: { trail } });
-      cancelledByUser = true;
-      downloadAbortController?.abort();
+		onCancel: () => {
+			Sentry.metrics.count('client.download.cancelled', 1, { tags: { trail } });
+			downloadAbortController?.abort();
 			if (opfsWorker) {
 				opfsWorker.postMessage({ type: 'abort', startBytes });
 				opfsWorker.terminate();
 				opfsWorker = null;
 			}
-			onDelete();
-			unhold();
 		}
 	});
-	hold();
 
 	/** @type {RequestInit} */
 	const fetchOpts = { signal: downloadAbortController.signal };
@@ -299,38 +283,32 @@ export async function streamPmtiles(
 		await workerMessage('close');
 		opfsWorker.terminate();
 		opfsWorker = null;
-  } catch (e) {
-    if (opfsWorker) {
-      opfsWorker.postMessage({ type: 'abort', startBytes });
-      opfsWorker.terminate();
-      opfsWorker = null;
-    }
-    if (cancelledByUser) {
-      cancelledByUser = false;
-      return;
-    }
-    throw e;
-  }
+	} catch (e) {
+		if (opfsWorker) {
+			opfsWorker.postMessage({ type: 'abort', startBytes });
+			opfsWorker.terminate();
+			opfsWorker = null;
+		}
+		throw e;
+	}
 
-  downloadPersist.update((p) => {
-    p.status = 'complete';
-    p.bytesReceived = 0;
-    p.totalBytes = 0;
-    return p;
-  });
-  Sentry.metrics.distribution('client.download.completed_bytes', writeOffset, { tags: { trail } });
-  downloadState.update((d) => {
+	downloadPersist.update((p) => {
+		p.status = 'complete';
+		p.bytesReceived = 0;
+		p.totalBytes = 0;
+		return p;
+	});
+	Sentry.metrics.distribution('client.download.completed_bytes', writeOffset, { tags: { trail } });
+	downloadState.update((d) => {
 		d.active = false;
 		return d;
 	});
-	unhold();
-	onSuccess();
 }
 
 export async function deleteOffline() {
-  const trail = get(settings).trail;
-  Sentry.metrics.count('client.offline_cache.deleted', 1, { tags: { trail } });
-  try {
+	const trail = get(settings).trail;
+	Sentry.metrics.count('client.offline_cache.deleted', 1, { tags: { trail } });
+	try {
 		await db.pending.clear();
 	} catch {}
 	await deleteOPFSFile(trail);
@@ -340,7 +318,6 @@ export async function deleteOffline() {
 	}
 	settings.update((s) => {
 		s.offline = false;
-		s.offlineimages = false;
 		return s;
 	});
 	downloadState.update((d) => {
@@ -351,23 +328,6 @@ export async function deleteOffline() {
 		p.status = '';
 		p.bytesReceived = 0;
 		p.totalBytes = 0;
-		return p;
-	});
-}
-
-export async function deleteImages() {
-  Sentry.metrics.count('client.offline_images.deleted', 1, { tags: { trail: get(settings).trail } });
-  if (typeof caches !== 'undefined') await caches.delete('image-cache');
-	settings.update((s) => {
-		s.offlineimages = false;
-		return s;
-	});
-	downloadState.update((d) => {
-		d.active = false;
-		return d;
-	});
-	downloadPersist.update((p) => {
-		p.status = '';
 		return p;
 	});
 }

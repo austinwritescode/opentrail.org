@@ -19,14 +19,14 @@
 	} from '$lib/store.js';
 	import pLimit from 'p-limit';
 	const limit = pLimit(5);
-import { onMount } from 'svelte';
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
-import * as Sentry from '@sentry/sveltekit';
-dayjs.extend(relativeTime);
+	import { onMount } from 'svelte';
+	import dayjs from 'dayjs';
+	import relativeTime from 'dayjs/plugin/relativeTime';
+	import * as Sentry from '@sentry/sveltekit';
+	dayjs.extend(relativeTime);
 	import prettyBytes from 'pretty-bytes';
 	import { hold, unhold } from '$lib/wakeLock.js';
-	import { streamPmtiles, deleteOffline, deleteImages, getOPFSFileSize } from '$lib/download.js';
+	import { streamPmtiles, deleteOffline, getOPFSFileSize } from '$lib/download.js';
 
 	let syncSpinner = false;
 	let opfsSizeLabel = '';
@@ -61,8 +61,7 @@ dayjs.extend(relativeTime);
 		? [
 				...pendingSublabel,
 				['Last sync: ' + $settings.lastsync.fromNow(), 'Sync', syncDataWithSpinner, true],
-				['Automatic sync', $settings.autosync, toggleAutosync, true],
-				['Offline images', $settings.offlineimages, toggleImages, true]
+				['Automatic sync', $settings.autosync, toggleAutosync, true]
 			]
 		: [];
 	$: labels = [
@@ -97,7 +96,7 @@ dayjs.extend(relativeTime);
 		['Dark mode', $settings.dark, () => toggle('dark'), false],
 		['Units', $settings.units === 'imperial' ? 'mi/ft' : 'km/m', toggleUnits, false],
 		['Date format', $settings.dateFormat.replace('YYYY', 'Y'), toggleDateFormat, false],
-		['Send crash reports', $settings.sendCrashReports, () => toggle('sendCrashReports'), false],		
+		['Send crash reports', $settings.sendCrashReports, () => toggle('sendCrashReports'), false],
 		['Reset app', '', openResetModal, false],
 		['Community guidelines', '', () => openModal({ type: 'community' }), false],
 		['About', '', () => openModal({ type: 'about' }), false]
@@ -157,21 +156,6 @@ dayjs.extend(relativeTime);
 		}
 	}
 
-	function toggleImages() {
-		if ($settings.offlineimages)
-			openModal({
-				type: 'warning',
-				data: "This will delete your offline cache and pending uploads. It can't be undone.",
-				submit: deleteImages
-			});
-		else
-			openModal({
-				type: 'confirmFetch',
-				data: ['offline images', '~1 MB'],
-				submit: fetchImages
-			});
-	}
-
 	function toggleAutosync() {
 		$settings.autosync = !$settings.autosync;
 		if ($settings.autosync) {
@@ -223,20 +207,20 @@ dayjs.extend(relativeTime);
 				{ modal: true, sentry: true, tags: { transient: true } }
 			);
 		if (!isLocalhost) {
-    const persisted = await navigator.storage.persist();
-    Sentry.metrics.count('client.storage.persist_requested', 1);
-    if (!persisted) {
-      Sentry.metrics.count('client.storage.persist_failed', 1);
-      return handleError(
-        new Error(
-          'Could not secure persistent storage. Make sure the app is installed to your home screen and try again.'
-        ),
-        { modal: true, sentry: true, tags: { transient: true } }
-      );
-    }
-  }
+			const persisted = await navigator.storage.persist();
+			Sentry.metrics.count('client.storage.persist_requested', 1);
+			if (!persisted) {
+				Sentry.metrics.count('client.storage.persist_failed', 1);
+				return handleError(
+					new Error(
+						'Could not secure persistent storage. Make sure the app is installed to your home screen and try again.'
+					),
+					{ modal: true, sentry: true, tags: { transient: true } }
+				);
+			}
+		}
 
-  let missing;
+		let missing;
 		try {
 			missing = await getMissingAssets();
 		} catch (e) {
@@ -277,6 +261,7 @@ dayjs.extend(relativeTime);
 
 		await caches.delete('offline-cache');
 		const cache = await caches.open('offline-cache');
+		hold();
 		try {
 			$downloadPersist = {
 				type: 'offline-cache',
@@ -290,80 +275,56 @@ dayjs.extend(relativeTime);
 				`/api/getData?trail=${$settings.trail}`
 			];
 			await cache.addAll(trailData);
-			await streamPmtiles(
-				$settings.trail,
-				0,
-				0,
-				'Downloading offline cache',
-				() => {
-					$settings.offline = true;
-				},
-				deleteOffline
-			);
+			await streamPmtiles($settings.trail, 0, 0, 'Downloading offline cache');
+			await fetchImages();
+			$settings.offline = true;
 		} catch (e) {
 			deleteOffline();
+			if (e?.name !== 'AbortError') {
+				return handleError(/** @type {Error} */ (e), { modal: true, sentry: true });
+			}
+		} finally {
 			unhold();
-			return handleError(/** @type {Error} */ (e), { modal: true, sentry: true });
 		}
 	}
 
 	async function fetchImages() {
 		if (typeof caches === 'undefined')
-			return handleError(new Error('Caches API not available. Ensure you are using HTTPS.'), {
-				modal: true,
-				sentry: true,
-				tags: { transient: true }
-			});
+			throw new Error('Caches API not available. Ensure you are using HTTPS.');
 		await caches.delete('image-cache');
-		try {
-			$downloadPersist = {
-				type: 'image-cache',
-				trail: $settings.trail,
-				status: 'in_progress',
-				bytesReceived: 0,
-				totalBytes: 0
-			};
-			$downloadState = {
-				active: true,
-				type: 'image-cache',
-				displayName: 'Downloading offline images',
-				downloaded: 0,
-				total: 0,
-				trail: $settings.trail,
-				onCancel: () => {
-					limit.clearQueue();
-					deleteImages();
-					unhold();
-				}
-			};
-			hold();
-			const res = await fetch(`/api/getImageList?trail=${$settings.trail}`);
-			const list = await res.json();
-			const URLlist = list.map(
-				(/** @type {number} */ num) => `https://cdn.opentrail.org/img/${num}.jpg`
-			);
-			await cacheFromList(URLlist, 'image-cache', 'offline images', () => {
-				$settings.offlineimages = true;
-			});
-		} catch (e) {
-			deleteImages();
-			unhold();
-			return handleError(/** @type {Error} */ (e), { modal: true, sentry: true });
-		}
+		$downloadPersist = {
+			type: 'image-cache',
+			trail: $settings.trail,
+			status: 'in_progress',
+			bytesReceived: 0,
+			totalBytes: 0
+		};
+		$downloadState = {
+			active: true,
+			type: 'image-cache',
+			displayName: 'Downloading offline images',
+			downloaded: 0,
+			total: 0,
+			trail: $settings.trail,
+			onCancel: () => {
+				limit.clearQueue();
+			}
+		};
+		const res = await fetch(`/api/getImageList?trail=${$settings.trail}`);
+		const list = await res.json();
+		const URLlist = list.map(
+			(/** @type {number} */ num) => `https://cdn.opentrail.org/img/${num}.jpg`
+		);
+		await cacheFromList(URLlist, 'image-cache', 'offline images');
 	}
 
-	async function cacheFromList(URLlist, cachename, displayName, onSuccess) {
+	async function cacheFromList(URLlist, cachename, displayName) {
 		if (typeof caches === 'undefined')
-			return handleError(new Error('Caches API not available. Ensure you are using HTTPS.'), {
-				modal: true,
-				sentry: true,
-				tags: { transient: true }
-			});
+			throw new Error('Caches API not available. Ensure you are using HTTPS.');
 		if (URLlist.length === 0) {
 			$downloadState.active = false;
 			$downloadPersist.status = 'complete';
-			unhold();
-			return onSuccess();
+			return;
 		}
 		try {
 			$downloadState.downloaded = 0;
@@ -377,18 +338,13 @@ dayjs.extend(relativeTime);
 						if ($downloadState.downloaded === $downloadState.total) {
 							$downloadState.active = false;
 							$downloadPersist.status = 'complete';
-							unhold();
-							onSuccess();
 						}
 					})
 				)
 			);
 		} catch (e) {
 			limit.clearQueue();
-			if (cachename === 'offline-cache') deleteOffline();
-			if (cachename === 'image-cache') deleteImages();
-			unhold();
-			return handleError(/** @type {Error} */ (e), { modal: true, sentry: true });
+			throw e;
 		}
 	}
 
@@ -408,7 +364,7 @@ dayjs.extend(relativeTime);
 	function openResetModal() {
 		openModal({
 			type: 'warning',
-			data: "This will reset the app to a clean state. Your settings, offline cache, and pending uploads will be preserved.",
+			data: 'This will reset the app to a clean state. Your settings, offline cache, and pending uploads will be preserved.',
 			submit: resetApp
 		});
 	}

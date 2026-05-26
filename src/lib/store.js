@@ -57,7 +57,6 @@ let initSettings = {
 	offline: false,
 	autosync: true,
 	lastsync: {},
-	offlineimages: false,
 	enablesat: false,
 	username: '',
 	dark: false,

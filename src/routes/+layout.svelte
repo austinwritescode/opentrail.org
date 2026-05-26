@@ -4,8 +4,9 @@
 	import {
 		modal,
 		openModal,
-		TRAILS,
-		ICON_EXPLANATIONS,
+	TRAILS,
+	ICONS,
+	ICON_EXPLANATIONS,
 		settings,
 		handleError,
 		isTransientError,
@@ -203,43 +204,49 @@
 						>Database Contents License</a
 					>
 				</p>
-			{:else if $modal.type === 'community'}
-				<p>
-					This map is a communal effort, think of it as a hiker's Wikipedia. If you see any missing
-					information please add it and if you see any wrong information please correct it! All
-					contributions are greatly appreciated.
-				</p>
-				<p class="text-lg">Marker moderation:</p>
-				<ul class="list-disc list-inside text-sm">
-					<li>Marker icon descriptions:</li>
-					{#each ICONS as icon}<li>
-							<img
-								src={`https://cdn.opentrail.org/icons/${icon}.png`}
-								height="25"
-								width="25"
-								class="inline"
-							/>{ICON_EXPLANATIONS[icon]}
-						</li>{/each}
-					<li>
-						Markers generally must be within 1 mile of the trail unless there is reason for a hiker
-						to go off trail, such as a resupply point.
-					</li>
-					<li>
-						Marker descriptions should contain general information only. If your information comes
-						with a date (such as a water report) put it in a comment, not the description, so newer
-						information can go above it.
-					</li>
-				</ul>
-				<p class="text-lg">General content:</p>
-				<ul class="list-disc list-inside text-sm">
-					<li>Rule #1: don't be an asshole.</li>
-					<li>No illegal content. No copyright infringement. No spamming.</li>
-					<li>
-						You may advertise a hiker-relevant service with a single marker, generally with the town
-						icon. Shuttles may put their information in the description for a road crossing. No
-						promotional content is allowed in comments. Impersonators will be permanently banned.
-					</li>
-				</ul>
+{:else if $modal.type === 'community'}
+		<p>
+			OpenTrail is crowdsourced. Add what's missing, fix what's wrong. Published data is
+			licensed under the Open Database License (ODbL) so anyone can use it.
+		</p>
+		<p class="font-semibold">Markers</p>
+		<ul class="list-disc list-inside space-y-1">
+			<li>Choose the right icon:</li>
+			{#each ICONS as icon}<li class="flex items-center gap-2">
+				<img
+					src={`https://cdn.opentrail.org/icons/${icon}.png`}
+					height="18"
+					width="18"
+				/>
+				<span>{ICON_EXPLANATIONS[icon]}</span>
+			</li>{/each}
+			<li>
+				Place markers on or near the trail. Off-trail markers are okay for resupply points
+				and similar.
+			</li>
+			<li>
+				Descriptions are for general, permanent info. Time-sensitive info (water reports,
+				conditions) goes in comments so it can be superseded.
+			</li>
+			<li>Check for existing markers before adding one. Duplicates will be rejected.</li>
+		</ul>
+		<p class="font-semibold">Moderation</p>
+		<ul class="list-disc list-inside space-y-1">
+			<li>Markers and images are held briefly for review before publishing.</li>
+			<li>Comments post immediately and can be flagged for removal.</li>
+			<li>
+				Submissions that violate the terms of service will be rejected. This includes spam,
+				illegal content, copyright infringement, and junk data.
+			</li>
+		</ul>
+		<p class="font-semibold">Advertising</p>
+		<ul class="list-disc list-inside space-y-1">
+			<li>
+				One marker per hiker-relevant service, usually with the town icon. Shuttles can put
+				their info in the description for a road crossing marker.
+			</li>
+			<li>No promotional content in comments.</li>
+		</ul>
 			{:else if $modal.type === 'editLoc'}
 				<p class="font-bold text-xl">Select marker location</p>
 			{:else if $modal.type === 'confirmFetch'}

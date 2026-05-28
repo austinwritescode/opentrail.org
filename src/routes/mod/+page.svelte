@@ -157,6 +157,12 @@
 		}
 	}
 
+	async function flagDeleteAll() {
+		for (const item of [...flags]) {
+			await flagDeleteUnderlying(item);
+		}
+	}
+
 	async function clearTestTrail() {
 		await fetch('/api/deleteGeneric?type=clearTestTrail', authHeaders({
 			method: 'DELETE'
@@ -245,6 +251,7 @@
 				<tr>
 					<th>
 						<button class="btn bg-green-800" onclick={flagIgnoreAll}>Ign All</button>
+						<button class="btn bg-red-800" onclick={flagDeleteAll}>Del All</button>
 					</th>
 					<th>Date</th>
 					<th>reporting IP</th>

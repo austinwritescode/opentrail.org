@@ -32,6 +32,7 @@
 	import ElevationProfile from '$lib/ElevationProfile.svelte';
 	import { goto, replaceState } from '$app/navigation';
 	import { syncData, postGeneric, getData } from '$lib/api';
+	import { db } from '$lib/db';
 	import { get } from 'svelte/store';
 	import { getOPFSFileSize } from '$lib/download.js';
 	import { searchTrailRoute } from '$lib/helpers.js';
@@ -276,10 +277,10 @@ let tileLoadSucceeded = false;
 			replaceState('/app', {});
 		}
 		if ($settings.autosync) {
-			window.addEventListener('online', () => {
-				Sentry.metrics.count('client.network.online', 1);
-				if (get(settings).autosync && isLastsyncStale()) syncData();
-			});
+		window.addEventListener('online', async () => {
+			Sentry.metrics.count('client.network.online', 1);
+			if (get(settings).autosync && (isLastsyncStale() || (await db.pending.count()))) syncData();
+		});
 		}
 		document.addEventListener('visibilitychange', () => {
 			if (document.visibilityState !== 'visible' || !map) return;
@@ -335,42 +336,49 @@ let tileLoadSucceeded = false;
 		}, []);
 	}
 
-	const iconLayers = ICONS.map((icon) => {
-		return `markers-${icon}`;
-	});
-	let filtersVisible = false;
+const iconLayers = ['markers'];
+function sortFeatures(data) {
+	data.features.sort(
+		(a, b) => a.properties.commentCount - b.properties.commentCount || Math.random() - 0.5
+	);
+	return data;
+}
+let filtersVisible = false;
 	let lastToggleAllIcons = true;
-	function toggleIconLayer(i) {
-		$activeIcons[i] = !$activeIcons[i];
-		$activeIcons = $activeIcons;
-		updateIconLayer(i);
+function toggleIconLayer(i) {
+	$activeIcons[i] = !$activeIcons[i];
+	$activeIcons = $activeIcons;
+	updateMarkerFilter();
+}
+function toggleAllIcons() {
+	lastToggleAllIcons = !lastToggleAllIcons;
+	$activeIcons = $activeIcons.fill(lastToggleAllIcons);
+	updateMarkerFilter();
+}
+function toggleFilters() {
+	filtersVisible = !filtersVisible;
+	if (!filtersVisible) {
+		$activeIcons = new Array(ICONS.length).fill(true);
+		lastToggleAllIcons = true;
+		updateMarkerFilter();
 	}
-	function toggleAllIcons() {
-		lastToggleAllIcons = !lastToggleAllIcons;
-		$activeIcons = $activeIcons.fill(lastToggleAllIcons);
-		for (let i = 0; i < ICONS.length; i++) updateIconLayer(i);
-	}
-	function toggleFilters() {
-		filtersVisible = !filtersVisible;
-		if (!filtersVisible) {
-			$activeIcons = new Array(ICONS.length).fill(true);
-			lastToggleAllIcons = true;
-			for (let i = 0; i < ICONS.length; i++) updateIconLayer(i);
-		}
-	}
-	function updateIconLayer(i) {
-		map.setLayoutProperty(iconLayers[i], 'visibility', $activeIcons[i] ? 'visible' : 'none');
+}
+function updateMarkerFilter() {
+	const active = ICONS.filter((_, i) => $activeIcons[i]);
+	map.setFilter('markers', ['in', ['get', 'icon'], ['literal', active]]);
+	for (const icon of ICONS) {
 		map.setLayoutProperty(
-			iconLayers[i] + '-selected',
+			`markers-${icon}-selected`,
 			'visibility',
-			$activeIcons[i] ? 'visible' : 'none'
+			$activeIcons[ICONS.indexOf(icon)] ? 'visible' : 'none'
 		);
 	}
+}
 
 	let map;
 	let mapInitialized = false;
 	let mapRecreating = false;
-	$: if (mapInitialized) map.getSource('markers')?.setData($data);
+	$: if (mapInitialized) map.getSource('markers')?.setData(sortFeatures({ ...$data, features: [...$data.features] }));
 
 	/** @type {import('pmtiles').Protocol | undefined} */
 	let pmtilesProtocol;
@@ -656,12 +664,13 @@ map.on('idle', () => {
 				'line-width': 3
 			}
 		});
-		map.addSource('markers', {
-			type: 'geojson',
-			data: $data
-		});
-		const markerLayout = {
-			'icon-size': 0.5,
+	map.addSource('markers', {
+		type: 'geojson',
+		data: sortFeatures({ ...$data, features: [...$data.features] })
+	});
+	const markerLayout = {
+		'symbol-z-order': 'source',
+		'icon-size': 0.5,
 			'icon-allow-overlap': true,
 			'text-field': ['get', 'title'],
 			'text-size': 12,
@@ -671,39 +680,37 @@ map.on('idle', () => {
 			'text-offset': [0, 0.85],
 			'text-anchor': 'top'
 		};
-		for (const icon of ICONS) {
-			map.addLayer({
-				id: `markers-${icon}`,
-				type: 'symbol',
-				source: 'markers',
-				layout: {
-					'icon-image': ['get', 'icon'],
-					...markerLayout
-				},
-				paint: {
-					'icon-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0, 1]
-				},
-				filter: ['in', icon, ['get', 'icons']]
-			});
+	map.addLayer({
+		id: 'markers',
+		type: 'symbol',
+		source: 'markers',
+		layout: {
+			'icon-image': ['get', 'icon'],
+			...markerLayout
+		},
+		paint: {
+			'icon-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0, 1]
 		}
-		for (const icon of ICONS) {
-			map.addLayer({
-				id: `markers-${icon}-selected`,
-				type: 'symbol',
-				source: 'markers',
-				layout: {
-					'icon-image': ['concat', ['get', 'icon'], '-selected'],
-					...markerLayout
-				},
-				paint: {
-					'icon-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0]
-				},
-				filter: ['in', icon, ['get', 'icons']]
-			});
-			map.on('click', `markers-${icon}`, onMarkerClick);
-		}
-		mapInitialized = true;
-		map.off('move', onMapMove);
+	});
+	map.on('click', 'markers', onMarkerClick);
+	for (const icon of ICONS) {
+		map.addLayer({
+			id: `markers-${icon}-selected`,
+			type: 'symbol',
+			source: 'markers',
+			layout: {
+				'icon-image': ['concat', ['get', 'icon'], '-selected'],
+				...markerLayout
+			},
+			paint: {
+				'icon-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0]
+			},
+			filter: ['in', icon, ['get', 'icons']]
+		});
+	}
+	mapInitialized = true;
+	updateMarkerFilter();
+	map.off('move', onMapMove);
 		map.on('move', onMapMove);
 		updateProfileData();
 		setLoadPhase('populate', 1);
@@ -717,11 +724,11 @@ map.on('idle', () => {
 		mapInitialized = false;
 		bootStartTime = Date.now();
 
-		for (const icon of ICONS) {
-			map.removeLayer(`markers-${icon}`);
-			map.removeLayer(`markers-${icon}-selected`);
-			map.off('click', `markers-${icon}`, onMarkerClick);
-		}
+	map.removeLayer('markers');
+	map.off('click', 'markers', onMarkerClick);
+	for (const icon of ICONS) {
+		map.removeLayer(`markers-${icon}-selected`);
+	}
 		map.removeSource('markers');
 		map.removeLayer('route');
 		map.removeSource('route');

@@ -12,3 +12,4 @@ vite.config.ts.timestamp-*
 *.exe
 # Sentry Config File
 .env.sentry-build-plugin
+/data

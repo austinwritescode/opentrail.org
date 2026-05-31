@@ -247,6 +247,12 @@ if (browser) listCommentSort.subscribe((val) => localStorage.setItem('listCommen
 
 export const listSearchQuery = writable('');
 
+export const rulerMode = writable(false);
+
+export const centerOnMarkerId = writable(-1);
+
+export const skipHistorySync = writable(false);
+
 export const listScrollPosition = writable(0);
 
 export const swWaitingRegistration = writable(null);

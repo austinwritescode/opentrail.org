@@ -24,9 +24,12 @@
 		profileData,
 		selectedMarkerId,
 		activeIcons,
-		loadStatus
+		loadStatus,
+		rulerMode,
+		centerOnMarkerId,
+		skipHistorySync
 	} from '$lib/store.js';
-	import { fetchWithProgress } from '$lib/helpers.js';
+	import { fetchWithProgress, haversine, formatRulerDist } from '$lib/helpers.js';
 	import MarkerSlide from '$lib/MarkerSlide.svelte';
 	import MarkerDetail from '$lib/MarkerDetail.svelte';
 	import ElevationProfile from '$lib/ElevationProfile.svelte';
@@ -54,18 +57,26 @@
 
 	let fromBack = false;
 	let prevOC = 0;
-	$: oc = ($modal.isOpen ? 1 : 0) + ($detailId !== -1 ? 1 : 0) + ($selectedMarkerId !== -1 ? 1 : 0);
+	$: oc = ($modal.isOpen ? 1 : 0) + ($detailId !== -1 ? 1 : 0);
 	$: {
-		if (oc > prevOC) history.pushState(null, '');
-		else if (oc < prevOC && !fromBack) history.back();
+		if (oc > prevOC && !$skipHistorySync) history.pushState(history.state, '');
+		else if (oc < prevOC && !fromBack && !$skipHistorySync) history.back();
 		prevOC = oc;
+	}
+	$: if ($centerOnMarkerId >= 0 && mapInitialized) {
+		const coords = $data.features[$centerOnMarkerId]?.geometry?.coordinates;
+		if (coords) {
+			map.flyTo({ center: coords, duration: 500 });
+			updateSelectedMarker($centerOnMarkerId, true);
+		}
+		$centerOnMarkerId = -1;
 	}
 
 	let bootStartTime = 0;
-let tileBarActive = false;
-let tileLoadingTimer = null;
-let tileBarStartTime = 0;
-let tileLoadSucceeded = false;
+	let tileBarActive = false;
+	let tileLoadingTimer = null;
+	let tileBarStartTime = 0;
+	let tileLoadSucceeded = false;
 
 	function setLoadPhase(phase, progressWithinPhase) {
 		const p = PHASES[phase];
@@ -194,6 +205,210 @@ let tileLoadSucceeded = false;
 		}
 	}
 
+	let rulerA = null;
+	let rulerB = null;
+	let rulerLayersActive = false;
+
+	function removeRuler() {
+		if (!map) {
+			rulerA = null;
+			rulerB = null;
+			rulerLayersActive = false;
+			return;
+		}
+		if (rulerLayersActive) {
+			if (map.getLayer('ruler-line')) map.removeLayer('ruler-line');
+			if (map.getSource('ruler-line')) map.removeSource('ruler-line');
+			if (map.getLayer('ruler-label')) map.removeLayer('ruler-label');
+			if (map.getSource('ruler-label')) map.removeSource('ruler-label');
+			rulerLayersActive = false;
+		}
+		if (rulerA) {
+			rulerA.remove();
+			rulerA = null;
+		}
+		if (rulerB) {
+			rulerB.remove();
+			rulerB = null;
+		}
+	}
+
+	function createRulerPoint(lngLat) {
+		const el = document.createElement('div');
+		const color = $settings.dark ? 'white' : 'black';
+		el.style.width = '14px';
+		el.style.height = '14px';
+		el.style.borderRadius = '50%';
+		el.style.border = '2px solid ' + color;
+		el.style.boxShadow = '0 1px 3px rgba(0,0,0,0.4)';
+		el.style.background = 'radial-gradient(circle, ' + color + ' 2px, transparent 2px)';
+		el.style.cursor = 'grab';
+		const marker = new maplibregl.Marker({ element: el, draggable: true })
+			.setLngLat(lngLat)
+			.addTo(map);
+		marker.on('dragstart', () => {
+			el.style.cursor = 'grabbing';
+		});
+		marker.on('dragend', () => {
+			el.style.cursor = 'grab';
+		});
+		return marker;
+	}
+
+	function rulerBearingDeg(a, b) {
+		const dLng = ((b[0] - a[0]) * Math.PI) / 180;
+		const lat1 = (a[1] * Math.PI) / 180;
+		const lat2 = (b[1] * Math.PI) / 180;
+		const y = Math.sin(dLng) * Math.cos(lat2);
+		const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+		return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+	}
+
+	function updateRuler() {
+		if (!rulerA || !rulerB || !map) {
+			if (rulerLayersActive) {
+				if (map.getLayer('ruler-line')) map.removeLayer('ruler-line');
+				if (map.getSource('ruler-line')) map.removeSource('ruler-line');
+				if (map.getLayer('ruler-label')) map.removeLayer('ruler-label');
+				if (map.getSource('ruler-label')) map.removeSource('ruler-label');
+				rulerLayersActive = false;
+			}
+			return;
+		}
+		const a = rulerA.getLngLat();
+		const b = rulerB.getLngLat();
+		const color = $settings.dark ? 'white' : 'black';
+		const aEl = rulerA.getElement();
+		const bEl = rulerB.getElement();
+		aEl.style.borderColor = color;
+		bEl.style.borderColor = color;
+		aEl.style.background = 'radial-gradient(circle, ' + color + ' 2px, transparent 2px)';
+		bEl.style.background = 'radial-gradient(circle, ' + color + ' 2px, transparent 2px)';
+		const aPx = map.project([a.lng, a.lat]);
+		const bPx = map.project([b.lng, b.lat]);
+		const dxPx = bPx.x - aPx.x;
+		const dyPx = bPx.y - aPx.y;
+		const lenPx = Math.sqrt(dxPx * dxPx + dyPx * dyPx);
+		const off = lenPx > 0 ? 7 / lenPx : 0;
+		const aOffPx = { x: aPx.x + dxPx * off, y: aPx.y + dyPx * off };
+		const bOffPx = { x: bPx.x - dxPx * off, y: bPx.y - dyPx * off };
+		const aOff = map.unproject(aOffPx);
+		const bOff = map.unproject(bOffPx);
+		const lineFC = {
+			type: 'FeatureCollection',
+			features: [
+				{
+					type: 'Feature',
+					geometry: {
+						type: 'LineString',
+						coordinates: [
+							[aOff.lng, aOff.lat],
+							[bOff.lng, bOff.lat]
+						]
+					},
+					properties: {}
+				}
+			]
+		};
+		const bearDeg = rulerBearingDeg([a.lng, a.lat], [b.lng, b.lat]);
+		const dist = haversine(a.lat, a.lng, b.lat, b.lng);
+		const imp = $settings.units !== 'metric';
+		const mid = [(a.lng + b.lng) / 2, (a.lat + b.lat) / 2];
+		let textRot = bearDeg - 90;
+		if (textRot > 180) textRot -= 360;
+		if (textRot > 90) textRot -= 180;
+		if (textRot < -90) textRot += 180;
+		const labelFC = {
+			type: 'FeatureCollection',
+			features: [
+				{
+					type: 'Feature',
+					geometry: { type: 'Point', coordinates: mid },
+					properties: { distance: formatRulerDist(dist, imp) }
+				}
+			]
+		};
+		if (rulerLayersActive) {
+			map.getSource('ruler-line').setData(lineFC);
+			map.setPaintProperty('ruler-line', 'line-color', color);
+			map.getSource('ruler-label').setData(labelFC);
+			map.setLayoutProperty('ruler-label', 'text-rotate', textRot);
+			map.setPaintProperty('ruler-label', 'text-color', color);
+		} else {
+			map.addSource('ruler-line', { type: 'geojson', data: lineFC });
+			map.addLayer({
+				id: 'ruler-line',
+				type: 'line',
+				source: 'ruler-line',
+				paint: { 'line-color': color, 'line-width': 2, 'line-dasharray': [3, 2] }
+			});
+			map.addSource('ruler-label', { type: 'geojson', data: labelFC });
+			map.addLayer({
+				id: 'ruler-label',
+				type: 'symbol',
+				source: 'ruler-label',
+				layout: {
+					'text-field': ['get', 'distance'],
+					'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
+					'text-size': 13,
+					'text-allow-overlap': true,
+					'text-ignore-placement': true,
+					'text-rotation-alignment': 'map',
+					'text-keep-upright': false,
+					'text-rotate': textRot,
+					'text-anchor': 'center',
+					'text-offset': [0.7, 0]
+				},
+				paint: {
+					'text-color': color,
+					'text-halo-color': $settings.dark ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)',
+					'text-halo-width': 2
+				}
+			});
+			rulerLayersActive = true;
+		}
+	}
+
+	let rulerUpdatePending = false;
+	function onRulerMarkerDrag() {
+		if (rulerUpdatePending) return;
+		rulerUpdatePending = true;
+		requestAnimationFrame(() => {
+			rulerUpdatePending = false;
+			updateRuler();
+		});
+	}
+
+	function distPx(a, b) {
+		return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+	}
+
+	function onRulerClick(e) {
+		if (!$rulerMode) return;
+		if (rulerA && rulerB) {
+			const pA = map.project(rulerA.getLngLat());
+			const pB = map.project(rulerB.getLngLat());
+			if (distPx(e.point, pA) < 25 || distPx(e.point, pB) < 25) return;
+			removeRuler();
+			rulerA = createRulerPoint(e.lngLat);
+			rulerA.on('drag', onRulerMarkerDrag);
+		} else if (!rulerA) {
+			rulerA = createRulerPoint(e.lngLat);
+			rulerA.on('drag', onRulerMarkerDrag);
+		} else {
+			rulerB = createRulerPoint(e.lngLat);
+			rulerB.on('drag', onRulerMarkerDrag);
+			updateRuler();
+		}
+	}
+
+	function toggleRuler() {
+		$rulerMode = !$rulerMode;
+		if (!$rulerMode) removeRuler();
+		if ($rulerMode && $selectedMarkerId !== -1) updateSelectedMarker(-1);
+		if (map) map.getCanvas().style.cursor = $rulerMode ? 'crosshair' : '';
+	}
+
 	function toggleProfile() {
 		$elevationProfileVisible = !$elevationProfileVisible;
 		if ($elevationProfileVisible) {
@@ -217,12 +432,11 @@ let tileLoadSucceeded = false;
 		window.addEventListener('popstate', () => {
 			fromBack = true;
 			if ($detailId !== -1) $detailId = -1;
-			else if ($selectedMarkerId !== -1) updateSelectedMarker(-1);
 			else if ($modal.isOpen) {
 				$modal.isOpen = false;
 				$modal.cancel();
 			}
-			fromBack = false;
+			setTimeout(() => (fromBack = false), 0);
 		});
 		const preBar = document.getElementById('pre-hydrate-bar');
 		if (preBar) preBar.remove();
@@ -244,6 +458,13 @@ let tileLoadSucceeded = false;
 		}
 		detailId.subscribe(updateViewport);
 		page.subscribe(updateViewport);
+		page.subscribe(() => {
+			if ($page.url.pathname !== '/app' && $rulerMode) {
+				$rulerMode = false;
+				removeRuler();
+				if (map) map.getCanvas().style.cursor = '';
+			}
+		});
 		const params = $page.url.searchParams;
 		const deepTrail = params.get('trail');
 		const deepMarkerDbid = params.get('marker');
@@ -277,10 +498,10 @@ let tileLoadSucceeded = false;
 			replaceState('/app', {});
 		}
 		if ($settings.autosync) {
-		window.addEventListener('online', async () => {
-			Sentry.metrics.count('client.network.online', 1);
-			if (get(settings).autosync && (isLastsyncStale() || (await db.pending.count()))) syncData();
-		});
+			window.addEventListener('online', async () => {
+				Sentry.metrics.count('client.network.online', 1);
+				if (get(settings).autosync && (isLastsyncStale() || (await db.pending.count()))) syncData();
+			});
 		}
 		document.addEventListener('visibilitychange', () => {
 			if (document.visibilityState !== 'visible' || !map) return;
@@ -336,49 +557,50 @@ let tileLoadSucceeded = false;
 		}, []);
 	}
 
-const iconLayers = ['markers'];
-function sortFeatures(data) {
-	data.features.sort(
-		(a, b) => a.properties.commentCount - b.properties.commentCount || Math.random() - 0.5
-	);
-	return data;
-}
-let filtersVisible = false;
+	const iconLayers = ['markers'];
+	function sortFeatures(data) {
+		data.features.sort(
+			(a, b) => a.properties.commentCount - b.properties.commentCount || Math.random() - 0.5
+		);
+		return data;
+	}
+	let filtersVisible = false;
 	let lastToggleAllIcons = true;
-function toggleIconLayer(i) {
-	$activeIcons[i] = !$activeIcons[i];
-	$activeIcons = $activeIcons;
-	updateMarkerFilter();
-}
-function toggleAllIcons() {
-	lastToggleAllIcons = !lastToggleAllIcons;
-	$activeIcons = $activeIcons.fill(lastToggleAllIcons);
-	updateMarkerFilter();
-}
-function toggleFilters() {
-	filtersVisible = !filtersVisible;
-	if (!filtersVisible) {
-		$activeIcons = new Array(ICONS.length).fill(true);
-		lastToggleAllIcons = true;
+	function toggleIconLayer(i) {
+		$activeIcons[i] = !$activeIcons[i];
+		$activeIcons = $activeIcons;
 		updateMarkerFilter();
 	}
-}
-function updateMarkerFilter() {
-	const active = ICONS.filter((_, i) => $activeIcons[i]);
-	map.setFilter('markers', ['in', ['get', 'icon'], ['literal', active]]);
-	for (const icon of ICONS) {
-		map.setLayoutProperty(
-			`markers-${icon}-selected`,
-			'visibility',
-			$activeIcons[ICONS.indexOf(icon)] ? 'visible' : 'none'
-		);
+	function toggleAllIcons() {
+		lastToggleAllIcons = !lastToggleAllIcons;
+		$activeIcons = $activeIcons.fill(lastToggleAllIcons);
+		updateMarkerFilter();
 	}
-}
+	function toggleFilters() {
+		filtersVisible = !filtersVisible;
+		if (!filtersVisible) {
+			$activeIcons = new Array(ICONS.length).fill(true);
+			lastToggleAllIcons = true;
+			updateMarkerFilter();
+		}
+	}
+	function updateMarkerFilter() {
+		const active = ICONS.filter((_, i) => $activeIcons[i]);
+		map.setFilter('markers', ['in', ['get', 'icon'], ['literal', active]]);
+		for (const icon of ICONS) {
+			map.setLayoutProperty(
+				`markers-${icon}-selected`,
+				'visibility',
+				$activeIcons[ICONS.indexOf(icon)] ? 'visible' : 'none'
+			);
+		}
+	}
 
 	let map;
 	let mapInitialized = false;
 	let mapRecreating = false;
-	$: if (mapInitialized) map.getSource('markers')?.setData(sortFeatures({ ...$data, features: [...$data.features] }));
+	$: if (mapInitialized)
+		map.getSource('markers')?.setData(sortFeatures({ ...$data, features: [...$data.features] }));
 
 	/** @type {import('pmtiles').Protocol | undefined} */
 	let pmtilesProtocol;
@@ -537,6 +759,10 @@ function updateMarkerFilter() {
 		map.addControl(geolocate);
 
 		map.on('click', (e) => {
+			if ($rulerMode) {
+				onRulerClick(e);
+				return;
+			}
 			if (
 				map.queryRenderedFeatures(e.point).findIndex((el) => el.layer.source === 'markers') === -1
 			) {
@@ -566,9 +792,9 @@ function updateMarkerFilter() {
 			iconsLoaded++;
 			setLoadPhase('icons', iconsLoaded / totalIcons);
 		}
-	await populateMap();
+		await populateMap();
 
-	const canvases = document.getElementsByTagName('canvas');
+		const canvases = document.getElementsByTagName('canvas');
 		if (canvases.length > 1)
 			handleError(new Error('Multiple map canvases detected'), { modal: false, sentry: true });
 
@@ -587,35 +813,35 @@ function updateMarkerFilter() {
 			} catch (err) {
 				handleError(err, { modal: true, sentry: true });
 			}
-});
-
-map.on('sourcedata', (e) => {
-	if (e.sourceId === 'composite' && e.isSourceLoaded) tileLoadSucceeded = true;
-});
-
-map.on('dataloading', () => {
-	tileLoadSucceeded = false;
-	if (!tileLoadingTimer && !tileBarActive) {
-		tileLoadingTimer = setTimeout(() => {
-			tileLoadingTimer = null;
-			if ($loadStatus.error) return;
-			tileBarActive = true;
-			tileBarStartTime = Date.now();
-			setLoadPhase('tiles', 0);
-		}, 3000);
-	}
-});
-map.on('idle', () => {
-	clearTimeout(tileLoadingTimer);
-	tileLoadingTimer = null;
-	if (bootStartTime > 0) {
-		Sentry.metrics.distribution('client.boot.duration_ms', Date.now() - bootStartTime, {
-			tags: { trail: $settings.trail }
 		});
-		bootStartTime = 0;
-	}
-	if ($loadStatus.error && !tileLoadSucceeded) return;
-	if (tileBarActive) {
+
+		map.on('sourcedata', (e) => {
+			if (e.sourceId === 'composite' && e.isSourceLoaded) tileLoadSucceeded = true;
+		});
+
+		map.on('dataloading', () => {
+			tileLoadSucceeded = false;
+			if (!tileLoadingTimer && !tileBarActive) {
+				tileLoadingTimer = setTimeout(() => {
+					tileLoadingTimer = null;
+					if ($loadStatus.error) return;
+					tileBarActive = true;
+					tileBarStartTime = Date.now();
+					setLoadPhase('tiles', 0);
+				}, 3000);
+			}
+		});
+		map.on('idle', () => {
+			clearTimeout(tileLoadingTimer);
+			tileLoadingTimer = null;
+			if (bootStartTime > 0) {
+				Sentry.metrics.distribution('client.boot.duration_ms', Date.now() - bootStartTime, {
+					tags: { trail: $settings.trail }
+				});
+				bootStartTime = 0;
+			}
+			if ($loadStatus.error && !tileLoadSucceeded) return;
+			if (tileBarActive) {
 				tileBarActive = false;
 				const elapsed = Date.now() - tileBarStartTime;
 				const hideDelay = Math.max(0, 500 - elapsed);
@@ -641,6 +867,7 @@ map.on('idle', () => {
 	}
 
 	function onMarkerClick(e) {
+		if ($rulerMode) return;
 		updateSelectedMarker(e.features[0].id);
 	}
 
@@ -664,13 +891,13 @@ map.on('idle', () => {
 				'line-width': 3
 			}
 		});
-	map.addSource('markers', {
-		type: 'geojson',
-		data: sortFeatures({ ...$data, features: [...$data.features] })
-	});
-	const markerLayout = {
-		'symbol-z-order': 'source',
-		'icon-size': 0.5,
+		map.addSource('markers', {
+			type: 'geojson',
+			data: sortFeatures({ ...$data, features: [...$data.features] })
+		});
+		const markerLayout = {
+			'symbol-z-order': 'source',
+			'icon-size': 0.5,
 			'icon-allow-overlap': true,
 			'text-field': ['get', 'title'],
 			'text-size': 12,
@@ -680,37 +907,37 @@ map.on('idle', () => {
 			'text-offset': [0, 0.85],
 			'text-anchor': 'top'
 		};
-	map.addLayer({
-		id: 'markers',
-		type: 'symbol',
-		source: 'markers',
-		layout: {
-			'icon-image': ['get', 'icon'],
-			...markerLayout
-		},
-		paint: {
-			'icon-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0, 1]
-		}
-	});
-	map.on('click', 'markers', onMarkerClick);
-	for (const icon of ICONS) {
 		map.addLayer({
-			id: `markers-${icon}-selected`,
+			id: 'markers',
 			type: 'symbol',
 			source: 'markers',
 			layout: {
-				'icon-image': ['concat', ['get', 'icon'], '-selected'],
+				'icon-image': ['get', 'icon'],
 				...markerLayout
 			},
 			paint: {
-				'icon-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0]
-			},
-			filter: ['in', icon, ['get', 'icons']]
+				'icon-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0, 1]
+			}
 		});
-	}
-	mapInitialized = true;
-	updateMarkerFilter();
-	map.off('move', onMapMove);
+		map.on('click', 'markers', onMarkerClick);
+		for (const icon of ICONS) {
+			map.addLayer({
+				id: `markers-${icon}-selected`,
+				type: 'symbol',
+				source: 'markers',
+				layout: {
+					'icon-image': ['concat', ['get', 'icon'], '-selected'],
+					...markerLayout
+				},
+				paint: {
+					'icon-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0]
+				},
+				filter: ['in', icon, ['get', 'icons']]
+			});
+		}
+		mapInitialized = true;
+		updateMarkerFilter();
+		map.off('move', onMapMove);
 		map.on('move', onMapMove);
 		updateProfileData();
 		setLoadPhase('populate', 1);
@@ -723,12 +950,13 @@ map.on('idle', () => {
 		if (!map || mapRecreating) return;
 		mapInitialized = false;
 		bootStartTime = Date.now();
+		removeRuler();
 
-	map.removeLayer('markers');
-	map.off('click', 'markers', onMarkerClick);
-	for (const icon of ICONS) {
-		map.removeLayer(`markers-${icon}-selected`);
-	}
+		map.removeLayer('markers');
+		map.off('click', 'markers', onMarkerClick);
+		for (const icon of ICONS) {
+			map.removeLayer(`markers-${icon}-selected`);
+		}
 		map.removeSource('markers');
 		map.removeLayer('route');
 		map.removeSource('route');
@@ -761,16 +989,17 @@ map.on('idle', () => {
 		}
 		compositeLayerIds = compositeLayers.map((l) => l.id);
 
-	await populateMap();
-	tileBarActive = false;
-	tileLoadSucceeded = false;
-	clearTimeout(tileLoadingTimer);
-	tileLoadingTimer = null;
+		await populateMap();
+		tileBarActive = false;
+		tileLoadSucceeded = false;
+		clearTimeout(tileLoadingTimer);
+		tileLoadingTimer = null;
 	}
 
 	async function recreateMap() {
 		if (!map || mapRecreating) return;
 		mapRecreating = true;
+		removeRuler();
 		Sentry.metrics.count('client.map.recreated', 1);
 		Sentry.addBreadcrumb({
 			category: 'lifecycle',
@@ -783,11 +1012,11 @@ map.on('idle', () => {
 		mapInitialized = false;
 		compositeLayerIds = [];
 		cursorMapMarker = null;
-	clearTimeout(tileLoadingTimer);
-	tileLoadingTimer = null;
-	tileBarActive = false;
-	tileLoadSucceeded = false;
-	profileMoveTimer = null;
+		clearTimeout(tileLoadingTimer);
+		tileLoadingTimer = null;
+		tileBarActive = false;
+		tileLoadSucceeded = false;
+		profileMoveTimer = null;
 		try {
 			await initializeMap();
 			map.setCenter(center);
@@ -1227,6 +1456,29 @@ map.on('idle', () => {
 			{:else}
 				<button
 					class="absolute left-2 btn btn-circle btn-sm bg-base-100 focus:bg-base-100 active:bg-base-100 border-opacity-50 text-base-content"
+					class:ruler-btn-active={$rulerMode}
+					style="bottom: {$elevationProfileVisible ? 'calc(25% + 52px)' : '44px'};"
+					onclick={toggleRuler}
+					title="Ruler"
+				>
+					<svg
+						width="20"
+						height="20"
+						viewBox="0 0 20 20"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+						><path
+							fill-rule="evenodd"
+							clip-rule="evenodd"
+							d="M2.31 13.626a.5.5 0 0 0 0 .708l3.536 3.535a.5.5 0 0 0 .707 0L17.867 6.555a.5.5 0 0 0 0-.707l-3.536-3.535a.5.5 0 0 0-.707 0l-1.06 1.06 1.709 1.71a.5.5 0 1 1-.708.706L11.857 4.08l-1.415 1.415.884.884a.5.5 0 0 1-.707.707l-.884-.884-1.414 1.414 1.709 1.709a.5.5 0 1 1-.707.707L7.614 8.323 6.2 9.737l.884.884a.5.5 0 1 1-.707.707l-.884-.884-1.415 1.415 1.71 1.709a.5.5 0 1 1-.708.707l-1.709-1.71zm-.706 1.415a1.5 1.5 0 0 1 0-2.122L12.917 1.606a1.5 1.5 0 0 1 2.122 0l3.535 3.535a1.5 1.5 0 0 1 0 2.121L7.26 18.576a1.5 1.5 0 0 1-2.12 0z"
+							fill="currentColor"
+							stroke="currentColor"
+							stroke-width="0.5"
+						/></svg
+					>
+				</button>
+				<button
+					class="absolute left-2 btn btn-circle btn-sm bg-base-100 focus:bg-base-100 active:bg-base-100 border-opacity-50 text-base-content"
 					style="bottom: {$elevationProfileVisible ? 'calc(25% + 8px)' : '8px'};"
 					onclick={newMarker}
 				>
@@ -1356,6 +1608,10 @@ map.on('idle', () => {
 	}
 	.filter-funnel-active svg {
 		stroke: #3b82f6;
+	}
+	.ruler-btn-active svg {
+		stroke: #3b82f6;
+		fill: #3b82f6;
 	}
 	.filter-bar-inner .btn:first-child {
 		border-top-left-radius: 0;

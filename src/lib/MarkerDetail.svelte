@@ -8,8 +8,12 @@
 		openModal,
 		handleError,
 		trailRoute,
-		userMiles
+		userMiles,
+		centerOnMarkerId,
+		skipHistorySync
 	} from '$lib/store.js';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { register } from 'swiper/element/bundle';
 	import { postGeneric } from '$lib/api.js';
 	import { parseDescURL, isSafeURL, mToFt, ftToM, formatDist, formatElev } from '$lib/helpers.js';
@@ -260,6 +264,20 @@
 								>
 									<a>Open in Google Maps</a>
 								</li>
+								{#if $page.url.pathname === '/app/list'}
+									<li
+										onclick={() => {
+											$skipHistorySync = true;
+											$centerOnMarkerId = dataIdx;
+											$detailId = -1;
+											goto('/app').finally(() => {
+												$skipHistorySync = false;
+											});
+										}}
+									>
+										<a>Show on map</a>
+									</li>
+								{/if}
 								<li>
 									<a>
 										<label for="upload-photo">Upload image</label>

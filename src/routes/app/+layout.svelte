@@ -208,8 +208,13 @@
 	let rulerA = null;
 	let rulerB = null;
 	let rulerLayersActive = false;
+	let rulerZoomHandler = null;
 
 	function removeRuler() {
+		if (rulerZoomHandler && map) {
+			map.off('zoomend', rulerZoomHandler);
+			rulerZoomHandler = null;
+		}
 		if (!map) {
 			rulerA = null;
 			rulerB = null;
@@ -234,15 +239,23 @@
 	}
 
 	function createRulerPoint(lngLat) {
-		const el = document.createElement('div');
 		const color = $settings.dark ? 'white' : 'black';
-		el.style.width = '14px';
-		el.style.height = '14px';
-		el.style.borderRadius = '50%';
-		el.style.border = '2px solid ' + color;
-		el.style.boxShadow = '0 1px 3px rgba(0,0,0,0.4)';
-		el.style.background = 'radial-gradient(circle, ' + color + ' 2px, transparent 2px)';
+		const el = document.createElement('div');
+		el.style.width = '40px';
+		el.style.height = '40px';
 		el.style.cursor = 'grab';
+		const circle = document.createElement('div');
+		circle.style.position = 'absolute';
+		circle.style.top = '50%';
+		circle.style.left = '50%';
+		circle.style.transform = 'translate(-50%, -50%)';
+		circle.style.width = '14px';
+		circle.style.height = '14px';
+		circle.style.borderRadius = '50%';
+		circle.style.border = '2px solid ' + color;
+		circle.style.boxShadow = '0 1px 3px rgba(0,0,0,0.4)';
+		circle.style.background = 'radial-gradient(circle, ' + color + ' 2px, transparent 2px)';
+		el.appendChild(circle);
 		const marker = new maplibregl.Marker({ element: el, draggable: true })
 			.setLngLat(lngLat)
 			.addTo(map);
@@ -278,12 +291,16 @@
 		const a = rulerA.getLngLat();
 		const b = rulerB.getLngLat();
 		const color = $settings.dark ? 'white' : 'black';
-		const aEl = rulerA.getElement();
-		const bEl = rulerB.getElement();
-		aEl.style.borderColor = color;
-		bEl.style.borderColor = color;
-		aEl.style.background = 'radial-gradient(circle, ' + color + ' 2px, transparent 2px)';
-		bEl.style.background = 'radial-gradient(circle, ' + color + ' 2px, transparent 2px)';
+		const aCircle = rulerA.getElement().querySelector('div');
+		const bCircle = rulerB.getElement().querySelector('div');
+		if (aCircle) {
+			aCircle.style.borderColor = color;
+			aCircle.style.background = 'radial-gradient(circle, ' + color + ' 2px, transparent 2px)';
+		}
+		if (bCircle) {
+			bCircle.style.borderColor = color;
+			bCircle.style.background = 'radial-gradient(circle, ' + color + ' 2px, transparent 2px)';
+		}
 		const aPx = map.project([a.lng, a.lat]);
 		const bPx = map.project([b.lng, b.lat]);
 		const dxPx = bPx.x - aPx.x;
@@ -366,6 +383,10 @@
 				}
 			});
 			rulerLayersActive = true;
+			if (!rulerZoomHandler) {
+				rulerZoomHandler = () => updateRuler();
+				map.on('zoomend', rulerZoomHandler);
+			}
 		}
 	}
 
@@ -1465,15 +1486,14 @@
 						width="20"
 						height="20"
 						viewBox="0 0 20 20"
-						fill="none"
+						fill="currentColor"
+						stroke="currentColor"
+						stroke-width="0.5"
 						xmlns="http://www.w3.org/2000/svg"
 						><path
 							fill-rule="evenodd"
 							clip-rule="evenodd"
 							d="M2.31 13.626a.5.5 0 0 0 0 .708l3.536 3.535a.5.5 0 0 0 .707 0L17.867 6.555a.5.5 0 0 0 0-.707l-3.536-3.535a.5.5 0 0 0-.707 0l-1.06 1.06 1.709 1.71a.5.5 0 1 1-.708.706L11.857 4.08l-1.415 1.415.884.884a.5.5 0 0 1-.707.707l-.884-.884-1.414 1.414 1.709 1.709a.5.5 0 1 1-.707.707L7.614 8.323 6.2 9.737l.884.884a.5.5 0 1 1-.707.707l-.884-.884-1.415 1.415 1.71 1.709a.5.5 0 1 1-.708.707l-1.709-1.71zm-.706 1.415a1.5 1.5 0 0 1 0-2.122L12.917 1.606a1.5 1.5 0 0 1 2.122 0l3.535 3.535a1.5 1.5 0 0 1 0 2.121L7.26 18.576a1.5 1.5 0 0 1-2.12 0z"
-							fill="currentColor"
-							stroke="currentColor"
-							stroke-width="0.5"
 						/></svg
 					>
 				</button>

@@ -4,6 +4,7 @@
 	"private": true,
 	"scripts": {
 		"dev": "vite dev",
+		"dev:demo": "vite dev --mode demo --port 5174 --strictPort --open /app?trail=test",
 		"build": "vite build",
 		"preview": "vite preview",
 		"node": "node build",

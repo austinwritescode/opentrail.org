@@ -1,12 +1,46 @@
 <script>
+	import { page } from '$app/stores';
+	import Icon from '$lib/Icon.svelte';
+	import WaypointBadge from '$lib/WaypointBadge.svelte';
+	import Highlight from '$lib/Highlight.svelte';
+	import { waypointKinds } from '$lib/waypoint-icons.js';
+	let filterOpen = false;
+	let searchOpen = false;
+	let locationError = '';
+	$: $listMode = $page.url.searchParams.get('view') === 'comments' ? 'comments' : 'markers';
+	$: hiddenCount = $activeIcons.filter((active) => !active).length;
+	/** @param {number} i */
+	function toggleType(i) {
+		$activeIcons[i] = !$activeIcons[i];
+	}
+	/** @param {number} mile */
+	function relativeDistance(mile) {
+		const distance = displayMile(mile) - displayMile($userMiles.miles);
+		return (
+			(imp
+				? Math.abs(distance).toFixed(1) + ' mi'
+				: miToKm(Math.abs(distance)).toFixed(1) + ' km') + (distance >= 0 ? ' ahead' : ' behind')
+		);
+	}
 	import {
-		data, detailId, renderedMarkers, settings, trailRoute,
-		selectedMarkerId, userMiles, listMode, listBoundsFilter,
-		listCommentSort, listSearchQuery, listScrollPosition, activeIcons, ICONS
+		data,
+		detailId,
+		renderedMarkers,
+		settings,
+		trailRoute,
+		selectedMarkerId,
+		userMiles,
+		listMode,
+		listBoundsFilter,
+		listCommentSort,
+		listSearchQuery,
+		listScrollPosition,
+		activeIcons,
+		ICONS
 	} from '$lib/store.js';
 	import MarkerDetail from '$lib/MarkerDetail.svelte';
 	import { searchTrailRoute, miToKm } from '$lib/helpers.js';
-import dayjs from 'dayjs';
+	import dayjs from 'dayjs';
 	import { onMount, onDestroy, tick } from 'svelte';
 
 	let scrollContainer;
@@ -42,8 +76,9 @@ import dayjs from 'dayjs';
 	}
 
 	function toggleGps() {
+		locationError = '';
 		if (gpsEnabled) {
-			gpsEnabled = false;
+			scrollToGpsLine();
 			return;
 		}
 		if (userRecent) {
@@ -55,7 +90,10 @@ import dayjs from 'dayjs';
 	}
 
 	function requestLocation() {
-		if (!navigator.geolocation) return;
+		if (!navigator.geolocation) {
+			locationError = 'Location is unavailable in this browser.';
+			return;
+		}
 		gpsLoading = true;
 		navigator.geolocation.getCurrentPosition(
 			(pos) => {
@@ -67,7 +105,10 @@ import dayjs from 'dayjs';
 				}
 				gpsLoading = false;
 			},
-			() => { gpsLoading = false; },
+			() => {
+				gpsLoading = false;
+				locationError = 'Could not get your location. Check location permission and try again.';
+			},
 			{ enableHighAccuracy: true }
 		);
 	}
@@ -79,25 +120,29 @@ import dayjs from 'dayjs';
 		});
 	}
 
-	$: markerIds = $listBoundsFilter
-		? [...$renderedMarkers]
-		: $data.features.map((_, i) => i);
+	$: markerIds = $listBoundsFilter ? [...$renderedMarkers] : $data.features.map((_, i) => i);
 
-	$: filteredMarkers = markerIds.filter(id => {
-		if ($listBoundsFilter) {
+	$: filteredMarkers = markerIds
+		.filter((id) => {
+			{
+				const p = $data.features[id]?.properties;
+				if (!p) return false;
+				const hasActiveIcon = [...(p.icons || p.icon || '')].some((ch) => {
+					const idx = ICONS.indexOf(ch);
+					return idx >= 0 && $activeIcons[idx];
+				});
+				if (!hasActiveIcon) return false;
+			}
+			if (!query) return true;
 			const p = $data.features[id]?.properties;
 			if (!p) return false;
-			const hasActiveIcon = [...p.icons].some(ch => {
-				const idx = ICONS.indexOf(ch);
-				return idx >= 0 && $activeIcons[idx];
-			});
-			if (!hasActiveIcon) return false;
-		}
-		if (!query) return true;
-		const p = $data.features[id]?.properties;
-		if (!p) return false;
-		return p.title.toLowerCase().includes(query) || p.desc.toLowerCase().includes(query);
-	}).sort((a, b) => displayMile($data.features[a].properties.mile) - displayMile($data.features[b].properties.mile));
+			return p.title.toLowerCase().includes(query) || p.desc.toLowerCase().includes(query);
+		})
+		.sort(
+			(a, b) =>
+				displayMile($data.features[a].properties.mile) -
+				displayMile($data.features[b].properties.mile)
+		);
 
 	$: allComments = $data.features.flatMap((f, idx) =>
 		(f.properties.comments || []).map((c, ci) => ({
@@ -113,30 +158,38 @@ import dayjs from 'dayjs';
 	);
 
 	$: commentsInBounds = $listBoundsFilter
-		? allComments.filter(c => $renderedMarkers.includes(c.markerId))
+		? allComments.filter((c) => $renderedMarkers.includes(c.markerId))
 		: allComments;
 
-	$: filteredComments = commentsInBounds.filter(c => {
+	$: filteredComments = commentsInBounds.filter((c) => {
 		if (!query) return true;
 		return c.text.toLowerCase().includes(query) || (c.user || '').toLowerCase().includes(query);
 	});
 
-	$: sortedComments = $listCommentSort === 'recent'
-		? [...filteredComments].sort((a, b) => b.date.localeCompare(a.date))
-		: [...filteredComments].sort((a, b) => displayMile(a.mile) - displayMile(b.mile));
+	$: sortedComments =
+		$listCommentSort === 'recent'
+			? [...filteredComments].sort((a, b) => b.date.localeCompare(a.date))
+			: [...filteredComments].sort((a, b) => displayMile(a.mile) - displayMile(b.mile));
 
 	$: gpsDisplayMile = gpsMile >= 0 ? displayMile(gpsMile) : -1;
 
 	$: gpsLineMarkerIdx = (() => {
 		if ($listMode !== 'markers' || gpsDisplayMile < 0 || filteredMarkers.length === 0) return -1;
 		for (let i = 0; i < filteredMarkers.length; i++) {
-			if (displayMile($data.features[filteredMarkers[i]]?.properties?.mile) > gpsDisplayMile) return i;
+			if (displayMile($data.features[filteredMarkers[i]]?.properties?.mile) > gpsDisplayMile)
+				return i;
 		}
 		return filteredMarkers.length;
 	})();
 
 	$: gpsLineCommentIdx = (() => {
-		if ($listMode !== 'comments' || $listCommentSort !== 'mile' || gpsDisplayMile < 0 || sortedComments.length === 0) return -1;
+		if (
+			$listMode !== 'comments' ||
+			$listCommentSort !== 'mile' ||
+			gpsDisplayMile < 0 ||
+			sortedComments.length === 0
+		)
+			return -1;
 		for (let i = 0; i < sortedComments.length; i++) {
 			if (displayMile(sortedComments[i].mile) > gpsDisplayMile) return i;
 		}
@@ -150,7 +203,10 @@ import dayjs from 'dayjs';
 
 	$: listPos = filteredMarkers.indexOf($detailId);
 	$: listOnPrev = listPos > 0 ? () => listNavigate(filteredMarkers[listPos - 1]) : undefined;
-	$: listOnNext = listPos >= 0 && listPos < filteredMarkers.length - 1 ? () => listNavigate(filteredMarkers[listPos + 1]) : undefined;
+	$: listOnNext =
+		listPos >= 0 && listPos < filteredMarkers.length - 1
+			? () => listNavigate(filteredMarkers[listPos + 1])
+			: undefined;
 
 	function openMarkerDetail(markerId) {
 		$selectedMarkerId = markerId;
@@ -163,135 +219,179 @@ import dayjs from 'dayjs';
 
 	function formatMile(mile) {
 		const dm = displayMile(mile);
-		if (!imp) return miToKm(dm).toFixed(1) + 'km';
-		return dm.toFixed(1) + 'mi';
+		if (!imp) return miToKm(dm).toFixed(1) + ' km';
+		return dm.toFixed(1) + ' mi';
 	}
 </script>
 
-<div class="flex flex-col h-full">
-	<div class="sticky top-0 z-10 bg-base-100 border-b border-base-300 p-2 space-y-2">
-		<div class="flex justify-center">
-			<div class="btn-group">
-				<button
-					class="btn btn-sm {$listMode === 'markers' ? 'btn-active' : ''}"
-					onclick={() => { $listMode = 'markers'; expandedComment = -1; }}
-				>Markers</button>
-				<button
-					class="btn btn-sm {$listMode === 'comments' ? 'btn-active' : ''}"
-					onclick={() => { $listMode = 'comments'; expandedComment = -1; }}
-				>Comments</button>
-			</div>
+<svelte:head
+	><title>{$listMode === 'markers' ? 'Waypoints' : 'Comments'} &middot; OpenTrail</title
+	></svelte:head
+>
+<div class="waypoints-page">
+	<header class="list-header">
+		<div class="page-heading">
+			<h1>{$listMode === 'markers' ? 'Waypoints' : 'Comments'}</h1>
+			<button
+				class="icon-button"
+				aria-label="Jump to my position"
+				onclick={toggleGps}
+				disabled={gpsLoading}><Icon name="locate" /></button
+			>
+			{#if $listMode === 'markers'}<button
+					class="icon-button"
+					class:chosen={hiddenCount > 0}
+					aria-label="Filter waypoint types"
+					aria-expanded={filterOpen}
+					onclick={() => (filterOpen = !filterOpen)}
+					><Icon name="filter" />{#if hiddenCount}<span class="filter-count">{hiddenCount}</span
+						>{/if}</button
+				>{/if}
+			<button
+				class="icon-button"
+				aria-label="Search"
+				aria-expanded={searchOpen}
+				onclick={() => {
+					searchOpen = !searchOpen;
+					if (!searchOpen) $listSearchQuery = '';
+				}}><Icon name="search" /></button
+			>
 		</div>
-		<div class="flex gap-2 items-center justify-center flex-wrap">
-			<div class="btn-group">
-				<button
-					class="btn btn-sm {$listBoundsFilter ? 'btn-active' : ''}"
-					onclick={() => { $listBoundsFilter = true; expandedComment = -1; }}
-				>Visible</button>
-				<button
-					class="btn btn-sm {!$listBoundsFilter ? 'btn-active' : ''}"
-					onclick={() => { $listBoundsFilter = false; expandedComment = -1; }}
-				>All</button>
-			</div>
-			{#if $listMode === 'comments'}
-	<button
-			class="btn btn-sm"
-			onclick={() => { $listCommentSort = $listCommentSort === 'recent' ? 'mile' : 'recent'; expandedComment = -1; }}
-		>Sort: {$listCommentSort === 'recent' ? 'Recent' : 'Mile'}</button>
-			{/if}
-			{#if $listCommentSort === 'mile' || $listMode === 'markers'}
-				<button
-					class="btn btn-sm rounded-lg min-w-0 px-2 {gpsEnabled ? 'bg-blue-500 hover:bg-blue-600 border-blue-500 text-white' : ''}"
-					onclick={toggleGps}
-					disabled={gpsLoading}
-					title="Show my location"
+		{#if filterOpen && $listMode === 'markers'}
+			<div class="type-dropdown">
+				<div class="page-heading">
+					<strong>Waypoint types</strong><button
+						class="icon-button"
+						aria-label="Close filters"
+						onclick={() => (filterOpen = false)}><Icon name="close" size={18} /></button
+					>
+				</div>
+				{#each ICONS as kind, i}<label
+						><WaypointBadge {kind} size={28} /><span>{waypointKinds[kind].label}</span><input
+							type="checkbox"
+							class="checkbox checkbox-sm"
+							checked={$activeIcons[i]}
+							onchange={() => toggleType(i)}
+						/></label
+					>{/each}
+				<button class="text-link" onclick={() => ($activeIcons = ICONS.map(() => true))}
+					>Show all types</button
 				>
-					{#if gpsLoading}
-						<span class="loading loading-spinner loading-xs"></span>
-					{:else}
-						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.94 11c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
-					{/if}
-				</button>
-			{/if}
+			</div>
+		{/if}
+		{#if searchOpen || $listSearchQuery}<label class="search-field"
+				><Icon name="search" size={20} /><input
+					type="search"
+					aria-label="Search waypoints or comments"
+					placeholder={$listMode === 'markers' ? 'Search waypoints' : 'Search comments'}
+					bind:value={$listSearchQuery}
+				/></label
+			>{/if}
+		<div class="segmented" role="group" aria-label="Which waypoints to show">
+			<button
+				class:active={$listBoundsFilter}
+				aria-pressed={$listBoundsFilter}
+				onclick={() => ($listBoundsFilter = true)}>Visible on map</button
+			><button
+				class:active={!$listBoundsFilter}
+				aria-pressed={!$listBoundsFilter}
+				onclick={() => ($listBoundsFilter = false)}
+				>All {$listMode === 'markers' ? 'waypoints' : 'comments'}</button
+			>
 		</div>
-		<input
-			type="text"
-			placeholder="Search..."
-			class="input input-sm input-bordered w-full"
-			value={$listSearchQuery}
-			oninput={(e) => $listSearchQuery = e.currentTarget.value}
-		/>
-	</div>
-
-	<div class="overflow-y-auto flex-1 min-h-0" bind:this={scrollContainer} onscroll={onScroll}>
+		{#if $listMode === 'comments'}<div class="list-summary">
+				<span>Notes from the trail community</span><button
+					class="text-link"
+					onclick={() => ($listCommentSort = $listCommentSort === 'recent' ? 'mile' : 'recent')}
+					>Sort: {$listCommentSort === 'recent' ? 'Recent' : 'Mile'} &#8597;</button
+				>
+			</div>{/if}
+		{#if query}<p class="muted text-sm" aria-live="polite">
+				{$listMode === 'markers' ? filteredMarkers.length : sortedComments.length} results
+			</p>{/if}
+		{#if locationError}<p role="status" class="text-sm">{locationError}</p>{/if}
+	</header>
+	<div class="waypoint-scroll" bind:this={scrollContainer} onscroll={onScroll}>
 		{#if $listMode === 'markers'}
-			{#each filteredMarkers as i, idx}
-				{#if gpsLineMarkerIdx >= 0 && idx === gpsLineMarkerIdx}
-					<div class="h-1 bg-blue-500 gps-line"></div>
-				{/if}
-				<div
-					class="flex items-center px-2 py-1.5 hover:bg-base-200 cursor-pointer border-b border-base-200"
-					onclick={() => $detailId = i}
-				>
-					<img
-						src={`https://cdn.opentrail.org/icons/${$data.features[i].properties.icon}.png`}
-						height="40"
-						width="40"
-						class="mx-1"
-					/>
-					<span class="w-20 text-center font-mono text-sm">{formatMile($data.features[i].properties.mile)}</span>
-					<span class="truncate flex-1">{$data.features[i].properties.title}</span>
-				</div>
-			{/each}
-			{#if gpsLineMarkerIdx === filteredMarkers.length}
-				<div class="h-1 bg-blue-500 gps-line"></div>
-			{/if}
+			<div class="waypoint-timeline">
+				{#each filteredMarkers as i, idx}
+					{@const prop = $data.features[i].properties}
+					{#if gpsLineMarkerIdx === idx}<div class="gps-line">
+							<span></span>You are here &middot; {formatMile(gpsMile)}
+						</div>{/if}
+					<button class="waypoint-row" onclick={() => ($detailId = i)}>
+						<WaypointBadge kind={prop.icon} /><span class="waypoint-row-copy"
+							><span class="waypoint-title"><Highlight text={prop.title} {query} /></span><span
+								class="waypoint-meta"
+								>{formatMile(prop.mile)}{#if prop.elev != null}
+									&middot; {imp
+										? Math.round(prop.elev).toLocaleString() + ' ft'
+										: Math.round(prop.elev * 0.3048).toLocaleString() +
+											' m'}{/if}{#if prop.comments?.length}
+									&middot; {prop.comments.length} comments{/if}</span
+							>{#if query && userRecent}<span class="distance-label"
+									>{relativeDistance(prop.mile)}</span
+								>{/if}{#if query && prop.desc?.toLowerCase().includes(query)}<span
+									class="search-excerpt"><Highlight text={prop.desc} {query} /></span
+								>{/if}</span
+						><Icon name="chevron" size={18} />
+					</button>
+				{/each}
+				{#if gpsLineMarkerIdx === filteredMarkers.length}<div class="gps-line">
+						<span></span>You are here &middot; {formatMile(gpsMile)}
+					</div>{/if}
+			</div>
 		{:else}
-			{#each sortedComments as c, idx}
-				{#if gpsLineCommentIdx >= 0 && idx === gpsLineCommentIdx}
-					<div class="h-1 bg-blue-500 gps-line"></div>
-				{/if}
-				<div class="px-3 py-2 border-b border-base-200">
-					<div class="cursor-pointer" onclick={() => toggleComment(idx)}>
-						{#if expandedComment === idx}
-							<p class="text-sm whitespace-pre-wrap">{c.text}</p>
-						{:else}
-							<p class="text-sm">{c.text.length > 80 ? c.text.slice(0, 80) + '...' : c.text}</p>
-						{/if}
-					</div>
-					<div class="flex items-center gap-1.5 mt-1 text-xs opacity-60 flex-wrap">
-						<span class="font-medium">{c.user || 'Anonymous'}</span>
-						<span>&middot;</span>
-						<span>{dayjs(c.date).format($settings.dateFormat)}</span>
-						<span>&middot;</span>
-						<span class="font-mono">{formatMile(c.mile)}</span>
+			<div class="comments-list">
+				{#each sortedComments as c, idx}
+					{#if gpsLineCommentIdx === idx}<div class="gps-line">
+							You are here &middot; {formatMile(gpsMile)}
+						</div>{/if}
+					<article class="comment-card">
+						<header>
+							<img src="/brand/signpost-forest.svg" alt="" width="36" height="36" />
+							<div>
+								<strong>{c.user || 'Anonymous'}</strong><time
+									>{dayjs(c.date).format($settings.dateFormat)}</time
+								>
+							</div>
+						</header>
 						<button
-							class="link link-info inline-flex items-center gap-0.5 font-medium no-underline"
-							onclick={(e) => { e.stopPropagation(); openMarkerDetail(c.markerId); }}
+							class="comment-body"
+							aria-expanded={expandedComment === idx}
+							onclick={() => toggleComment(idx)}
+							><Highlight
+								text={expandedComment === idx || c.text.length <= 180
+									? c.text
+									: c.text.slice(0, 180) + '\u2026'}
+								{query}
+							/></button
 						>
-							{c.markerTitle}
-							<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-						</button>
-					</div>
-				</div>
-			{/each}
-			{#if gpsLineCommentIdx === sortedComments.length}
-				<div class="h-1 bg-blue-500 gps-line"></div>
-			{/if}
-		{/if}
-
-		{#if ($listMode === 'markers' && filteredMarkers.length === 0) || ($listMode === 'comments' && sortedComments.length === 0)}
-			<div class="text-lg flex items-center justify-center h-32 opacity-50">
-				{#if query}
-					No results found
-				{:else}
-					No {$listMode} {$listBoundsFilter ? 'in map window' : 'available'}
-				{/if}
+						<button class="comment-waypoint" onclick={() => openMarkerDetail(c.markerId)}
+							><WaypointBadge kind={c.markerIcon} size={24} /><span
+								>{c.markerTitle}<small>{formatMile(c.mile)}</small></span
+							><Icon name="chevron" size={16} /></button
+						>
+					</article>
+				{/each}
+				{#if gpsLineCommentIdx === sortedComments.length}<div class="gps-line">
+						You are here &middot; {formatMile(gpsMile)}
+					</div>{/if}
 			</div>
 		{/if}
+		{#if ($listMode === 'markers' && filteredMarkers.length === 0) || ($listMode === 'comments' && sortedComments.length === 0)}<div
+				class="empty-state"
+			>
+				<Icon name={query ? 'search' : 'pin'} size={32} />
+				<h2>{query ? 'No results found' : 'Nothing here yet'}</h2>
+				<p>
+					{query
+						? 'Try another name or a different waypoint type.'
+						: $listBoundsFilter
+							? 'Move the map or select All to explore more of the trail.'
+							: 'Trail information will appear here when it is available.'}
+				</p>
+			</div>{/if}
 	</div>
 </div>
-
-{#if $detailId !== -1}
-	<MarkerDetail onPrev={listOnPrev} onNext={listOnNext} />
-{/if}
+{#if $detailId !== -1}<MarkerDetail onPrev={listOnPrev} onNext={listOnNext} />{/if}

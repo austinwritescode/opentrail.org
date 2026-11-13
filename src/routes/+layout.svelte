@@ -1,12 +1,13 @@
 <script>
+	import WaypointBadge from '$lib/WaypointBadge.svelte';
 	import 'normalize.css';
 	import '../app.css'; //tailwind
 	import {
 		modal,
 		openModal,
-	TRAILS,
-	ICONS,
-	ICON_EXPLANATIONS,
+		TRAILS,
+		ICONS,
+		ICON_EXPLANATIONS,
 		settings,
 		handleError,
 		isTransientError,
@@ -29,6 +30,7 @@
 	let spinner = false;
 
 	onMount(() => {
+		document.getElementById('pre-hydrate-bar')?.remove();
 		window.addEventListener('error', (e) => {
 			handleError(e.error || new Error(e.message), { modal: true, sentry: true });
 		});
@@ -206,49 +208,45 @@
 						>Database Contents License</a
 					>
 				</p>
-{:else if $modal.type === 'community'}
-		<p>
-			OpenTrail is crowdsourced. Add what's missing, fix what's wrong. Published data is
-			licensed under the Open Database License (ODbL) so anyone can use it.
-		</p>
-		<p class="font-semibold">Markers</p>
-		<ul class="list-disc list-inside space-y-1">
-			<li>Choose the right icon:</li>
-			{#each ICONS as icon}<li class="flex items-center gap-2">
-				<img
-					src={`https://cdn.opentrail.org/icons/${icon}.png`}
-					height="18"
-					width="18"
-				/>
-				<span>{ICON_EXPLANATIONS[icon]}</span>
-			</li>{/each}
-			<li>
-				Place markers on or near the trail. Off-trail markers are okay for resupply points
-				and similar.
-			</li>
-			<li>
-				Descriptions are for general, permanent info. Time-sensitive info (water reports,
-				conditions) goes in comments so it can be superseded.
-			</li>
-			<li>Check for existing markers before adding one. Duplicates will be rejected.</li>
-		</ul>
-		<p class="font-semibold">Moderation</p>
-		<ul class="list-disc list-inside space-y-1">
-			<li>Markers and images are held briefly for review before publishing.</li>
-			<li>Comments post immediately and can be flagged for removal.</li>
-			<li>
-				Submissions that violate the terms of service will be rejected. This includes spam,
-				illegal content, copyright infringement, and junk data.
-			</li>
-		</ul>
-		<p class="font-semibold">Advertising</p>
-		<ul class="list-disc list-inside space-y-1">
-			<li>
-				One marker per hiker-relevant service, usually with the town icon. Shuttles can put
-				their info in the description for a road crossing marker.
-			</li>
-			<li>No promotional content in comments.</li>
-		</ul>
+			{:else if $modal.type === 'community'}
+				<p>
+					OpenTrail is crowdsourced. Add what's missing, fix what's wrong. Published data is
+					licensed under the Open Database License (ODbL) so anyone can use it.
+				</p>
+				<p class="font-semibold">Markers</p>
+				<ul class="list-disc list-inside space-y-1">
+					<li>Choose the right icon:</li>
+					{#each ICONS as icon}<li class="flex items-center gap-2">
+							<WaypointBadge kind={icon} size={32} />
+							<span>{ICON_EXPLANATIONS[icon]}</span>
+						</li>{/each}
+					<li>
+						Place markers on or near the trail. Off-trail markers are okay for resupply points and
+						similar.
+					</li>
+					<li>
+						Descriptions are for general, permanent info. Time-sensitive info (water reports,
+						conditions) goes in comments so it can be superseded.
+					</li>
+					<li>Check for existing markers before adding one. Duplicates will be rejected.</li>
+				</ul>
+				<p class="font-semibold">Moderation</p>
+				<ul class="list-disc list-inside space-y-1">
+					<li>Markers and images are held briefly for review before publishing.</li>
+					<li>Comments post immediately and can be flagged for removal.</li>
+					<li>
+						Submissions that violate the terms of service will be rejected. This includes spam,
+						illegal content, copyright infringement, and junk data.
+					</li>
+				</ul>
+				<p class="font-semibold">Advertising</p>
+				<ul class="list-disc list-inside space-y-1">
+					<li>
+						One marker per hiker-relevant service, usually with the town icon. Shuttles can put
+						their info in the description for a road crossing marker.
+					</li>
+					<li>No promotional content in comments.</li>
+				</ul>
 			{:else if $modal.type === 'editLoc'}
 				<p class="font-bold text-xl">Select marker location</p>
 			{:else if $modal.type === 'confirmFetch'}
@@ -302,8 +300,8 @@
 						</div>
 					{:else}
 						<p class="text-sm opacity-70 mt-2">
-							Use <strong>Safari on iOS</strong> or <strong>Chrome on Android</strong> to install
-							this app.
+							Use <strong>Safari on iOS</strong> or <strong>Chrome on Android</strong> to install this
+							app.
 						</p>
 					{/if}
 				{:else}
@@ -388,7 +386,7 @@
 									: ($modal.data = $modal.data + icon);
 							}}
 						>
-							<img src={`https://cdn.opentrail.org/icons/${icon}.png`} />
+							<WaypointBadge kind={icon} size={32} />
 						</button>
 					{/each}
 				</div>
@@ -406,7 +404,7 @@
 											$modal.data = icon + tmp;
 										}}
 									>
-										<img src={`https://cdn.opentrail.org/icons/${icon}.png`} />
+										<WaypointBadge kind={icon} size={32} />
 									</button>
 								{/if}
 							{/each}

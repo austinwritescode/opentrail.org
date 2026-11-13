@@ -8,6 +8,9 @@ import { dev } from '$app/environment';
 import { initGeoJSON } from '$lib/geojson-cache.js';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
+import { demoResponse } from '$lib/server/demo.js';
+
+const demo = dev && import.meta.env.MODE === 'demo';
 
 if (!dev) {
   Sentry.init({
@@ -30,7 +33,7 @@ if (!dev) {
   });
 }
 
-initGeoJSON();
+if (!demo) initGeoJSON();
 
 let cachedChunkCount = null;
 function getChunkCount() {
@@ -103,6 +106,7 @@ export const handleError = Sentry.handleErrorWithSentry(function _handleError({ 
 });
 
 export const handle = sequence(Sentry.sentryHandle(), async function _handle({ event, resolve }) {
+	if (demo && event.url.pathname.startsWith('/api/')) return demoResponse(event);
 	if (event.url.pathname.startsWith('/api/')) {
 		const auth = event.request.headers.get('authorization');
 		const key = auth ? auth.replace('Bearer ', '') : null;

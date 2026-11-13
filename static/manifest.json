@@ -1,31 +1,37 @@
 {
-    "name": "OpenTrail.org",
-    "short_name": "OpenTrail",
-    "version": "1.0",
-    "desc": "A free thru-hiker community",
-    "icons": [
-        {
-            "src": "/android-192x192.png",
-            "sizes": "192x192",
-            "type": "image/png",
-            "purpose": "maskable any"
-        },
-        {
-            "src": "/android-512x512.png",
-            "sizes": "512x512",
-            "type": "image/png",
-            "purpose": "maskable"
-        },
-        {
-            "src": "/android-512x512-transparent.png",
-            "sizes": "512x512",
-            "type": "image/png",
-            "purpose": "any"
-        }
-    ],
-    "theme_color": "#181a1b",
-    "background_color": "#181a1b",
-    "display": "standalone",
-    "start_url": "/app",
-    "orientation": "portrait"
+	"name": "OpenTrail",
+	"short_name": "OpenTrail",
+	"version": "1.0",
+	"icons": [
+		{
+			"src": "/brand/logomark.svg",
+			"sizes": "any",
+			"type": "image/svg+xml",
+			"purpose": "any"
+		},
+		{
+			"src": "/android-192x192.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "maskable any"
+		},
+		{
+			"src": "/android-512x512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		},
+		{
+			"src": "/android-512x512-transparent.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "any"
+		}
+	],
+	"theme_color": "#70CF98",
+	"background_color": "#F3F9F5",
+	"display": "standalone",
+	"start_url": "/app",
+	"orientation": "portrait",
+	"description": "A free trail info community"
 }

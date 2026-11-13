@@ -1,4 +1,10 @@
 <script>
+	import Icon from '$lib/Icon.svelte';
+	import TrailMenu from '$lib/TrailMenu.svelte';
+	import WaypointForm from '$lib/WaypointForm.svelte';
+	import WaypointBadge from '$lib/WaypointBadge.svelte';
+	import { waypointSVG, waypointKinds } from '$lib/waypoint-icons.js';
+	import { listMode } from '$lib/store.js';
 	import { page } from '$app/stores';
 	import { onMount, mount, unmount } from 'svelte';
 	import { slide } from 'svelte/transition';
@@ -55,6 +61,23 @@
 		tiles: { start: 90, end: 100, msg: 'Loading map tiles' }
 	};
 
+	let showWaypointForm = false;
+	let switchingTrail = false;
+	async function selectTrail(trail) {
+		if (!TRAILS[trail] || trail === $settings.trail || $settings.offline || switchingTrail) return;
+		switchingTrail = true;
+		try {
+			updateSelectedMarker(-1);
+			$detailId = -1;
+			$settings.trail = trail;
+			await getData();
+			await goto('/app', { replaceState: true, keepFocus: true, noScroll: true });
+		} catch (error) {
+			handleError(error, { modal: true, sentry: true });
+		} finally {
+			switchingTrail = false;
+		}
+	}
 	let fromBack = false;
 	let prevOC = 0;
 	$: oc = ($modal.isOpen ? 1 : 0) + ($detailId !== -1 ? 1 : 0);
@@ -474,8 +497,8 @@
 			if (!viewport) return;
 			const allowZoom = $detailId !== -1 || $page.url.pathname !== '/app';
 			viewport.content = allowZoom
-				? 'width=device-width, initial-scale=1'
-				: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
+				? 'width=device-width, initial-scale=1, viewport-fit=cover'
+				: 'width=device-width, initial-scale=1, viewport-fit=cover';
 		}
 		detailId.subscribe(updateViewport);
 		page.subscribe(updateViewport);
@@ -492,7 +515,10 @@
 		if (deepTrail && TRAILS[deepTrail]) {
 			$settings.trail = deepTrail;
 		}
-		if (!Object.keys(TRAILS).includes($settings.trail)) goto('/');
+		if (!Object.keys(TRAILS).includes($settings.trail)) {
+			goto('/');
+			return;
+		}
 		try {
 			if ($settings.autosync && navigator.onLine && isLastsyncStale()) {
 				await syncData();
@@ -586,24 +612,21 @@
 		return data;
 	}
 	let filtersVisible = false;
-	let lastToggleAllIcons = true;
 	function toggleIconLayer(i) {
 		$activeIcons[i] = !$activeIcons[i];
 		$activeIcons = $activeIcons;
 		updateMarkerFilter();
 	}
 	function toggleAllIcons() {
-		lastToggleAllIcons = !lastToggleAllIcons;
-		$activeIcons = $activeIcons.fill(lastToggleAllIcons);
+		$activeIcons = $activeIcons.map(() => !$activeIcons.every(Boolean));
 		updateMarkerFilter();
 	}
 	function toggleFilters() {
 		filtersVisible = !filtersVisible;
-		if (!filtersVisible) {
-			$activeIcons = new Array(ICONS.length).fill(true);
-			lastToggleAllIcons = true;
-			updateMarkerFilter();
-		}
+	}
+	$: if (mapInitialized) {
+		$activeIcons;
+		updateMarkerFilter();
 	}
 	function updateMarkerFilter() {
 		const active = ICONS.filter((_, i) => $activeIcons[i]);
@@ -659,10 +682,25 @@
 		await updatePmtilesSource();
 
 		setLoadPhase('style', 0);
-		const styleRes = await fetchWithProgress('https://cdn.opentrail.org/style-outdoors.json', (p) =>
-			setLoadPhase('style', p)
+		let style;
+		try {
+			const styleRes = await fetchWithProgress(
+				'https://cdn.opentrail.org/style-outdoors.json',
+				(p) => setLoadPhase('style', p)
+			);
+			style = await styleRes.json();
+		} catch {
+			style = {
+				version: 8,
+				sources: {},
+				layers: [],
+				glyphs: 'https://cdn.opentrail.org/fonts/{fontstack}/{range}.font'
+			};
+		}
+		style.glyphs ||= 'https://cdn.opentrail.org/fonts/{fontstack}/{range}.font';
+		const tileLayers = style.layers.filter(
+			(/** @type {{type: string}} */ l) => l.type !== 'background'
 		);
-		const style = await styleRes.json();
 		style.sources.composite = {
 			type: 'vector',
 			url: `pmtiles://https://cdn.opentrail.org/${$settings.trail}.pmtiles`
@@ -671,7 +709,7 @@
 
 		map = new maplibregl.Map({
 			container: 'map',
-			style: style,
+			style: { ...style, sources: {}, layers: [] },
 			bounds: TRAILS[$settings.trail].bounds,
 			minZoom: 2,
 			attributionControl: false
@@ -814,6 +852,8 @@
 			setLoadPhase('icons', iconsLoaded / totalIcons);
 		}
 		await populateMap();
+		map.addSource('composite', style.sources.composite);
+		for (const layer of tileLayers) map.addLayer(layer, 'route-casing');
 
 		const canvases = document.getElementsByTagName('canvas');
 		if (canvases.length > 1)
@@ -904,11 +944,18 @@
 			data: $trailRoute
 		});
 		map.addLayer({
+			id: 'route-casing',
+			type: 'line',
+			source: 'route',
+			paint: { 'line-color': '#FFFFFF', 'line-width': 7 },
+			layout: { 'line-join': 'round', 'line-cap': 'round' }
+		});
+		map.addLayer({
 			id: 'route',
 			type: 'line',
 			source: 'route',
 			paint: {
-				'line-color': '#d22',
+				'line-color': '#D9382E',
 				'line-width': 3
 			}
 		});
@@ -918,7 +965,7 @@
 		});
 		const markerLayout = {
 			'symbol-z-order': 'source',
-			'icon-size': 0.5,
+			'icon-size': 0.4,
 			'icon-allow-overlap': true,
 			'text-field': ['get', 'title'],
 			'text-size': 12,
@@ -937,6 +984,9 @@
 				...markerLayout
 			},
 			paint: {
+				'text-color': '#0E3B32',
+				'text-halo-color': '#FFFFFF',
+				'text-halo-width': 2,
 				'icon-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0, 1]
 			}
 		});
@@ -956,6 +1006,7 @@
 				filter: ['in', icon, ['get', 'icons']]
 			});
 		}
+		currentTrail = $settings.trail;
 		mapInitialized = true;
 		updateMarkerFilter();
 		map.off('move', onMapMove);
@@ -980,6 +1031,7 @@
 		}
 		map.removeSource('markers');
 		map.removeLayer('route');
+		map.removeLayer('route-casing');
 		map.removeSource('route');
 
 		for (const id of compositeLayerIds) {
@@ -988,29 +1040,25 @@
 		if (map.getSource('composite')) map.removeSource('composite');
 
 		await updatePmtilesSource();
-		const wasOffline = $settings.offline;
+		setLoadPhase('style', 0);
+		let layers = [];
+		try {
+			const response = await fetchWithProgress(
+				'https://cdn.opentrail.org/style-outdoors.json',
+				(p) => setLoadPhase('style', p)
+			);
+			const style = await response.json();
+			layers = style.layers.filter((l) => l.source === 'composite');
+		} catch {
+			/* The trail can render without basemap tiles. */
+		}
+		await populateMap();
 		map.addSource('composite', {
 			type: 'vector',
 			url: `pmtiles://https://cdn.opentrail.org/${$settings.trail}.pmtiles`
 		});
-		if (!wasOffline && !navigator.onLine) {
-			handleError(
-				new Error('No offline data for this trail. Connect to the internet to load map tiles.'),
-				{ modal: true, sentry: true, tags: { transient: true } }
-			);
-		}
-		setLoadPhase('style', 0);
-		const styleRes = await fetchWithProgress('https://cdn.opentrail.org/style-outdoors.json', (p) =>
-			setLoadPhase('style', p)
-		);
-		const style = await styleRes.json();
-		const compositeLayers = style.layers.filter((l) => l.source === 'composite');
-		for (const layer of compositeLayers) {
-			map.addLayer(layer);
-		}
-		compositeLayerIds = compositeLayers.map((l) => l.id);
-
-		await populateMap();
+		for (const layer of layers) map.addLayer(layer, 'route-casing');
+		compositeLayerIds = layers.map((l) => l.id);
 		tileBarActive = false;
 		tileLoadSucceeded = false;
 		clearTimeout(tileLoadingTimer);
@@ -1052,7 +1100,6 @@
 	async function changeTrailOnMap() {
 		if (!map || !mapInitialized || mapRecreating) return;
 		$activeIcons = new Array(ICONS.length).fill(true);
-		lastToggleAllIcons = true;
 
 		await rebuildMapSources();
 		map.fitBounds(TRAILS[$settings.trail].bounds);
@@ -1091,6 +1138,9 @@
 	$: if (swiperEl) swiperSlide();
 	function swiperSlide(id = $selectedMarkerId, init = true) {
 		const swiperParams = {
+			breakpoints: {
+				768: { slidesPerView: 1, spaceBetween: 24 }
+			},
 			virtual: {
 				slides: filteredIdx,
 				renderExternal: (d) => {
@@ -1103,6 +1153,7 @@
 								target: swiperEl,
 								props: {
 									index: filteredIdx[i],
+									onClose: () => updateSelectedMarker(-1),
 									offset: d.offset,
 									onPrev: i === activeIdx && i > 0 ? () => swiperEl.swiper.slidePrev() : undefined,
 									onNext:
@@ -1113,6 +1164,15 @@
 							})
 						);
 					}
+					requestAnimationFrame(() => {
+						if (!swiperEl) return;
+						const cards = swiperEl.querySelectorAll('.selected-waypoint-card');
+						const height = Math.max(
+							0,
+							...Array.from(cards, (card) => card.getBoundingClientRect().height)
+						);
+						if (height) swiperEl.style.height = height + 'px';
+					});
 				}
 			}
 		};
@@ -1124,50 +1184,33 @@
 	}
 
 	async function addImageToMap(name) {
-		const { data: image } = await map.loadImage(`https://cdn.opentrail.org/icons/${name}.png`);
+		const image = new Image(80, 80);
+		image.src =
+			'data:image/svg+xml;charset=utf-8,' +
+			encodeURIComponent(waypointSVG(name[0], name.endsWith('-selected')));
+		await image.decode();
 		map.addImage(name, image);
 	}
 
 	function newMarker() {
-		Sentry.metrics.count('client.new_marker.opened', 1);
-		let prop = { images: [] };
-		openModal({
-			type: 'text',
-			data: ['Marker title', ''],
-			submit: (title) => {
-				prop.title = title[1];
-				openModal({
-					type: 'textAreaWithComment',
-					data: ['Marker description', '', ''],
-					submit: (desc) => {
-						prop.desc = desc[1];
-						prop.comment = desc[2];
-						openModal({
-							type: 'editIcons',
-							submit: (icons) => {
-								prop.icon = icons[0];
-								prop.icons = icons;
-								const latlng = map.getCenter();
-								const feature = {
-									type: 'Feature',
-									geometry: {
-										type: 'Point',
-										coordinates: [latlng.lng, latlng.lat]
-									},
-									properties: prop,
-									id: $data.features.length
-								};
-								console.log(feature);
-								$data.features.push(feature);
-								$editLocId = feature.id;
-								$editLocNewMarker = true;
-							}
-						});
-					}
-				});
-			}
-		});
+		if (mapInitialized) showWaypointForm = true;
 	}
+	/** @param {{title: string, desc: string, comment: string, icon: string, icons: string, images: number[]}} properties */
+	async function createWaypoint(properties) {
+		showWaypointForm = false;
+		await goto('/app');
+		const center = map.getCenter();
+		const feature = {
+			type: 'Feature',
+			geometry: { type: 'Point', coordinates: [center.lng, center.lat] },
+			properties,
+			id: $data.features.length
+		};
+		$data.features.push(feature);
+		$editLocId = feature.id;
+		$editLocNewMarker = true;
+	}
+
 	let lockSelection = false;
 	$: if ($editLocId !== -1) {
 		$detailId = -1;
@@ -1204,7 +1247,7 @@
 				source: 'editMarker',
 				layout: {
 					'icon-image': ['concat', ['get', 'icon'], '-selected'],
-					'icon-size': 0.5,
+					'icon-size': 0.4,
 					'icon-allow-overlap': true,
 					'text-field': ['get', 'title'],
 					'text-size': 12,
@@ -1221,6 +1264,7 @@
 		openModal({
 			type: 'editLoc',
 			cancel: () => {
+				lockSelection = false;
 				map.off('move', editMarkerLocOnMove);
 				removeEditLayer();
 				if (newMarker) {
@@ -1333,12 +1377,19 @@
 	}
 </script>
 
-<div class="flex flex-col h-full">
+<div class="app-shell flex flex-col h-full" class:profile-open={$elevationProfileVisible}>
+	{#if showWaypointForm}<WaypointForm
+			onclose={() => (showWaypointForm = false)}
+			onsubmit={createWaypoint}
+		/>{/if}
+	<header class="map-brand">
+		<TrailMenu ontrailchange={selectTrail} busy={switchingTrail || !mapInitialized} />
+	</header>
 	<!-- loading indicator -->
-	{#if $loadStatus.phase !== 'idle'}
+	{#if $loadStatus.phase !== 'idle' && $page.url.pathname === '/app'}
 		<div
 			class="load-indicator"
-			class:load-indicator-error={$loadStatus.error}
+			class:load-indicator-error={$loadStatus.error && !mapInitialized}
 			style="--bar-color: #333; --bar-error: #d7230e;"
 		>
 			<div class="load-bar-track">
@@ -1349,19 +1400,21 @@
 				></div>
 			</div>
 			<div class="load-bar-text" style="color: #666;">
-				{$loadStatus.message}{#if $loadStatus.error}
+				{mapInitialized && ($loadStatus.phase === 'tiles' || $loadStatus.error)
+					? 'Map tiles unavailable or loading. Trail and waypoints are ready.'
+					: $loadStatus.message}{#if $loadStatus.error}
 					<button onclick={() => window.location.reload()} class="retry-btn">Retry</button>{/if}
 			</div>
 		</div>
 	{/if}
 	<!-- main area full height minus navbar, use grid to overlap divs + css "visibility" to cache map for fast navigation -->
-	<div style="height: calc(100dvh - 64px);" class="grid grid-cols-1 grid-rows-1">
+	<div class="app-content grid grid-cols-1 grid-rows-1">
 		<!-- hide the map when visiting other routes -->
 		<div
 			style="visibility: {$page.url.pathname === '/app' ? 'visible' : 'hidden'};"
 			class="row-start-1 col-start-1 relative flex flex-col"
 		>
-			<div id="map" class="flex-1 w-full min-h-0">
+			<div id="map" class="flex-1 w-full min-h-0" class:map-ready={mapInitialized}>
 				<div class="map-attribution">
 					&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>
 				</div>
@@ -1371,96 +1424,76 @@
 				<div
 					class="elevation-profile-overlay"
 					style="background: {$settings.dark
-						? '#1e1e1e'
-						: 'white'}; border-top: 1px solid {$settings.dark ? '#444' : '#ddd'};"
+						? '#192f27'
+						: 'white'}; border-top: 1px solid {$settings.dark ? '#344b44' : '#ddd'};"
 				>
 					<ElevationProfile oncursorupdate={onCursorUpdate} />
 				</div>
 			{/if}
 			<!-- filter funnel + collapsible filter icons -->
-			<div class="absolute top-32 right-2 flex flex-col items-stretch">
+			<div class="map-filter absolute flex flex-col items-stretch">
 				<button
-					class="btn btn-circle btn-sm bg-white focus:bg-white active:bg-white border-opacity-50 filter-funnel-btn"
-					class:filter-funnel-open={filtersVisible}
-					class:filter-funnel-active={filtersVisible}
+					class="btn filter-funnel-btn"
+					aria-label="Filter waypoint types"
+					aria-expanded={filtersVisible}
 					onclick={toggleFilters}
 				>
-					<svg
-						width="18"
-						height="18"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="#333333"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"><path d="M3 4h18l-7 8.5V18l-4 2v-7.5L3 4z" /></svg
-					>
+					<Icon name="filter" />
 				</button>
 				{#if filtersVisible}
-					<div in:slide={{ duration: 200 }} out:slide={{ duration: 200 }}>
-						<div class="btn-group btn-group-vertical filter-bar-inner">
-							<button
-								class="btn btn-circle btn-sm bg-white focus:bg-white active:bg-white border-opacity-50"
-								onclick={toggleAllIcons}
+					<section class="map-filter-panel" aria-label="Waypoint filters">
+						<header>
+							<strong>Waypoint types</strong><button
+								class="icon-button"
+								aria-label="Close filters"
+								onclick={toggleFilters}><Icon name="close" size={18} /></button
 							>
-								<img
-									src={'https://cdn.opentrail.org/icons/select-all.png'}
-									height="20px"
-									width="20px"
-								/>
-							</button>
-							{#each ICONS as icon, i}
-								<button
-									class="btn btn-circle btn-sm bg-white focus:bg-white active:bg-white border-opacity-50"
-									class:opacity-40={!$activeIcons[i]}
-									onclick={() => toggleIconLayer(i)}
-								>
-									<img src={`https://cdn.opentrail.org/icons/${icon}.png`} />
-								</button>
-							{/each}
-						</div>
-					</div>
+						</header>
+						<label class="map-filter-option filter-all"
+							><input
+								type="checkbox"
+								class="checkbox checkbox-sm"
+								checked={$activeIcons.every(Boolean)}
+								onchange={toggleAllIcons}
+							/><span>All waypoint types</span></label
+						>
+						{#each ICONS as icon, i}
+							<label class="map-filter-option"
+								><input
+									type="checkbox"
+									class="checkbox checkbox-sm"
+									checked={$activeIcons[i]}
+									aria-label={waypointKinds[icon].label}
+									onchange={() => toggleIconLayer(i)}
+								/><WaypointBadge kind={icon} size={28} /><span>{waypointKinds[icon].label}</span
+								></label
+							>
+						{/each}
+					</section>
 				{/if}
 			</div>
 			<!-- profile toggle button -->
 			<button
-				class="absolute left-[calc(50%-16px)] btn btn-circle btn-sm bg-base-100 focus:bg-base-100 active:bg-base-100 border-opacity-50 text-base-content"
+				class="profile-toggle absolute left-[calc(50%-16px)] btn btn-circle btn-sm bg-base-100 focus:bg-base-100 active:bg-base-100 border-opacity-50 text-base-content"
 				style="bottom: {$elevationProfileVisible ? 'calc(25% - 14px)' : '8px'}; z-index: 1;"
 				onclick={toggleProfile}
+				aria-expanded={$elevationProfileVisible}
 				title={$elevationProfileVisible ? 'Hide elevation profile' : 'Show elevation profile'}
 			>
 				{#if $elevationProfileVisible}
-					<svg
-						width="14"
-						height="14"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg
-					>
+					<Icon name="chevron-down" size={22} />
 				{:else}
-					<svg
-						width="14"
-						height="14"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"><path d="M2 20L8 10L14 14L22 4" /></svg
-					>
+					<Icon name="mountain" size={22} />
 				{/if}
 			</button>
 			<!-- detail modal -->
-			{#if $detailId !== -1}
+			{#if $detailId !== -1 && $page.url.pathname === '/app'}
 				<MarkerDetail {...getDetailNavProps()} />
 			{/if}
 			<!-- swiper or new marker button -->
 			{#if $selectedMarkerId !== -1}
 				<swiper-container
-					class="absolute w-full h-40"
+					class="marker-previews absolute w-full"
 					style="bottom: {$elevationProfileVisible
 						? 'calc(25% + 8px)'
 						: '8px'}; z-index: 2; visibility: {$detailId === -1 && showSwiper
@@ -1497,56 +1530,57 @@
 						/></svg
 					>
 				</button>
-				<button
-					class="absolute left-2 btn btn-circle btn-sm bg-base-100 focus:bg-base-100 active:bg-base-100 border-opacity-50 text-base-content"
-					style="bottom: {$elevationProfileVisible ? 'calc(25% + 8px)' : '8px'};"
-					onclick={newMarker}
-				>
-					<svg
-						width="18"
-						height="18"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						><path
-							d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"
-						/><line x1="12" y1="6" x2="12" y2="11" /><line
-							x1="9.5"
-							y1="8.5"
-							x2="14.5"
-							y2="8.5"
-						/></svg
-					>
-				</button>
 			{/if}
 		</div>
 
-		<div class="row-start-1 col-start-1 min-h-0 overflow-y-auto" bind:this={slotWrapper}>
+		<div
+			class="route-panel row-start-1 col-start-1 min-h-0 overflow-y-auto"
+			class:route-panel-open={$page.url.pathname !== '/app'}
+			bind:this={slotWrapper}
+		>
 			<slot />
 		</div>
 	</div>
 
-	<!-- 64px navbar -->
-	<div class="h-16">
-		<div class="btm-nav" style="height: 60px">
-			<a href="/app" class:active={$page.url.pathname === '/app'}>
-				<button>Map</button>
-			</a>
-			<a
-				href="/app/list"
-				class:active={$page.url.pathname === '/app/list'}
-				onclick={storeRenderedList}
-			>
-				<button>List</button>
-			</a>
-			<a href="/app/settings" class:active={$page.url.pathname === '/app/settings'}>
-				<button>Settings</button>
-			</a>
-		</div>
-	</div>
+	<nav class="trail-nav" aria-label="Main navigation">
+		<a
+			href="/app"
+			class:active={$page.url.pathname === '/app'}
+			aria-current={$page.url.pathname === '/app' ? 'page' : undefined}
+			><span class="nav-icon"><Icon name="map" /></span><span>Map</span></a
+		>
+		<a
+			href="/app/list"
+			class:active={$page.url.pathname === '/app/list' && $listMode === 'markers'}
+			aria-current={$page.url.pathname === '/app/list' && $listMode === 'markers'
+				? 'page'
+				: undefined}
+			onclick={() => {
+				$listMode = 'markers';
+				storeRenderedList();
+			}}><span class="nav-icon"><Icon name="pin" /></span><span>Waypoints</span></a
+		>
+		<button class="nav-add" aria-label="Add waypoint" disabled={!mapInitialized} onclick={newMarker}
+			><Icon name="plus" size={26} /></button
+		>
+		<a
+			href="/app/list?view=comments"
+			class:active={$page.url.pathname === '/app/list' && $listMode === 'comments'}
+			aria-current={$page.url.pathname === '/app/list' && $listMode === 'comments'
+				? 'page'
+				: undefined}
+			onclick={() => {
+				$listMode = 'comments';
+				storeRenderedList();
+			}}><span class="nav-icon"><Icon name="comments" /></span><span>Comments</span></a
+		>
+		<a
+			href="/app/settings"
+			class:active={$page.url.pathname === '/app/settings'}
+			aria-current={$page.url.pathname === '/app/settings' ? 'page' : undefined}
+			><span class="nav-icon"><Icon name="settings" /></span><span>Settings</span></a
+		>
+	</nav>
 </div>
 
 <style>
@@ -1616,30 +1650,6 @@
 		border-top: 1px solid #ddd;
 		z-index: 1;
 		overflow: hidden;
-	}
-	.filter-funnel-btn {
-		z-index: 2;
-		border-radius: 6px;
-	}
-	.filter-funnel-open {
-		border-radius: 6px 6px 0 0;
-		border-bottom: none;
-		margin-bottom: 1px;
-	}
-	.filter-funnel-active svg {
-		stroke: #3b82f6;
-	}
-	.ruler-btn-active svg {
-		stroke: #3b82f6;
-		fill: #3b82f6;
-	}
-	.filter-bar-inner .btn:first-child {
-		border-top-left-radius: 0;
-		border-top-right-radius: 0;
-	}
-	.filter-bar-inner .btn:last-child {
-		border-bottom-left-radius: 6px;
-		border-bottom-right-radius: 6px;
 	}
 	.retry-btn {
 		font-size: 11px;

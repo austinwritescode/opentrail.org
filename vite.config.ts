@@ -1,4 +1,4 @@
-import { sentrySvelteKit } from "@sentry/sveltekit";
+import { sentrySvelteKit } from '@sentry/sveltekit';
 import { defineConfig } from 'vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { writeFileSync } from 'fs';
@@ -17,12 +17,12 @@ function chunkCountPlugin() {
 		},
 		writeBundle(options: any, bundle: any) {
 			if (!clientOutDir) return;
-		const jsChunks = Object.keys(bundle).filter(
-			(f: string) => f.endsWith('.js') && !f.endsWith('.map')
-		);
-		const cssChunks = Object.keys(bundle).filter(
-			(f: string) => f.endsWith('.css') && !f.endsWith('.map')
-		);
+			const jsChunks = Object.keys(bundle).filter(
+				(f: string) => f.endsWith('.js') && !f.endsWith('.map')
+			);
+			const cssChunks = Object.keys(bundle).filter(
+				(f: string) => f.endsWith('.css') && !f.endsWith('.map')
+			);
 			const total = jsChunks.length + cssChunks.length;
 			const data = JSON.stringify({ total });
 			const outPath = resolve(clientOutDir, '__chunk_count.json');
@@ -32,12 +32,17 @@ function chunkCountPlugin() {
 }
 
 export default defineConfig({
-plugins: [sentrySvelteKit({
-org: "opentrail",
-project: "opentrail"
-}), sveltekit(), chunkCountPlugin()],
-define: {
-__VERSION__: version,
-__LASTMOD__: lastmod,
-}
+	server: { watch: { ignored: ['**/.qa/**', '**/build/**'] } },
+	plugins: [
+		sentrySvelteKit({
+			org: 'opentrail',
+			project: 'opentrail'
+		}),
+		sveltekit(),
+		chunkCountPlugin()
+	],
+	define: {
+		__VERSION__: version,
+		__LASTMOD__: lastmod
+	}
 });

@@ -9,160 +9,137 @@
 		promptInstall
 	} from '$lib/store.js';
 	import { onMount } from 'svelte';
-
-	let showTrails = $isInstalled || !!$settings.trail;
-
+	import Icon from '$lib/Icon.svelte';
+	import WelcomeIllustration from '$lib/WelcomeIllustration.svelte';
+	let showTrails = false;
+	let ready = false;
+	let installHelp = false;
+	let feature = 0;
+	const features = [
+		'Helps you navigate the trail',
+		'Easily find points of interest along your route',
+		'Give and receive live updates from other hikers'
+	];
+	/** @type {Record<string,string>} */
+	const names = {
+		PCT: 'Pacific Crest Trail',
+		AT: 'Appalachian Trail',
+		CDT: 'Continental Divide Trail'
+	};
 	onMount(() => {
-		if (window.location.hostname.split('.')[0] === 'test') goto('/app');
+		if (window.location.hostname.split('.')[0] === 'test') {
+			goto('/app');
+			return;
+		}
+		showTrails =
+			$isInstalled || !!$settings.trail || localStorage.getItem('welcomeSeen') === 'true';
+		ready = true;
 	});
-
-	function skipInstall() {
+	function continueToTrails() {
+		localStorage.setItem('welcomeSeen', 'true');
 		showTrails = true;
 	}
-
-	$: if ($isInstalled && !showTrails) showTrails = true;
 </script>
 
-<div class="p-4 flex flex-col items-center gap-1 h-full overflow-y-auto">
-	<img src="/apple-touch-icon.png" class="mask mask-squircle mt-4" height="128" width="128" />
-	<p class="text-4xl mt-2 text-center">OpenTrail.org</p>
-	<p class="text-2xl text-center">A free trail info community</p>
-
-	{#if !showTrails}
-		<div class="flex flex-col items-center w-full max-w-sm mt-4 gap-3">
-			{#if $platform === 'ios-safari'}
-				<div class="w-full bg-base-200 rounded-lg p-4 space-y-4 select-none">
-					<p class="font-bold text-lg text-center">Install OpenTrail on your Home Screen</p>
-					<div class="flex items-center gap-3">
-						<span
-							class="flex-none w-7 h-7 rounded-full bg-primary text-primary-content flex items-center justify-center font-bold"
-							>1</span
+<svelte:head
+	><title>{showTrails ? 'Choose a trail' : 'Welcome'} &middot; OpenTrail</title></svelte:head
+>
+{#if ready}
+	<main class:choose-trail={showTrails} class="onboarding">
+		<header class="welcome-brand">
+			<img src="/brand/logomark.svg" width="88" height="88" alt="" />
+			<div>
+				<h1>OpenTrail</h1>
+				<p>A free trail info community</p>
+			</div>
+		</header>
+		{#if showTrails}
+			<section class="trail-choices">
+				<h2>Choose your trail</h2>
+				<p class="muted">You can change this any time in Settings.</p>
+				{#each Object.keys(TRAILS).filter((t) => t !== 'test') as trail}
+					{#if !$settings.offline || $settings.trail === trail}
+						<a class="trail-choice" href="/app?trail={trail}"
+							><span class="trail-emblem"
+								><img
+									src="https://cdn.opentrail.org/{trail}_logo.png"
+									width="44"
+									height="44"
+									alt=""
+								/></span
+							><strong>{names[trail]}</strong><Icon name="chevron" /></a
 						>
-						<p>
-							Tap the <strong>Share</strong> button
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-5 w-5 inline"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M12 16V4m0 0L8 8m4-4l4 4M4 14v4a2 2 0 002 2h12a2 2 0 002-2v-4"
-								/>
-							</svg>
-						</p>
-					</div>
-					<div class="flex items-center gap-3">
-						<span
-							class="flex-none w-7 h-7 rounded-full bg-primary text-primary-content flex items-center justify-center font-bold"
-							>2</span
-						>
-						<p>Scroll down and tap <strong>Add to Home Screen</strong></p>
-					</div>
-					<div class="flex items-center gap-3">
-						<span
-							class="flex-none w-7 h-7 rounded-full bg-primary text-primary-content flex items-center justify-center font-bold"
-							>3</span
-						>
-						<p>Tap <strong>Add</strong> in the top right</p>
-					</div>
-				</div>
-			{:else if $deferredPrompt}
-				<button class="btn btn-primary btn-lg w-full" onclick={promptInstall}>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 mr-2"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-						/>
-					</svg>
-					Install App
-				</button>
-			{:else}
-				<div class="w-full bg-base-200 rounded-lg p-4">
-					<p class="font-bold text-lg text-center mb-2">Install OpenTrail</p>
-					<p class="text-center mb-1">
-						For the best experience, use <strong>Safari on iOS</strong> or
-						<strong>Chrome on Android</strong>.
-					</p>
-					{#if $platform === 'android-chrome'}
-						<p class="text-center">
-							Tap <strong>&#8942;</strong> in the top right, then tap
-							<strong>Install app</strong>
-						</p>
-					{:else}
-						<p class="text-center">
-							To try anyway, look for <strong>Install app</strong> or
-							<strong>Add to Home Screen</strong>
-							in your browser's menu
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-4 w-4 inline"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-								/>
-							</svg>
-						</p>
-					{/if}
-				</div>
-			{/if}
-			<p class="text-sm opacity-60 text-center">
-				This app may be used without installing but is designed to be installed for offline maps and
-				full access to features.
-			</p>
-			<button class="btn btn-ghost btn-sm mt-2" onclick={skipInstall}>Not now</button>
-		</div>
-	{/if}
-
-	{#if showTrails}
-		<div class="flex flex-col items-center w-full mt-4">
-			<p class="text-xl text-center">Select a trail to begin</p>
-			<p class="text-md mb-4 opacity-70 text-center">(This can be changed later in settings)</p>
-			<div class="flex gap-4 justify-center">
-				{#each Object.keys(TRAILS) as trail}
-					{#if trail !== 'test'}
-						{#if !$settings.offline || $settings.trail === trail}
-							<a
-								class="flex flex-col items-center gap-1"
-								href="/app?trail={trail}"
-								onclick={() => fetch(`https://cdn.opentrail.org/${trail}.json`)}
-							>
-								<img src={`https://cdn.opentrail.org/${trail}_logo.png`} width="100" height="100" />
-								<button class="btn btn-accent btn-lg">{trail}</button>
-							</a>
-						{/if}
 					{/if}
 				{/each}
-			</div>
-		</div>
-
-		<p class="text-md mt-6 opacity-50 text-center">
-			Data contributions are open for public use under the
-			<a class="link" href="https://opendatacommons.org/licenses/odbl/summary/">
-				Open Database License
-			</a>
-			·
-			<a class="link" href="https://cdn.opentrail.org/terms.html">Terms</a>
-			·
-			<a class="link" href="https://cdn.opentrail.org/privacy.html">Privacy</a>
-		</p>
-	{/if}
-</div>
+				{#if $settings.offline}<p class="muted">
+						Turn off offline mode in Settings to switch trails.
+					</p>{/if}
+			</section>
+			<footer>
+				Data contributions are open for public use under the <a
+					href="https://opendatacommons.org/licenses/odbl/summary/">Open Database License</a
+				>.
+				<div>
+					<a href="https://cdn.opentrail.org/terms.html">Terms</a> ?
+					<a href="https://cdn.opentrail.org/privacy.html">Privacy</a>
+				</div>
+			</footer>
+		{:else}
+			<section
+				class="welcome-feature"
+				aria-roledescription="carousel"
+				aria-label="OpenTrail features"
+			>
+				<WelcomeIllustration {feature} />
+				<div class="feature-copy">
+					<h2 aria-live="polite">{features[feature]}</h2>
+					<div class="carousel-controls">
+						<button
+							class="icon-button"
+							aria-label="Previous feature"
+							disabled={feature === 0}
+							onclick={() => (feature = Math.max(0, feature - 1))}><Icon name="back" /></button
+						>
+						<div class="carousel-dots">
+							{#each features as _, i}<button
+									class:active={feature === i}
+									aria-label="Feature {i + 1}"
+									aria-pressed={feature === i}
+									onclick={() => (feature = i)}
+								></button>{/each}
+						</div>
+						<button
+							class="icon-button"
+							aria-label="Next feature"
+							disabled={feature === features.length - 1}
+							onclick={() => (feature = Math.min(features.length - 1, feature + 1))}
+							><Icon name="chevron" /></button
+						>
+					</div>
+				</div>
+			</section>
+			{#if !$isInstalled}<button
+					class="btn install-button"
+					onclick={() => ($deferredPrompt ? promptInstall() : (installHelp = !installHelp))}
+					><Icon name="download" /> Install app</button
+				>
+				{#if installHelp}<div class="install-help" role="status">
+						{#if $platform === 'ios-safari'}Tap <strong>Share</strong>, then
+							<strong>Add to Home Screen</strong>, then <strong>Add</strong>.{:else}Open your
+							browser menu and choose <strong>Install app</strong> or
+							<strong>Add to Home Screen</strong>. If unavailable, try Safari on iOS or Chrome on
+							Android.{/if}
+					</div>{/if}
+			{/if}
+			<button class="skip-install" onclick={continueToTrails}
+				>{$isInstalled ? 'Continue' : 'Not now'}</button
+			>
+			{#if !$isInstalled}
+				<p class="install-note">
+					You can use OpenTrail without installing, but offline maps and some features need the app.
+					You can install it later from Settings.
+				</p>
+			{/if}
+		{/if}
+	</main>
+{/if}

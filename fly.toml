@@ -38,5 +38,8 @@ kill_timeout = '5s'
     timeout = '2s'
     grace_period = '1s'
 
+[deploy]
+  release_command = "npx prisma migrate deploy"
+
 [build]
   dockerfile = "Dockerfile"

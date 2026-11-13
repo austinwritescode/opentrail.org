@@ -25,6 +25,7 @@
 	import WarnIcon from '$lib/warnIcon.svelte';
 	import ErrorIcon from '$lib/errorIcon.svelte';
 	import SuccessIcon from '$lib/successIcon.svelte';
+	import StagingBanner from '$lib/StagingBanner.svelte';
 	let spinner = false;
 
 	onMount(() => {
@@ -141,6 +142,7 @@
 </script>
 
 <div data-theme={$settings.dark ? 'dark' : 'light'} class="h-full w-full select-none flex flex-col">
+	<StagingBanner />
 	<DownloadOverlay />
 	<div class="flex-1 min-h-0 overflow-auto">
 		<slot />

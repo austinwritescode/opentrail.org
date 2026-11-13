@@ -29,7 +29,6 @@
 		"postcss": "^8.4.33",
 		"prettier": "^3.2.0",
 		"prettier-plugin-svelte": "^3.2.0",
-		"prisma": "^5.10.0",
 		"svelte": "^5.0.0",
 		"svelte-check": "^4.0.0",
 		"tailwindcss": "^3.4.0",
@@ -52,6 +51,7 @@
 		"p-limit": "^4.0.0",
 		"pmtiles": "^4.4.1",
 		"pretty-bytes": "^6.0.0",
+		"prisma": "^5.10.0",
 		"swiper": "^9.0.4"
 	}
 }

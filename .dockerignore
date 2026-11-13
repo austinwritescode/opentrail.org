@@ -10,3 +10,8 @@ package
 **\vite.config.js.timestamp-*
 **\vite.config.ts.timestamp-*
 fly.toml
+
+# Local data and map tiles (not needed to build or run the image)
+data
+scripts
+**/*.pmtiles

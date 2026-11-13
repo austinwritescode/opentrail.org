@@ -1,0 +1,55 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to deploy (branch, tag, or commit SHA)'
+        required: false
+        default: 'main'
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    name: Deploy production
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Calculate Version and Date
+        run: |
+          echo "APP_VERSION=$(git describe --tags || git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "APP_LASTMOD=$(git log -1 --format=%cd --date=format:'%m/%d/%Y')" >> $GITHUB_ENV
+
+      - name: Setup Flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io (production)
+        run: >
+          flyctl deploy -c fly.toml --remote-only
+          --build-arg APP_VERSION="${{ env.APP_VERSION }}"
+          --build-arg APP_LASTMOD="${{ env.APP_LASTMOD }}"
+          --build-secret SENTRY_AUTH_TOKEN="${{ secrets.SENTRY_AUTH_TOKEN }}"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Tag deployed commit
+        run: |
+          SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
+          TAG="deploy-$(date -u +%Y%m%d-%H%M)-${SHORT_SHA}"
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Purge Cloudflare cache
+        run: |
+          curl -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE }}/purge_cache" \
+          -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          --data '{"purge_everything":true}'

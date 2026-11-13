@@ -8,6 +8,7 @@ import {
 import * as Sentry from '@sentry/sveltekit';
 import { get } from 'svelte/store';
 import { settings } from '$lib/store.js';
+import { env as publicEnv } from '$env/dynamic/public';
 
 function shouldDrop() {
   return get(settings).sendCrashReports === false;
@@ -17,6 +18,7 @@ if (!dev) {
   Sentry.init({
   dsn: 'https://ce5b7f4bfa0d91de3163c9daa500b484@o4511352687951872.ingest.us.sentry.io/4511352688279552',
   
+  environment: publicEnv.PUBLIC_IS_STAGING === 'true' ? 'staging' : 'production',
   enableLogs: true,
   tracesSampleRate: 0.2,
   profilesSampleRate: 0.2,

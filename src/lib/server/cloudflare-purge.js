@@ -1,8 +1,6 @@
 import { env } from '$env/dynamic/private';
 import * as Sentry from '@sentry/sveltekit';
 
-const BASE_URL = 'https://opentrail.org';
-
 export async function purgeGetDataCache(trailNames) {
 	const zoneId = env.CLOUDFLARE_ZONE_ID;
 	const apiToken = env.CLOUDFLARE_API_TOKEN;
@@ -11,7 +9,8 @@ export async function purgeGetDataCache(trailNames) {
 		return;
 	}
 
-  const urls = trailNames.map((t) => `${BASE_URL}/api/getData?trail=${t}`);
+	const baseUrl = env.SITE_URL || 'https://opentrail.org';
+  const urls = trailNames.map((t) => `${baseUrl}/api/getData?trail=${t}`);
   Sentry.metrics.count('server.cdn_purge.attempted', 1);
   fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`, {
 		method: 'POST',

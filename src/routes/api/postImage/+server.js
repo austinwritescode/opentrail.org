@@ -31,8 +31,8 @@ async function initializeCount() {
 
 export async function POST({ request, url, getClientAddress }) {
     console.log('received image post')
-    if (!initialized) await initializeCount()
     try {
+            if (!initialized) await initializeCount()
             const auth = request.headers.get('authorization')
             const key = auth ? auth.replace('Bearer ', '') : null
             const ip = getClientAddress()

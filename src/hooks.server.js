@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/sveltekit';
 import { consoleLoggingIntegration } from '@sentry/sveltekit';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { env } from '$env/dynamic/private';
+import { env as publicEnv } from '$env/dynamic/public';
 import { dev } from '$app/environment';
 import { initGeoJSON } from '$lib/geojson-cache.js';
 import { existsSync, readFileSync } from 'fs';
@@ -11,6 +12,7 @@ import { resolve } from 'path';
 if (!dev) {
   Sentry.init({
   dsn: 'https://ce5b7f4bfa0d91de3163c9daa500b484@o4511352687951872.ingest.us.sentry.io/4511352688279552',
+  environment: publicEnv.PUBLIC_IS_STAGING === 'true' ? 'staging' : 'production',
   tracesSampleRate: 1,
   profilesSampleRate: 1,
   enableLogs: true,
